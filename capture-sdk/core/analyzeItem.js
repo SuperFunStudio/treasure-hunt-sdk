@@ -1,5 +1,5 @@
 // capture-sdk/core/analyzeItem.js
-import { normalizeItemData } from '../utils/normalize.js';
+import { normalizeResponse } from '../utils/normalize.js';
 
 export async function analyzeItem(images, options = {}) {
   const {
@@ -23,7 +23,7 @@ export async function analyzeItem(images, options = {}) {
   while (attempt <= maxRetries) {
     try {
       const result = await callVisionAPI(provider, images, apiKey, prompt);
-      return normalizeItemData(result);
+      return normalizeResponse(result, provider);
     } catch (error) {
       lastError = error;
       attempt++;
@@ -70,30 +70,46 @@ async function callVisionAPI(provider, images, apiKey, prompt) {
 async function callGPT4V(images, apiKey, prompt) {
   // Updated to use gpt-4o-mini or gpt-4o
   // Note: As of my knowledge, o1-mini doesn't support vision, but gpt-4o-mini does
+  
+  console.log('Calling GPT-4V with:', {
+    model: 'gpt-4o-mini',
+    imageCount: images.length,
+    imageDataLength: images[0]?.length || 0,
+    promptLength: prompt.length
+  });
+
+  const requestBody = {
+    model: 'gpt-4o-mini', // Updated model name
+    messages: [{
+      role: 'user',
+      content: [
+        { type: 'text', text: prompt },
+        ...images.map(img => ({
+          type: 'image_url',
+          image_url: { 
+            url: img.startsWith('data:') ? img : `data:image/jpeg;base64,${img}`,
+            detail: 'low' // Use 'low' for cost efficiency with mini model
+          }
+        }))
+      ]
+    }],
+    max_tokens: 1000,
+    temperature: 0.7
+  };
+
+  console.log('Request body preview:', {
+    model: requestBody.model,
+    messageCount: requestBody.messages.length,
+    contentTypes: requestBody.messages[0].content.map(c => c.type)
+  });
+
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${apiKey}`,
       'Content-Type': 'application/json'
     },
-    body: JSON.stringify({
-      model: 'gpt-4o-mini', // Updated model name
-      messages: [{
-        role: 'user',
-        content: [
-          { type: 'text', text: prompt },
-          ...images.map(img => ({
-            type: 'image_url',
-            image_url: { 
-              url: img.startsWith('data:') ? img : `data:image/jpeg;base64,${img}`,
-              detail: 'low' // Use 'low' for cost efficiency with mini model
-            }
-          }))
-        ]
-      }],
-      max_tokens: 1000,
-      temperature: 0.7
-    })
+    body: JSON.stringify(requestBody)
   });
 
   if (!response.ok) {
@@ -103,6 +119,12 @@ async function callGPT4V(images, apiKey, prompt) {
   }
 
   const data = await response.json();
+  
+  console.log('GPT-4V Response:', {
+    model: data.model,
+    usage: data.usage,
+    responsePreview: data.choices[0].message.content.substring(0, 200)
+  });
   
   // Parse the response - gpt-4o-mini returns text, not JSON by default
   try {
@@ -209,20 +231,40 @@ async function callClaude(images, apiKey, prompt) {
 }
 
 function getDefaultPrompt() {
-  return `You are a circular economy assistant helping users identify and evaluate items found on the street. 
-  
-Based on the uploaded image(s), provide a structured assessment. Try to identify:
+  return `You are a circular economy assistant helping users identify and evaluate items for resale or donation.
 
-1. Item Category: What type of item is this?
-2. Brand/Manufacturer: Any visible brand or maker?
-3. Model: Specific model if identifiable
-4. Condition: Rate 1-10 (10 being perfect)
-5. Confidence: How confident are you in this assessment? (1-10)
-6. Salvageable Parts: List any valuable components
-7. Estimated Value: Provide min and max resale value in USD
-8. Reasoning: Brief explanation of your assessment
+Analyze the image and provide a detailed assessment in the following JSON format:
 
-Please be specific and practical in your assessment, considering real-world resale value.`;
+{
+  "category": "specific item category",
+  "brand": "brand name or Unknown",
+  "model": "model name or descriptive name",
+  "condition": {
+    "rating": 7,  // 1-10 scale
+    "description": "detailed condition assessment",
+    "usableAsIs": true,
+    "issues": ["list", "of", "issues"]
+  },
+  "resale": {
+    "recommendation": "resell",  // resell, donate, recycle, etc
+    "priceRange": {
+      "low": 20,
+      "high": 50,
+      "currency": "USD"
+    },
+    "justification": "why this price range"
+  },
+  "salvageable": [
+    {
+      "component": "component name",
+      "value": "potential value",
+      "disposal": "how to dispose/recycle"
+    }
+  ],
+  "confidence": 8  // 1-10 confidence in assessment
+}
+
+Be specific and detailed. The image shows a furniture item - analyze its type, materials, condition, and resale potential.`;
 }
 
 export default analyzeItem;

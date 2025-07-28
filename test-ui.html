@@ -3,11 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Treasure Hunter SDK Test</title>
+    <title>Treasure Hunter SDK - Multi Image Test</title>
+    <script src="https://cdn.jsdelivr.net/npm/browser-image-compression@2.0.2/dist/browser-image-compression.min.js"></script>
     <style>
         body {
             font-family: Arial, sans-serif;
-            max-width: 800px;
+            max-width: 900px;
             margin: 0 auto;
             padding: 20px;
             background-color: #f5f5f5;
@@ -21,6 +22,42 @@
         h1 {
             color: #333;
             text-align: center;
+        }
+        .quality-selector {
+            margin: 20px 0;
+            padding: 15px;
+            background-color: #f0f0f0;
+            border-radius: 8px;
+        }
+        .quality-selector label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        .quality-options {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-top: 10px;
+        }
+        .quality-option {
+            padding: 10px;
+            border: 2px solid #e0e0e0;
+            border-radius: 5px;
+            cursor: pointer;
+            text-align: center;
+            transition: all 0.3s;
+        }
+        .quality-option:hover {
+            border-color: #4CAF50;
+        }
+        .quality-option.selected {
+            border-color: #4CAF50;
+            background-color: #e8f5e9;
+        }
+        .quality-option .size {
+            font-size: 12px;
+            color: #666;
         }
         .upload-area {
             border: 2px dashed #ccc;
@@ -41,15 +78,58 @@
         input[type="file"] {
             display: none;
         }
-        .preview {
+        .images-preview {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: 15px;
             margin: 20px 0;
+        }
+        .image-preview-item {
+            position: relative;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .image-preview-item img {
+            width: 100%;
+            height: 150px;
+            object-fit: cover;
+        }
+        .image-preview-item .remove-btn {
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            background-color: rgba(255, 255, 255, 0.9);
+            border: none;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            cursor: pointer;
+            font-size: 16px;
+            line-height: 1;
+            padding: 0;
+        }
+        .image-preview-item .remove-btn:hover {
+            background-color: #ff5252;
+            color: white;
+        }
+        .image-preview-item .info {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background-color: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 5px;
+            font-size: 11px;
             text-align: center;
         }
-        .preview img {
-            max-width: 300px;
-            max-height: 300px;
-            border-radius: 10px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+        .compression-stats {
+            background-color: #e3f2fd;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+            font-size: 14px;
         }
         button {
             background-color: #4CAF50;
@@ -92,51 +172,63 @@
             border-radius: 5px;
             margin: 10px 0;
         }
-        .route-options {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 15px;
-            margin-top: 20px;
-        }
-        .route-card {
+        .tips {
+            background-color: #fff3e0;
             padding: 15px;
-            border: 2px solid #e0e0e0;
             border-radius: 8px;
-            text-align: center;
-            cursor: pointer;
-            transition: all 0.3s;
+            margin: 15px 0;
+            font-size: 14px;
         }
-        .route-card:hover {
-            border-color: #4CAF50;
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        .tips h3 {
+            margin-top: 0;
+            color: #e65100;
         }
-        .route-card.recommended {
-            border-color: #4CAF50;
-            background-color: #f0f8f0;
-        }
-        .route-card h3 {
-            margin: 0 0 10px 0;
-            color: #333;
-        }
-        .route-card .price {
-            font-size: 24px;
-            font-weight: bold;
-            color: #4CAF50;
+        .tips ul {
+            margin-bottom: 0;
+            padding-left: 20px;
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>🔍 Treasure Hunter SDK Test</h1>
+        <h1>🔍 Treasure Hunter SDK - Multi Image Test</h1>
         
-        <div class="upload-area" id="uploadArea">
-            <p>📸 Click to upload an image or drag & drop here</p>
-            <input type="file" id="fileInput" accept="image/*">
+        <div class="quality-selector">
+            <label>Compression Quality:</label>
+            <div class="quality-options">
+                <div class="quality-option" data-quality="fast">
+                    <strong>Fast</strong>
+                    <div class="size">~200KB, 800px</div>
+                </div>
+                <div class="quality-option selected" data-quality="balanced">
+                    <strong>Balanced</strong>
+                    <div class="size">~400KB, 1024px</div>
+                </div>
+                <div class="quality-option" data-quality="high">
+                    <strong>High Detail</strong>
+                    <div class="size">~800KB, 1600px</div>
+                </div>
+            </div>
         </div>
         
-        <div class="preview" id="preview" style="display: none;">
-            <img id="previewImage" src="" alt="Preview">
+        <div class="upload-area" id="uploadArea">
+            <p>📸 Click to upload images or drag & drop here</p>
+            <p style="font-size: 14px; color: #666;">You can select multiple images (up to 3)</p>
+            <input type="file" id="fileInput" accept="image/*" multiple>
+        </div>
+        
+        <div class="images-preview" id="imagesPreview" style="display: none;"></div>
+        
+        <div class="compression-stats" id="compressionStats" style="display: none;"></div>
+        
+        <div class="tips">
+            <h3>📷 Photo Tips for Best Results:</h3>
+            <ul>
+                <li><strong>Multiple angles:</strong> Front, back, and any damage/labels</li>
+                <li><strong>Good lighting:</strong> Natural light works best</li>
+                <li><strong>Include details:</strong> Brand labels, model numbers, defects</li>
+                <li><strong>Whole item:</strong> Show the complete item in at least one photo</li>
+            </ul>
         </div>
         
         <button id="analyzeBtn" disabled>Analyze Item</button>
@@ -148,22 +240,55 @@
         <div id="error" class="error" style="display: none;"></div>
         
         <div id="results" class="results" style="display: none;"></div>
-        
-        <div id="routeOptions" class="route-options" style="display: none;"></div>
     </div>
 
     <script>
         const uploadArea = document.getElementById('uploadArea');
         const fileInput = document.getElementById('fileInput');
-        const preview = document.getElementById('preview');
-        const previewImage = document.getElementById('previewImage');
+        const imagesPreview = document.getElementById('imagesPreview');
+        const compressionStats = document.getElementById('compressionStats');
         const analyzeBtn = document.getElementById('analyzeBtn');
         const loading = document.getElementById('loading');
         const error = document.getElementById('error');
         const results = document.getElementById('results');
-        const routeOptions = document.getElementById('routeOptions');
         
-        let selectedFile = null;
+        let selectedFiles = [];
+        let compressedFiles = [];
+        let selectedQuality = 'balanced';
+        
+        // Quality presets
+        const qualityPresets = {
+            fast: {
+                maxSizeMB: 0.2,
+                maxWidthOrHeight: 800,
+                quality: 0.7,
+                targetSize: '~200KB'
+            },
+            balanced: {
+                maxSizeMB: 0.4,
+                maxWidthOrHeight: 1024,
+                quality: 0.8,
+                targetSize: '~400KB'
+            },
+            high: {
+                maxSizeMB: 0.8,
+                maxWidthOrHeight: 1600,
+                quality: 0.85,
+                targetSize: '~800KB'
+            }
+        };
+        
+        // Quality selector
+        document.querySelectorAll('.quality-option').forEach(option => {
+            option.addEventListener('click', () => {
+                document.querySelectorAll('.quality-option').forEach(o => o.classList.remove('selected'));
+                option.classList.add('selected');
+                selectedQuality = option.dataset.quality;
+                if (selectedFiles.length > 0) {
+                    handleFiles(selectedFiles);
+                }
+            });
+        });
         
         // Click to upload
         uploadArea.addEventListener('click', () => fileInput.click());
@@ -182,47 +307,130 @@
             e.preventDefault();
             uploadArea.classList.remove('dragover');
             
-            const files = e.dataTransfer.files;
-            if (files.length > 0 && files[0].type.startsWith('image/')) {
-                handleFile(files[0]);
+            const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/'));
+            if (files.length > 0) {
+                handleFiles(files.slice(0, 3)); // Max 3 images
             }
         });
         
         // File input change
         fileInput.addEventListener('change', (e) => {
-            if (e.target.files.length > 0) {
-                handleFile(e.target.files[0]);
+            const files = Array.from(e.target.files);
+            if (files.length > 0) {
+                handleFiles(files.slice(0, 3)); // Max 3 images
             }
         });
         
-        function handleFile(file) {
-            selectedFile = file;
-            
-            // Show preview
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                previewImage.src = e.target.result;
-                preview.style.display = 'block';
-                analyzeBtn.disabled = false;
-            };
-            reader.readAsDataURL(file);
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
         }
         
-        // Analyze button
+        async function handleFiles(files) {
+            selectedFiles = files;
+            compressedFiles = [];
+            imagesPreview.innerHTML = '';
+            imagesPreview.style.display = 'grid';
+            compressionStats.style.display = 'block';
+            
+            let totalOriginal = 0;
+            let totalCompressed = 0;
+            
+            compressionStats.innerHTML = '<div style="text-align: center;">Compressing images...</div>';
+            
+            const preset = qualityPresets[selectedQuality];
+            
+            for (let i = 0; i < files.length; i++) {
+                const file = files[i];
+                totalOriginal += file.size;
+                
+                const itemDiv = document.createElement('div');
+                itemDiv.className = 'image-preview-item';
+                itemDiv.innerHTML = '<div style="height: 150px; display: flex; align-items: center; justify-content: center;">Loading...</div>';
+                imagesPreview.appendChild(itemDiv);
+                
+                try {
+                    // Compress
+                    const options = {
+                        maxSizeMB: preset.maxSizeMB,
+                        maxWidthOrHeight: preset.maxWidthOrHeight,
+                        useWebWorker: true,
+                        fileType: 'image/jpeg',
+                        quality: preset.quality
+                    };
+                    
+                    const compressed = await imageCompression(file, options);
+                    compressedFiles.push(compressed);
+                    totalCompressed += compressed.size;
+                    
+                    // Show preview
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        itemDiv.innerHTML = `
+                            <img src="${e.target.result}" alt="Preview ${i + 1}">
+                            <button class="remove-btn" data-index="${i}">×</button>
+                            <div class="info">${formatFileSize(compressed.size)}</div>
+                        `;
+                        
+                        itemDiv.querySelector('.remove-btn').addEventListener('click', (e) => {
+                            e.stopPropagation();
+                            removeImage(parseInt(e.target.dataset.index));
+                        });
+                    };
+                    reader.readAsDataURL(compressed);
+                    
+                } catch (err) {
+                    console.error('Compression error:', err);
+                    compressedFiles.push(file);
+                    totalCompressed += file.size;
+                }
+            }
+            
+            // Update stats
+            const reduction = ((1 - totalCompressed / totalOriginal) * 100).toFixed(1);
+            compressionStats.innerHTML = `
+                <strong>Compression Results:</strong><br>
+                Original: ${formatFileSize(totalOriginal)} → Compressed: ${formatFileSize(totalCompressed)}<br>
+                <strong>${reduction}% reduction</strong> | 
+                Quality: ${selectedQuality} | 
+                ${files.length} image${files.length > 1 ? 's' : ''}
+            `;
+            
+            analyzeBtn.disabled = false;
+        }
+        
+        function removeImage(index) {
+            selectedFiles = selectedFiles.filter((_, i) => i !== index);
+            compressedFiles = compressedFiles.filter((_, i) => i !== index);
+            
+            if (selectedFiles.length === 0) {
+                imagesPreview.style.display = 'none';
+                compressionStats.style.display = 'none';
+                analyzeBtn.disabled = true;
+            } else {
+                handleFiles(selectedFiles);
+            }
+        }
+        
+        // Analyze button - modified to send multiple images
         analyzeBtn.addEventListener('click', async () => {
-            if (!selectedFile) return;
+            if (compressedFiles.length === 0) return;
             
             // Reset UI
             error.style.display = 'none';
             results.style.display = 'none';
-            routeOptions.style.display = 'none';
             loading.style.display = 'block';
             analyzeBtn.disabled = true;
             
-            const formData = new FormData();
-            formData.append('image', selectedFile);
-            
             try {
+                // For now, we'll send just the first image since the backend expects single image
+                // TODO: Update backend to handle multiple images
+                const formData = new FormData();
+                formData.append('image', compressedFiles[0], selectedFiles[0].name);
+                
                 const response = await fetch('http://localhost:3000/api/analyze', {
                     method: 'POST',
                     body: formData
@@ -238,11 +446,6 @@
                 results.textContent = JSON.stringify(data, null, 2);
                 results.style.display = 'block';
                 
-                // Display route options
-                if (data.routes && data.routes.allRoutes) {
-                    displayRoutes(data.routes);
-                }
-                
             } catch (err) {
                 error.textContent = `Error: ${err.message}`;
                 error.style.display = 'block';
@@ -251,46 +454,6 @@
                 analyzeBtn.disabled = false;
             }
         });
-        
-        function displayRoutes(routes) {
-            routeOptions.innerHTML = '';
-            routeOptions.style.display = 'grid';
-            
-            routes.allRoutes.forEach(route => {
-                const card = document.createElement('div');
-                card.className = 'route-card';
-                if (route.type === routes.recommendedRoute.type) {
-                    card.classList.add('recommended');
-                }
-                
-                card.innerHTML = `
-                    <h3>${getRouteIcon(route.type)} ${formatRouteType(route.type)}</h3>
-                    <div class="price">${route.estimatedReturn || 'N/A'}</div>
-                    <p>${route.confidence ? `Confidence: ${route.confidence}%` : ''}</p>
-                    ${route.type === routes.recommendedRoute.type ? '<p><strong>Recommended</strong></p>' : ''}
-                `;
-                
-                routeOptions.appendChild(card);
-            });
-        }
-        
-        function getRouteIcon(type) {
-            const icons = {
-                'ebay': '💰',
-                'instant-offer': '⚡',
-                'local-pickup': '📍',
-                'donate': '❤️',
-                'recycle-parts': '♻️',
-                'discard': '🗑️'
-            };
-            return icons[type] || '📦';
-        }
-        
-        function formatRouteType(type) {
-            return type.split('-').map(word => 
-                word.charAt(0).toUpperCase() + word.slice(1)
-            ).join(' ');
-        }
     </script>
 </body>
 </html>

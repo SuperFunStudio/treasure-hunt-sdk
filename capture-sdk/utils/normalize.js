@@ -79,8 +79,15 @@ export function normalizeResponse(rawResponse, provider) {
   
     return normalized;
   }
-  
   function normalizeRating(rating) {
+    // Handle numeric ratings (1-10 scale)
+    if (typeof rating === 'number') {
+      if (rating >= 8) return 'good';
+      if (rating >= 5) return 'fair';
+      return 'poor';
+    }
+    
+    // Handle string ratings
     const ratingMap = {
       'excellent': 'good',
       'very good': 'good',

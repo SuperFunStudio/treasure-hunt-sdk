@@ -11,21 +11,27 @@ const PORT = process.env.PORT || 3000;
 
 // Configure multer for image uploads
 const upload = multer({
-  limits: {
-    fileSize: 10 * 1024 * 1024 // 10MB limit
-  },
-  fileFilter: (req, file, cb) => {
-    if (file.mimetype.startsWith('image/')) {
-      cb(null, true);
-    } else {
-      cb(new Error('Only image files are allowed'));
+    limits: {
+      fileSize: 10 * 1024 * 1024 // 10MB limit
+    },
+    fileFilter: (req, file, cb) => {
+      if (file.mimetype.startsWith('image/')) {
+        cb(null, true);
+      } else {
+        cb(new Error('Only image files are allowed'));
+      }
     }
-  }
-});
+  });
 
 // Middleware
 app.use(cors());
 app.use(express.json());
+
+// Create a flexible upload middleware that accepts both single and multiple images
+const flexibleUpload = upload.fields([
+    { name: 'image', maxCount: 1 },
+    { name: 'images', maxCount: 3 }
+  ]);
 
 // Initialize SDK
 const sdk = new CaptureSDK({
@@ -54,34 +60,52 @@ app.get('/health', (req, res) => {
 });
 
 // Analyze item from uploaded image
-app.post('/api/analyze', upload.single('image'), async (req, res) => {
-  try {
-    if (!req.file) {
-      return res.status(400).json({ error: 'No image provided' });
+app.post('/api/analyze', flexibleUpload, async (req, res) => {
+    try {
+      // Handle both single and multiple images from different field names
+      let files = [];
+      
+      if (req.files) {
+        if (req.files.image) {
+          files = req.files.image;
+        } else if (req.files.images) {
+          files = req.files.images;
+        }
+      } else if (req.file) {
+        files = [req.file];
+      }
+      
+      if (!files || files.length === 0) {
+        return res.status(400).json({ error: 'No images provided' });
+      }
+  
+      // Convert all images to base64
+      const base64Images = files.map(file => 
+        `data:${file.mimetype};base64,${file.buffer.toString('base64')}`
+      );
+      
+      console.log(`Analyzing ${files.length} image(s), total size: ${files.reduce((sum, f) => sum + f.size, 0) / 1024}KB`);
+      
+      // Analyze the items - SDK currently expects array of images
+      const result = await sdk.analyzeItem(base64Images);
+      
+      // Get routing recommendations
+      const routes = await sdk.getRoutes(result);
+      
+      res.json({
+        success: true,
+        analysis: result,
+        routes: routes,
+        imageCount: files.length
+      });
+    } catch (error) {
+      console.error('Analysis error:', error);
+      res.status(500).json({ 
+        error: 'Failed to analyze item',
+        message: error.message 
+      });
     }
-
-    // Convert image to base64
-    const base64Image = `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`;
-    
-    // Analyze the item
-    const result = await sdk.analyzeItem([base64Image]);
-    
-    // Get routing recommendations
-    const routes = await sdk.getRoutes(result);
-    
-    res.json({
-      success: true,
-      analysis: result,
-      routes: routes
-    });
-  } catch (error) {
-    console.error('Analysis error:', error);
-    res.status(500).json({ 
-      error: 'Failed to analyze item',
-      message: error.message 
-    });
-  }
-});
+  });
 
 // Create a pin for an item
 app.post('/api/pins', async (req, res) => {
