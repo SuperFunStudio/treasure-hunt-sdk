@@ -13,7 +13,11 @@ export async function routeDisposition(itemData, userPreferences = {}) {
   const routes = [];
   
   // Get market price estimate
+  console.log('Getting market price estimate...');
+
   const marketPrice = await estimatePrice(itemData);
+  console.log('Market price:', marketPrice);
+
   const instantOfferPrice = marketPrice * 0.65; // 65% of market value
 
   // Resale route (if valuable enough)
@@ -47,6 +51,8 @@ export async function routeDisposition(itemData, userPreferences = {}) {
   }
 
   // Donation route
+  console.log('Checking donation route...');
+
   if (itemData.condition.rating !== 'poor') {
     routes.push({
       type: 'donate',
@@ -57,6 +63,8 @@ export async function routeDisposition(itemData, userPreferences = {}) {
   }
 
   // Recycling/Parts route
+  console.log('Checking recycling route...');
+
   if (itemData.salvageable && itemData.salvageable.length > 0) {
     routes.push({
       type: 'recycle-parts',
@@ -65,6 +73,7 @@ export async function routeDisposition(itemData, userPreferences = {}) {
       recyclingCenter: await findRecyclingCenter(location, itemData.category)
     });
   }
+  console.log('Routes complete, returning results...');
 
   return {
     recommendedRoute: routes[0] || { type: 'dispose', reason: 'No viable routes' },

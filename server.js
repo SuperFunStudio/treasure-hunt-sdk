@@ -62,17 +62,27 @@ app.get('/health', (req, res) => {
 // Analyze item from uploaded image
 app.post('/api/analyze', flexibleUpload, async (req, res) => {
     try {
+      // Debug logging
+      console.log('Request files:', {
+        files: req.files,
+        file: req.file,
+        fileKeys: req.files ? Object.keys(req.files) : 'none'
+      });
+      
       // Handle both single and multiple images from different field names
       let files = [];
       
       if (req.files) {
         if (req.files.image) {
           files = req.files.image;
+          console.log('Found files in "image" field:', files.length);
         } else if (req.files.images) {
           files = req.files.images;
+          console.log('Found files in "images" field:', files.length);
         }
       } else if (req.file) {
         files = [req.file];
+        console.log('Found single file');
       }
       
       if (!files || files.length === 0) {
@@ -84,7 +94,7 @@ app.post('/api/analyze', flexibleUpload, async (req, res) => {
         `data:${file.mimetype};base64,${file.buffer.toString('base64')}`
       );
       
-      console.log(`Analyzing ${files.length} image(s), total size: ${files.reduce((sum, f) => sum + f.size, 0) / 1024}KB`);
+      console.log(`Processing ${files.length} image(s), sizes:`, files.map(f => `${(f.size / 1024).toFixed(1)}KB`));
       
       // Analyze the items - SDK currently expects array of images
       const result = await sdk.analyzeItem(base64Images);
@@ -96,7 +106,7 @@ app.post('/api/analyze', flexibleUpload, async (req, res) => {
         success: true,
         analysis: result,
         routes: routes,
-        imageCount: files.length
+        imageCount: files.length  // This should reflect actual count
       });
     } catch (error) {
       console.error('Analysis error:', error);

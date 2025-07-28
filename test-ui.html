@@ -426,10 +426,18 @@
             analyzeBtn.disabled = true;
             
             try {
-                // For now, we'll send just the first image since the backend expects single image
-                // TODO: Update backend to handle multiple images
                 const formData = new FormData();
-                formData.append('image', compressedFiles[0], selectedFiles[0].name);
+                
+                // Send all compressed images as an array
+                if (compressedFiles.length === 1) {
+                    // Single image - use 'image' field for compatibility
+                    formData.append('image', compressedFiles[0], selectedFiles[0].name);
+                } else {
+                    // Multiple images - append each with array notation
+                    compressedFiles.forEach((file, index) => {
+                        formData.append('image', file, selectedFiles[index].name);
+                    });
+                }
                 
                 const response = await fetch('http://localhost:3000/api/analyze', {
                     method: 'POST',
@@ -445,6 +453,11 @@
                 // Display results
                 results.textContent = JSON.stringify(data, null, 2);
                 results.style.display = 'block';
+                
+                // Show image count in results
+                if (data.imageCount > 1) {
+                    results.textContent = `Analyzed ${data.imageCount} images:\n\n` + results.textContent;
+                }
                 
             } catch (err) {
                 error.textContent = `Error: ${err.message}`;
