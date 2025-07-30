@@ -38,8 +38,15 @@ export default class CaptureSDK {
   }
 
   // Get disposition routes
+  
   async getRoutes(itemData, userPreferences = {}) {
-    return await routeDisposition(itemData, userPreferences);
+    console.log('SDK getRoutes called with eBay config:', {
+      hasEbayIntegration: !!this.config.integrations?.ebay,
+      ebayClientId: this.config.integrations?.ebay?.clientId ? 'present' : 'missing',
+      ebayClientSecret: this.config.integrations?.ebay?.clientSecret ? 'present' : 'missing'
+    });
+    
+    return await routeDisposition(itemData, userPreferences, this.config.integrations?.ebay);
   }
 
   // Generate marketplace listing

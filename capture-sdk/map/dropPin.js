@@ -1,72 +1,76 @@
 // capture-sdk/map/dropPin.js
-import { generatePinId, validateCoordinates } from '../utils/locationUtils.js';
+import { db } from '../config/firebase-config.js';
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { validateCoordinates } from '../utils/locationUtils.js';
 
-export async function dropPin(pinData, options = {}) {
+export async function dropPin(pinData) {
   const {
-    expirationHours = 4,
-    visibility = 'public',
-    notifyNearby = true,
-    maxClaimDistance = 0.5 // miles
-  } = options;
+    location,
+    item,
+    userId = 'anonymous',
+    expiresIn = 4 * 60 * 60 * 1000, // 4 hours default
+    dispositionType = 'pickup'
+  } = pinData;
 
-  // Validate input
-  if (!validateCoordinates(pinData.location)) {
-    throw new Error('Invalid location coordinates');
+  // Validate location
+  if (!validateCoordinates(location.latitude, location.longitude)) {
+    throw new Error('Invalid coordinates provided');
   }
 
-  if (!pinData.itemId || !pinData.itemData) {
-    throw new Error('Item data is required for pin creation');
+  // Validate item data
+  if (!item || !item.category) {
+    throw new Error('Item data with category required');
   }
 
-  const pin = {
-    id: generatePinId(),
-    itemId: pinData.itemId,
-    userId: pinData.userId,
-    location: {
-      lat: pinData.location.lat,
-      lng: pinData.location.lng,
-      accuracy: pinData.location.accuracy || 10, // meters
-      address: await reverseGeocode(pinData.location) // Get human-readable address
-    },
-    itemData: {
-      category: pinData.itemData.category,
-      title: pinData.itemData.title || generateItemTitle(pinData.itemData),
-      description: pinData.itemData.description,
-      condition: pinData.itemData.condition.rating,
-      imageUrl: pinData.itemData.imageUrl, // Primary image
-      value: pinData.itemData.resale?.priceRange?.high || 0
-    },
-    createdAt: new Date().toISOString(),
-    expiresAt: new Date(Date.now() + expirationHours * 60 * 60 * 1000).toISOString(),
-    visibility: visibility,
-    status: 'active',
-    claimRadius: maxClaimDistance,
-    claims: [],
-    views: 0,
-    metadata: {
-      weather: await getCurrentWeather(pinData.location), // Helps with item condition
-      nearbyLandmarks: await getNearbyLandmarks(pinData.location)
-    }
-  };
+  try {
+    // Create pin document
+    const pinDoc = {
+      location: {
+        latitude: location.latitude,
+        longitude: location.longitude,
+        geohash: generateGeohash(location.latitude, location.longitude)
+      },
+      item: {
+        category: item.category,
+        title: item.title || `${item.brand} ${item.model}`.trim() || 'Unknown Item',
+        description: item.description || '',
+        imageUrls: item.imageUrls || [],
+        condition: item.condition || {},
+        confidence: item.confidence || 0
+      },
+      userId,
+      dispositionType,
+      status: 'active',
+      viewCount: 0,
+      claimCount: 0,
+      createdAt: serverTimestamp(),
+      expiresAt: new Date(Date.now() + expiresIn),
+      expiresIn
+    };
 
-  // Save to database (Firestore or similar)
-  await savePinToDatabase(pin);
+    // Add to Firestore
+    const docRef = await addDoc(collection(db, 'pins'), pinDoc);
+    
+    console.log('Pin created with ID:', docRef.id);
 
-  // Notify nearby users if enabled
-  if (notifyNearby) {
-    await notifyNearbyUsers(pin);
+    return {
+      id: docRef.id,
+      ...pinDoc,
+      createdAt: new Date() // Return current date for immediate use
+    };
+
+  } catch (error) {
+    console.error('Error creating pin:', error);
+    throw new Error('Failed to create pin: ' + error.message);
   }
+}
 
-  // Log for analytics
-  await logPinCreation(pin);
-
-  return {
-    success: true,
-    pinId: pin.id,
-    expiresAt: pin.expiresAt,
-    shareUrl: generateShareUrl(pin.id),
-    location: pin.location
-  };
+// Simple geohash for basic geographic queries
+function generateGeohash(lat, lng, precision = 6) {
+  // This is a simplified version - for production, use a proper geohash library
+  const latBin = Math.floor((lat + 90) * Math.pow(2, precision / 2));
+  const lngBin = Math.floor((lng + 180) * Math.pow(2, precision / 2));
+  return `${latBin}_${lngBin}`;
 }
 
 async function reverseGeocode(location) {
