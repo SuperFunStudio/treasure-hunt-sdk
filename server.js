@@ -3,6 +3,8 @@ import cors from 'cors';
 import multer from 'multer';
 import dotenv from 'dotenv';
 import CaptureSDK from './capture-sdk/index.js';
+import { estimatePrice } from './capture-sdk/utils/priceEstimate.js';
+
 
 dotenv.config();
 
@@ -23,15 +25,17 @@ const upload = multer({
     }
   });
 
+  
+
 // Middleware
 app.use(cors());
 app.use(express.json());
 
-// Create a flexible upload middleware that accepts both single and multiple images
+
+// CHANGE TO (fixed):
 const flexibleUpload = upload.fields([
-    { name: 'image', maxCount: 1 },
-    { name: 'images', maxCount: 3 }
-  ]);
+    { name: 'image', maxCount: 3 }  // Allow up to 3 files with field name 'image'
+]);
 
 // Initialize SDK
 const sdk = new CaptureSDK({
@@ -58,6 +62,39 @@ app.get('/health', (req, res) => {
     version: '1.0.0'
   });
 });
+
+// Add this route alongside your existing /api/analyze route
+app.post('/api/pricing', async (req, res) => {
+    try {
+      const { itemData, options = {} } = req.body;
+      
+      if (!itemData) {
+        return res.status(400).json({ error: 'Item data is required' });
+      }
+      
+      // Set up eBay config from environment variables
+      const ebayConfig = {
+        clientId: process.env.EBAY_CLIENT_ID,
+        clientSecret: process.env.EBAY_CLIENT_SECRET,
+        environment: process.env.EBAY_ENVIRONMENT || 'production'
+      };
+      
+      // Get pricing estimate
+      const pricing = await estimatePrice(itemData, {
+        ...options,
+        ebayConfig
+      });
+      
+      res.json(pricing);
+      
+    } catch (error) {
+      console.error('Pricing API error:', error);
+      res.status(500).json({ 
+        error: 'Pricing analysis failed',
+        message: error.message 
+      });
+    }
+  });
 
 // Analyze item from uploaded image
 app.post('/api/analyze', flexibleUpload, async (req, res) => {
