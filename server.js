@@ -2,51 +2,45 @@ import express from 'express';
 import cors from 'cors';
 import multer from 'multer';
 import dotenv from 'dotenv';
-import CaptureSDK from './capture-sdk/index.js';
-import { estimatePrice } from './capture-sdk/utils/priceEstimate.js';
-
+import CaptureSDK from './functions/capture-sdk/index.js';
+import { estimatePrice } from './functions/capture-sdk/utils/priceEstimate.js';
+import { getValidUserEbayToken } from './functions/capture-sdk/utils/ebayTokenUtils.js';
+import admin from 'firebase-admin';
+import fs from 'fs';
+const serviceAccount = JSON.parse(fs.readFileSync('./firebase-service-account.json', 'utf8'));
 
 dotenv.config();
+
+admin.initializeApp({
+  credential: admin.credential.cert(serviceAccount),
+  projectId: process.env.FIREBASE_PROJECT_ID
+});
+const db = admin.firestore();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Configure multer for image uploads
+// Multer setup for image uploads
 const upload = multer({
-    limits: {
-      fileSize: 10 * 1024 * 1024 // 10MB limit
-    },
-    fileFilter: (req, file, cb) => {
-      if (file.mimetype.startsWith('image/')) {
-        cb(null, true);
-      } else {
-        cb(new Error('Only image files are allowed'));
-      }
-    }
-  });
+  limits: { fileSize: 10 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype.startsWith('image/')) cb(null, true);
+    else cb(new Error('Only image files are allowed'));
+  }
+});
+const flexibleUpload = upload.fields([{ name: 'image', maxCount: 3 }]);
 
-  
-
-// Middleware
-app.use(cors());
-app.use(express.json());
-
-
-// CHANGE TO (fixed):
-const flexibleUpload = upload.fields([
-    { name: 'image', maxCount: 3 }  // Allow up to 3 files with field name 'image'
-]);
-
-// Initialize SDK
+// --- Initialize SDK before routes! ---
 const sdk = new CaptureSDK({
-  visionProvider: 'gpt4v',
+  visionProvider: 'claude',
   apiKeys: {
-    gpt4v: process.env.OPENAI_API_KEY
+    'claude': process.env.CLAUDE_API_KEY
   },
   integrations: {
     ebay: {
       clientId: process.env.EBAY_CLIENT_ID,
-      clientSecret: process.env.EBAY_CLIENT_SECRET
+      clientSecret: process.env.EBAY_CLIENT_SECRET,
+      redirectUri: process.env.EBAY_REDIRECT_URI
     }
   },
   firebase: {
@@ -54,188 +48,195 @@ const sdk = new CaptureSDK({
   }
 });
 
-// Routes
+app.use(cors());
+app.use(express.json());
+
+// --- eBay OAuth Success Handler ---
+// Save tokens to Firestore under /users/{uid}/ebay
+app.get('/success', async (req, res) => {
+    const code = req.query.code;
+    const uid = req.query.state || req.query.uid || 'demo-user';
+  
+    // ADD THIS LINE:
+    console.log(`[${new Date().toISOString()}] /success called with code:`, code, 'uid:', uid);
+  
+    if (!code) return res.status(400).send('Missing code parameter from eBay');
+  
+    try {
+      const ebay = sdk.ebay;
+      const tokens = await ebay.authenticate(code);
+      const expires_at = Date.now() + (tokens.expires_in * 1000);
+  
+      // ADD THIS LINE:
+      console.log(`Writing tokens to Firestore for user: ${uid}`);
+  
+      await db.collection('users').doc(uid).set({ ebay: { ...tokens, expires_at } }, { merge: true });
+  
+      // ADD THIS LINE:
+      console.log(`Write successful for user: ${uid}`);
+  
+      res.json({
+        success: true,
+        message: "eBay authentication successful!",
+        tokens: {
+          ...tokens,
+          access_token: tokens.access_token?.slice(0, 8) + '...',
+          refresh_token: tokens.refresh_token?.slice(0, 8) + '...'
+        }
+      });
+    } catch (err) {
+      // ADD THIS LINE:
+      console.error('eBay token exchange failed:', err);
+      res.status(500).send('eBay token exchange failed: ' + err.message);
+    }
+  });
+
+// --- Get valid eBay user token ---
+app.post('/api/ebay/token', async (req, res) => {
+  const uid = req.body.uid || 'demo-user'; // Real app: get from auth/session!
+
+  try {
+    // Lookup user in Firestore
+    const userSnap = await db.collection('users').doc(uid).get();
+    if (!userSnap.exists) throw new Error('User not found');
+    const user = { id: uid, ...userSnap.data() };
+
+    // Save function for DB
+    const updateUserTokens = async (userId, newTokens) => {
+      await db.collection('users').doc(userId).set({ ebay: newTokens }, { merge: true });
+    };
+
+    const token = await getValidUserEbayToken(user, process.env, updateUserTokens);
+    res.json({ success: true, access_token: token.slice(0, 12) + '...' });
+  } catch (err) {
+    res.status(401).json({ error: 'eBay token refresh failed', message: err.message });
+  }
+});
+
+// --- Health check ---
 app.get('/health', (req, res) => {
-  res.json({ 
-    status: 'ok', 
+  res.json({
+    status: 'ok',
     service: 'Treasure Hunter SDK API',
     version: '1.0.0'
   });
 });
 
-// Add this route alongside your existing /api/analyze route
+// --- Pricing API ---
 app.post('/api/pricing', async (req, res) => {
-    try {
-      const { itemData, options = {} } = req.body;
-      
-      if (!itemData) {
-        return res.status(400).json({ error: 'Item data is required' });
-      }
-      
-      // Set up eBay config from environment variables
-      const ebayConfig = {
-        clientId: process.env.EBAY_CLIENT_ID,
-        clientSecret: process.env.EBAY_CLIENT_SECRET,
-        environment: process.env.EBAY_ENVIRONMENT || 'production'
-      };
-      
-      // Get pricing estimate
-      const pricing = await estimatePrice(itemData, {
-        ...options,
-        ebayConfig
-      });
-      
-      res.json(pricing);
-      
-    } catch (error) {
-      console.error('Pricing API error:', error);
-      res.status(500).json({ 
-        error: 'Pricing analysis failed',
-        message: error.message 
-      });
-    }
-  });
-
-// Analyze item from uploaded image
-app.post('/api/analyze', flexibleUpload, async (req, res) => {
-    try {
-      // Debug logging
-      console.log('Request files:', {
-        files: req.files,
-        file: req.file,
-        fileKeys: req.files ? Object.keys(req.files) : 'none'
-      });
-      
-      // Handle both single and multiple images from different field names
-      let files = [];
-      
-      if (req.files) {
-        if (req.files.image) {
-          files = req.files.image;
-          console.log('Found files in "image" field:', files.length);
-        } else if (req.files.images) {
-          files = req.files.images;
-          console.log('Found files in "images" field:', files.length);
-        }
-      } else if (req.file) {
-        files = [req.file];
-        console.log('Found single file');
-      }
-      
-      if (!files || files.length === 0) {
-        return res.status(400).json({ error: 'No images provided' });
-      }
-  
-      // Convert all images to base64
-      const base64Images = files.map(file => 
-        `data:${file.mimetype};base64,${file.buffer.toString('base64')}`
-      );
-      
-      console.log(`Processing ${files.length} image(s), sizes:`, files.map(f => `${(f.size / 1024).toFixed(1)}KB`));
-      
-      // Analyze the items - SDK currently expects array of images
-      const result = await sdk.analyzeItem(base64Images);
-      
-      // Get routing recommendations
-      const routes = await sdk.getRoutes(result);
-      
-      res.json({
-        success: true,
-        analysis: result,
-        routes: routes,
-        imageCount: files.length  // This should reflect actual count
-      });
-    } catch (error) {
-      console.error('Analysis error:', error);
-      res.status(500).json({ 
-        error: 'Failed to analyze item',
-        message: error.message 
-      });
-    }
-  });
-
-// Create a pin for an item
-app.post('/api/pins', async (req, res) => {
   try {
-    const { location, item, expiresIn } = req.body;
-    
-    if (!location || !item) {
-      return res.status(400).json({ error: 'Location and item data required' });
-    }
-    
-    const pin = await sdk.dropPin({
-      location,
-      item,
-      expiresIn: expiresIn || 4 * 60 * 60 * 1000 // Default 4 hours
-    });
-    
-    res.json({
-      success: true,
-      pin
-    });
+    const { itemData, options = {} } = req.body;
+    if (!itemData) return res.status(400).json({ error: 'Item data is required' });
+
+    const ebayConfig = {
+      clientId: process.env.EBAY_CLIENT_ID,
+      clientSecret: process.env.EBAY_CLIENT_SECRET,
+      environment: process.env.EBAY_ENVIRONMENT || 'production'
+    };
+    const pricing = await estimatePrice(itemData, { ...options, ebayConfig });
+    res.json(pricing);
+
   } catch (error) {
-    console.error('Pin creation error:', error);
-    res.status(500).json({ 
-      error: 'Failed to create pin',
-      message: error.message 
+    console.error('Pricing API error:', error);
+    res.status(500).json({
+      error: 'Pricing analysis failed',
+      message: error.message
     });
   }
 });
 
-// Get nearby pins
+// --- Image Analysis API ---
+app.post('/api/analyze', flexibleUpload, async (req, res) => {
+  try {
+    let files = [];
+    if (req.files && req.files.image) files = req.files.image;
+    else if (req.files && req.files.images) files = req.files.images;
+    else if (req.file) files = [req.file];
+    if (!files || files.length === 0) return res.status(400).json({ error: 'No images provided' });
+
+    const base64Images = files.map(file =>
+      `data:${file.mimetype};base64,${file.buffer.toString('base64')}`
+    );
+    const result = await sdk.analyzeItem(base64Images);
+    const routes = await sdk.getRoutes(result);
+
+    res.json({
+      success: true,
+      analysis: result,
+      routes,
+      imageCount: files.length
+    });
+  } catch (error) {
+    console.error('Analysis error:', error);
+    res.status(500).json({
+      error: 'Failed to analyze item',
+      message: error.message
+    });
+  }
+});
+
+// --- Pin creation ---
+app.post('/api/pins', async (req, res) => {
+  try {
+    const { location, item, expiresIn } = req.body;
+    if (!location || !item) return res.status(400).json({ error: 'Location and item data required' });
+
+    const pin = await sdk.dropPin({
+      location,
+      item,
+      expiresIn: expiresIn || 4 * 60 * 60 * 1000 // 4 hours default
+    });
+
+    res.json({ success: true, pin });
+  } catch (error) {
+    console.error('Pin creation error:', error);
+    res.status(500).json({
+      error: 'Failed to create pin',
+      message: error.message
+    });
+  }
+});
+
+// --- Get nearby pins ---
 app.get('/api/pins/nearby', async (req, res) => {
   try {
     const { lat, lng, radius = 5000 } = req.query;
-    
-    if (!lat || !lng) {
-      return res.status(400).json({ error: 'Latitude and longitude required' });
-    }
-    
+    if (!lat || !lng) return res.status(400).json({ error: 'Latitude and longitude required' });
+
     const pins = await sdk.getNearbyPins({
       latitude: parseFloat(lat),
       longitude: parseFloat(lng),
       radius: parseInt(radius)
     });
-    
-    res.json({
-      success: true,
-      pins,
-      count: pins.length
-    });
+
+    res.json({ success: true, pins, count: pins.length });
   } catch (error) {
     console.error('Get pins error:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       error: 'Failed to get nearby pins',
-      message: error.message 
+      message: error.message
     });
   }
 });
 
-// Generate listing for an item
+// --- Generate listing for an item ---
 app.post('/api/listings/generate', async (req, res) => {
   try {
     const { item, platform = 'ebay' } = req.body;
-    
-    if (!item) {
-      return res.status(400).json({ error: 'Item data required' });
-    }
-    
+    if (!item) return res.status(400).json({ error: 'Item data required' });
+
     const listing = await sdk.generateListing(item, platform);
-    
-    res.json({
-      success: true,
-      listing
-    });
+    res.json({ success: true, listing });
   } catch (error) {
     console.error('Listing generation error:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       error: 'Failed to generate listing',
-      message: error.message 
+      message: error.message
     });
   }
 });
 
-// Error handling middleware
+// --- Error handling middleware ---
 app.use((error, req, res, next) => {
   console.error('Server error:', error);
   res.status(500).json({
@@ -244,15 +245,16 @@ app.use((error, req, res, next) => {
   });
 });
 
-// Start server
 app.listen(PORT, () => {
   console.log(`🚀 Treasure Hunter SDK API running on port ${PORT}`);
   console.log(`📍 Health check: http://localhost:${PORT}/health`);
   console.log('\nAvailable endpoints:');
+  console.log('  GET  /success - eBay OAuth callback');
   console.log('  POST /api/analyze - Analyze an item from image');
   console.log('  POST /api/pins - Create a location pin');
   console.log('  GET  /api/pins/nearby - Get nearby pins');
   console.log('  POST /api/listings/generate - Generate a listing');
+  console.log('  POST /api/ebay/token - Get/refresh user eBay access token');
 });
 
 export default app;

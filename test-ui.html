@@ -603,7 +603,7 @@
                     formData.append('image', file, selectedFiles[index].name);
                 });
                 
-                const analysisResponse = await fetch('http://localhost:3000/api/analyze', {
+                const analysisResponse = await fetch('https://app-beprv7ll2q-uc.a.run.app/api/analyze', {
                     method: 'POST',
                     body: formData
                 });

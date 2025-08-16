@@ -5,9 +5,9 @@ dotenv.config();
 
 try {
   const sdk = new CaptureSDK({
-    visionProvider: 'gpt4v',
+    visionProvider: 'gpt-4o',
     apiKeys: {
-      gpt4v: process.env.OPENAI_API_KEY || 'test-key',
+      gpt-4o: process.env.OPENAI_API_KEY || 'test-key',
       claude: process.env.ANTHROPIC_API_KEY || 'test-key'
     },
     integrations: {

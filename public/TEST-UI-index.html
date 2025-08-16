@@ -1,0 +1,927 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Treasure Hunter SDK - Photo Analysis + eBay Pricing</title>
+    <script src="https://cdn.jsdelivr.net/npm/browser-image-compression@2.0.2/dist/browser-image-compression.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+        }
+        .quality-selector {
+            margin: 20px 0;
+            padding: 15px;
+            background-color: #f0f0f0;
+            border-radius: 8px;
+        }
+        .quality-selector label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        .quality-options {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-top: 10px;
+        }
+        .quality-option {
+            padding: 10px;
+            border: 2px solid #e0e0e0;
+            border-radius: 5px;
+            cursor: pointer;
+            text-align: center;
+            transition: all 0.3s;
+        }
+        .quality-option:hover {
+            border-color: #4CAF50;
+        }
+        .quality-option.selected {
+            border-color: #4CAF50;
+            background-color: #e8f5e9;
+        }
+        .quality-option .size {
+            font-size: 12px;
+            color: #666;
+        }
+        .upload-area {
+            border: 2px dashed #ccc;
+            border-radius: 10px;
+            padding: 40px;
+            text-align: center;
+            margin: 20px 0;
+            cursor: pointer;
+            transition: border-color 0.3s;
+        }
+        .upload-area:hover {
+            border-color: #4CAF50;
+        }
+        .upload-area.dragover {
+            border-color: #4CAF50;
+            background-color: #f0f8f0;
+        }
+        input[type="file"] {
+            display: none;
+        }
+        .images-preview {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        .image-preview-item {
+            position: relative;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .image-preview-item img {
+            width: 100%;
+            height: 150px;
+            object-fit: cover;
+        }
+        .image-preview-item .remove-btn {
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            background-color: rgba(255, 255, 255, 0.9);
+            border: none;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            cursor: pointer;
+            font-size: 16px;
+            line-height: 1;
+            padding: 0;
+        }
+        .image-preview-item .remove-btn:hover {
+            background-color: #ff5252;
+            color: white;
+        }
+        .image-preview-item .info {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background-color: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 5px;
+            font-size: 11px;
+            text-align: center;
+        }
+        .compression-stats {
+            background-color: #e3f2fd;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+            font-size: 14px;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            font-size: 16px;
+            border-radius: 5px;
+            cursor: pointer;
+            width: 100%;
+            margin: 10px 0;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+        .results-section {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-top: 30px;
+        }
+        .results {
+            padding: 20px;
+            background-color: #f9f9f9;
+            border-radius: 10px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .pricing-results {
+            padding: 20px;
+            background-color: #e8f5e8;
+            border-radius: 10px;
+            border-left: 4px solid #4CAF50;
+        }
+        .loading {
+            text-align: center;
+            color: #666;
+            font-style: italic;
+        }
+        .error {
+            color: #d32f2f;
+            padding: 10px;
+            background-color: #ffebee;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+        .tips {
+            background-color: #fff3e0;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+            font-size: 14px;
+        }
+        .tips h3 {
+            margin-top: 0;
+            color: #e65100;
+        }
+        .tips ul {
+            margin-bottom: 0;
+            padding-left: 20px;
+        }
+        .profit-positive {
+            color: #4CAF50;
+            font-weight: bold;
+        }
+        .profit-negative {
+            color: #f44336;
+            font-weight: bold;
+        }
+        .analysis-card {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 10px 0;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .analysis-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #f0f0f0;
+        }
+        .analysis-icon {
+            font-size: 24px;
+            margin-right: 10px;
+        }
+        .item-details {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin: 15px 0;
+        }
+        .detail-item {
+            background: #f8f9fa;
+            padding: 12px;
+            border-radius: 6px;
+            border-left: 4px solid #4CAF50;
+        }
+        .detail-item strong {
+            display: block;
+            color: #333;
+            margin-bottom: 5px;
+        }
+        .condition-rating {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .rating-bar {
+            flex: 1;
+            height: 8px;
+            background: #e0e0e0;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        .rating-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #f44336 0%, #ff9800 50%, #4caf50 100%);
+            border-radius: 4px;
+            transition: width 0.3s ease;
+        }
+        .confidence-indicator {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+        .confidence-high { background: #e8f5e9; color: #2e7d32; }
+        .confidence-medium { background: #fff3e0; color: #f57c00; }
+        .confidence-low { background: #ffebee; color: #c62828; }
+        .json-toggle {
+            margin-top: 15px;
+            padding: 8px 16px;
+            background: #f5f5f5;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        .json-toggle:hover {
+            background: #e9ecef;
+        }
+        .raw-json {
+            margin-top: 10px;
+            max-height: 200px;
+            overflow-y: auto;
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 4px;
+            padding: 10px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+        }
+        .workflow-step {
+            margin: 10px 0;
+            padding: 10px;
+            border-left: 4px solid #ccc;
+            background: #f8f9fa;
+        }
+        .workflow-step.completed {
+            border-left-color: #4CAF50;
+            background: #e8f5e9;
+        }
+        .workflow-step.current {
+            border-left-color: #2196F3;
+            background: #e3f2fd;
+        }
+        .workflow-step.error {
+            border-left-color: #f44336;
+            background: #ffebee;
+        }
+        .ebay-status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+            background: #f5f5f5;
+            text-align: center;
+        }
+        .ebay-status.enabled {
+            background: #e8f5e9;
+            color: #2e7d32;
+        }
+        .ebay-status.disabled {
+            background: #ffebee;
+            color: #c62828;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🏴‍☠️ Treasure Hunter SDK - Complete Analysis</h1>
+        <p>Upload photos to analyze items with AI and get real eBay market pricing!</p>
+        
+        <div class="ebay-status" id="ebayStatus">
+            Checking eBay API status...
+        </div>
+        
+        <div class="quality-selector">
+            <label>Compression Quality:</label>
+            <div class="quality-options">
+                <div class="quality-option" data-quality="fast">
+                    <strong>Fast</strong>
+                    <div class="size">~200KB, 800px</div>
+                </div>
+                <div class="quality-option selected" data-quality="balanced">
+                    <strong>Balanced</strong>
+                    <div class="size">~400KB, 1024px</div>
+                </div>
+                <div class="quality-option" data-quality="high">
+                    <strong>High Detail</strong>
+                    <div class="size">~800KB, 1600px</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="upload-area" id="uploadArea">
+            <p>📸 Click to upload images or drag & drop here</p>
+            <p style="font-size: 14px; color: #666;">You can select multiple images (up to 3)</p>
+            <input type="file" id="fileInput" accept="image/*" multiple>
+        </div>
+        
+        <div class="images-preview" id="imagesPreview" style="display: none;"></div>
+        
+        <div class="compression-stats" id="compressionStats" style="display: none;"></div>
+        
+        <div class="tips">
+            <h3>📷 Photo Tips for Best Results:</h3>
+            <ul>
+                <li><strong>Multiple angles:</strong> Front, back, and any damage/labels</li>
+                <li><strong>Good lighting:</strong> Natural light works best</li>
+                <li><strong>Include details:</strong> Brand labels, model numbers, defects</li>
+                <li><strong>Whole item:</strong> Show the complete item in at least one photo</li>
+            </ul>
+        </div>
+        
+        <button id="analyzeBtn" disabled>🔍 Analyze Item & Get eBay Pricing</button>
+        
+        <!-- Workflow Progress -->
+        <div id="workflow" style="display: none;">
+            <h3>🔄 Analysis Workflow</h3>
+            <div class="workflow-step" id="step1">
+                <strong>Step 1:</strong> Analyzing photos with AI...
+            </div>
+            <div class="workflow-step" id="step2">
+                <strong>Step 2:</strong> Searching eBay for similar items...
+            </div>
+            <div class="workflow-step" id="step3">
+                <strong>Step 3:</strong> Calculating pricing and profit...
+            </div>
+        </div>
+        
+        <div id="error" class="error" style="display: none;"></div>
+        
+        <!-- Split Results -->
+        <div class="results-section" id="resultsSection" style="display: none;">
+            <div>
+                <h3>🤖 AI Analysis Results</h3>
+                <div id="analysisResults" class="results"></div>
+            </div>
+            <div>
+                <h3>💰 eBay Market Pricing</h3>
+                <div id="pricingResults" class="pricing-results"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // CRITICAL: Configure the correct API URL based on your Firebase deployment
+        const API_BASE_URL = 'https://app-beprv7ll2q-uc.a.run.app';  // Your Cloud Run URL
+        
+        console.log('Using API URL:', API_BASE_URL);
+        
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+        const imagesPreview = document.getElementById('imagesPreview');
+        const compressionStats = document.getElementById('compressionStats');
+        const analyzeBtn = document.getElementById('analyzeBtn');
+        const workflow = document.getElementById('workflow');
+        const error = document.getElementById('error');
+        const resultsSection = document.getElementById('resultsSection');
+        const analysisResults = document.getElementById('analysisResults');
+        const pricingResults = document.getElementById('pricingResults');
+        const ebayStatus = document.getElementById('ebayStatus');
+        
+        let selectedFiles = [];
+        let compressedFiles = [];
+        let base64Images = [];
+        let selectedQuality = 'balanced';
+        
+        // Check eBay API status on load
+        checkEbayStatus();
+        
+        async function checkEbayStatus() {
+            try {
+                console.log('Checking eBay status at:', `${API_BASE_URL}/health`);
+                const response = await fetch(`${API_BASE_URL}/health`);
+                
+                if (!response.ok) {
+                    throw new Error(`Health check failed: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                console.log('Health check response:', data);
+                
+                // Check if eBay is configured
+                if (data.sdk && data.sdk.available) {
+                    ebayStatus.textContent = '✅ eBay API: Connected and ready';
+                    ebayStatus.className = 'ebay-status enabled';
+                } else {
+                    ebayStatus.textContent = '⚠️ eBay API: Using fallback mode';
+                    ebayStatus.className = 'ebay-status disabled';
+                }
+            } catch (err) {
+                console.error('Health check error:', err);
+                ebayStatus.textContent = '⚠️ eBay API: Connection error - check console';
+                ebayStatus.className = 'ebay-status disabled';
+                
+                console.log('Possible issues:');
+                console.log('1. Check if Firebase Functions are deployed');
+                console.log('2. Verify API_BASE_URL is correct');
+                console.log('3. Check CORS settings in Firebase');
+            }
+        }
+        
+        // Quality presets
+        const qualityPresets = {
+            fast: {
+                maxSizeMB: 0.2,
+                maxWidthOrHeight: 800,
+                quality: 0.7,
+                targetSize: '~200KB'
+            },
+            balanced: {
+                maxSizeMB: 0.4,
+                maxWidthOrHeight: 1024,
+                quality: 0.8,
+                targetSize: '~400KB'
+            },
+            high: {
+                maxSizeMB: 0.8,
+                maxWidthOrHeight: 1600,
+                quality: 0.85,
+                targetSize: '~800KB'
+            }
+        };
+        
+        // Quality selector
+        document.querySelectorAll('.quality-option').forEach(option => {
+            option.addEventListener('click', () => {
+                document.querySelectorAll('.quality-option').forEach(o => o.classList.remove('selected'));
+                option.classList.add('selected');
+                selectedQuality = option.dataset.quality;
+                if (selectedFiles.length > 0) {
+                    handleFiles(selectedFiles);
+                }
+            });
+        });
+        
+        // Click to upload
+        uploadArea.addEventListener('click', () => fileInput.click());
+        
+        // Drag and drop
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+        
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+        
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            
+            const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/'));
+            if (files.length > 0) {
+                handleFiles(files.slice(0, 3)); // Max 3 images
+            }
+        });
+        
+        // File input change
+        fileInput.addEventListener('change', (e) => {
+            const files = Array.from(e.target.files);
+            if (files.length > 0) {
+                handleFiles(files.slice(0, 3)); // Max 3 images
+            }
+        });
+        
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+        
+        // Convert file to base64
+        function fileToBase64(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => {
+                    // Remove the data:image/jpeg;base64, prefix
+                    const base64 = reader.result.split(',')[1];
+                    resolve(base64);
+                };
+                reader.onerror = reject;
+                reader.readAsDataURL(file);
+            });
+        }
+        
+        async function handleFiles(files) {
+            selectedFiles = Array.from(files).slice(0, 3); // Ensure max 3 files
+            compressedFiles = [];
+            base64Images = [];
+            imagesPreview.innerHTML = '';
+            imagesPreview.style.display = 'grid';
+            compressionStats.style.display = 'block';
+            
+            let totalOriginal = 0;
+            let totalCompressed = 0;
+            
+            compressionStats.innerHTML = '<div style="text-align: center;">Compressing images...</div>';
+            
+            const preset = qualityPresets[selectedQuality];
+            
+            for (let i = 0; i < selectedFiles.length; i++) {
+                const file = selectedFiles[i];
+                totalOriginal += file.size;
+                
+                const itemDiv = document.createElement('div');
+                itemDiv.className = 'image-preview-item';
+                itemDiv.innerHTML = '<div style="height: 150px; display: flex; align-items: center; justify-content: center;">Loading...</div>';
+                imagesPreview.appendChild(itemDiv);
+                
+                try {
+                    const options = {
+                        maxSizeMB: preset.maxSizeMB,
+                        maxWidthOrHeight: preset.maxWidthOrHeight,
+                        useWebWorker: true,
+                        fileType: 'image/jpeg',
+                        quality: preset.quality
+                    };
+                    
+                    const compressed = await imageCompression(file, options);
+                    compressedFiles.push(compressed);
+                    totalCompressed += compressed.size;
+                    
+                    // Convert to base64
+                    const base64 = await fileToBase64(compressed);
+                    base64Images.push(base64);
+                    
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        itemDiv.innerHTML = `
+                            <img src="${e.target.result}" alt="Preview ${i + 1}">
+                            <button class="remove-btn" data-index="${i}">×</button>
+                            <div class="info">${formatFileSize(compressed.size)}</div>
+                        `;
+                        
+                        itemDiv.querySelector('.remove-btn').addEventListener('click', (e) => {
+                            e.stopPropagation();
+                            removeImage(parseInt(e.target.dataset.index));
+                        });
+                    };
+                    reader.readAsDataURL(compressed);
+                    
+                } catch (err) {
+                    console.error('Compression error:', err);
+                    compressedFiles.push(file);
+                    totalCompressed += file.size;
+                    const base64 = await fileToBase64(file);
+                    base64Images.push(base64);
+                }
+            }
+            
+            const reduction = totalOriginal > 0 ? ((1 - totalCompressed / totalOriginal) * 100).toFixed(1) : 0;
+            compressionStats.innerHTML = `
+                <strong>Compression Results:</strong><br>
+                Original: ${formatFileSize(totalOriginal)} → Compressed: ${formatFileSize(totalCompressed)}<br>
+                <strong>${reduction}% reduction</strong> | 
+                Quality: ${selectedQuality} | 
+                ${selectedFiles.length} image${selectedFiles.length > 1 ? 's' : ''}
+            `;
+            
+            analyzeBtn.disabled = false;
+        }
+        
+        function removeImage(index) {
+            selectedFiles = selectedFiles.filter((_, i) => i !== index);
+            compressedFiles = compressedFiles.filter((_, i) => i !== index);
+            base64Images = base64Images.filter((_, i) => i !== index);
+            
+            if (selectedFiles.length === 0) {
+                imagesPreview.style.display = 'none';
+                compressionStats.style.display = 'none';
+                analyzeBtn.disabled = true;
+            } else {
+                handleFiles(selectedFiles);
+            }
+        }
+        
+        function updateWorkflowStep(stepId, status, message = '') {
+            const step = document.getElementById(stepId);
+            step.className = `workflow-step ${status}`;
+            if (message) {
+                step.innerHTML = step.innerHTML.split(':')[0] + ': ' + message;
+            }
+        }
+        
+        // Main analyze function - FIXED to send JSON
+        analyzeBtn.addEventListener('click', async () => {
+            if (base64Images.length === 0) return;
+            
+            // Reset UI
+            error.style.display = 'none';
+            resultsSection.style.display = 'none';
+            workflow.style.display = 'block';
+            analyzeBtn.disabled = true;
+            
+            // Reset workflow steps
+            updateWorkflowStep('step1', 'current', 'Analyzing photos with AI...');
+            updateWorkflowStep('step2', '', 'Searching eBay for similar items...');
+            updateWorkflowStep('step3', '', 'Calculating pricing and profit...');
+            
+            try {
+                // Create JSON payload instead of FormData
+                const jsonPayload = {
+                    images: base64Images,
+                    uid: 'test_brooklyn_hunter', 
+                    saveToFirestore: true,
+                    location: 'brooklyn_ny', // Add this
+                    imageCount: base64Images.length,
+                    quality: selectedQuality,
+                    timestamp: new Date().toISOString()
+                };
+                
+                console.log(`Sending ${base64Images.length} images as JSON to: ${API_BASE_URL}/api/analyze-json`);
+                console.log('Payload size:', JSON.stringify(jsonPayload).length, 'bytes');
+                console.log('📦 Payload being sent:', {
+    hasImages: jsonPayload.images?.length > 0,
+    uid: jsonPayload.uid,
+    saveToFirestore: jsonPayload.saveToFirestore,
+    imageCount: jsonPayload.imageCount,
+    payloadKeys: Object.keys(jsonPayload)
+});
+                
+                const analysisResponse = await fetch(`${API_BASE_URL}/api/analyze-json`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
+                    body: JSON.stringify(jsonPayload)
+                });
+                
+                const responseText = await analysisResponse.text();
+                console.log('Response status:', analysisResponse.status);
+                console.log('Response text:', responseText);
+                
+                if (!analysisResponse.ok) {
+                    throw new Error(`Analysis failed (${analysisResponse.status}): ${responseText}`);
+                }
+                
+                let analysisData;
+                try {
+                    analysisData = JSON.parse(responseText);
+                } catch (parseError) {
+                    throw new Error(`Failed to parse response: ${responseText}`);
+                }
+                
+                console.log('Analysis data received:', analysisData);
+                
+                // Check if we have a successful response
+                if (!analysisData.success) {
+                    throw new Error(analysisData.error || 'Analysis failed');
+                }
+                
+                updateWorkflowStep('step1', 'completed', 'AI analysis complete!');
+                
+                // Display analysis results
+                displayAnalysisResults(analysisData);
+                
+                // Check if we have eBay pricing data
+                if (analysisData.routes && analysisData.routes.marketAnalysis) {
+                    updateWorkflowStep('step2', 'completed', 'eBay search complete!');
+                    updateWorkflowStep('step3', 'completed', 'Pricing analysis complete!');
+                    
+                    const marketAnalysis = analysisData.routes.marketAnalysis;
+                    
+                    if (marketAnalysis.estimatedValue) {
+                        displayPricingResults({
+                            suggested: marketAnalysis.estimatedValue.suggested,
+                            confidence: marketAnalysis.estimatedValue.confidence || 'medium',
+                            priceRange: marketAnalysis.estimatedValue.priceRange,
+                            shippingCost: marketAnalysis.estimatedValue.shippingCost,
+                            ebayFees: marketAnalysis.estimatedValue.ebayFees,
+                            netProfit: marketAnalysis.estimatedValue.netProfit,
+                            marketData: marketAnalysis.estimatedValue.marketData,
+                            comparableItems: marketAnalysis.estimatedValue.comparableItems,
+                            source: marketAnalysis.estimatedValue.source || 'analysis',
+                            searchQuery: marketAnalysis.estimatedValue.searchQuery,
+                            ebayEnabled: analysisData.ebayEnabled
+                        });
+                    }
+                } else {
+                    // Fallback if no pricing data
+                    updateWorkflowStep('step2', 'error', 'eBay search not available');
+                    updateWorkflowStep('step3', 'completed', 'Using manual estimates');
+                    
+                    displayPricingResults({
+                        suggested: 20,
+                        confidence: 'low',
+                        source: 'manual_fallback',
+                        reason: 'eBay API not configured or no market data available',
+                        ebayEnabled: false
+                    });
+                }
+                
+                resultsSection.style.display = 'grid';
+                
+            } catch (err) {
+                console.error('Analysis error:', err);
+                updateWorkflowStep('step1', 'error', `Error: ${err.message}`);
+                error.innerHTML = `
+                    <strong>Error:</strong> ${err.message}<br>
+                    <small>Check browser console for details. Make sure Firebase Functions are deployed.</small>
+                `;
+                error.style.display = 'block';
+            } finally {
+                analyzeBtn.disabled = false;
+            }
+        });
+        
+        function displayAnalysisResults(data) {
+            const analysis = data.analysis || data;
+            const confidence = analysis.confidence || 'medium';
+            const confidenceClass = confidence === 'high' ? 'confidence-high' : 
+                                   confidence === 'low' ? 'confidence-low' : 'confidence-medium';
+            
+            let conditionRating = analysis.condition?.numeric_rating || analysis.condition?.rating || 7;
+            if (typeof conditionRating === 'string') {
+                const ratingMap = { 'excellent': 10, 'good': 8, 'fair': 6, 'poor': 4, 'damaged': 2 };
+                conditionRating = ratingMap[conditionRating.toLowerCase()] || 7;
+            }
+            
+            let html = `
+                <div class="analysis-card">
+                    <div class="analysis-header">
+                        <span class="analysis-icon">🔍</span>
+                        <h3 style="margin: 0;">Item Analysis</h3>
+                        <span class="confidence-indicator ${confidenceClass}">${confidence} confidence</span>
+                    </div>
+                    
+                    <div class="item-details">
+                        <div class="detail-item">
+                            <strong>📦 Category</strong>
+                            ${analysis.category || 'Unknown'}
+                        </div>
+                        
+                        <div class="detail-item">
+                            <strong>🏷️ Brand</strong>
+                            ${analysis.brand || 'Unknown'}
+                        </div>
+                        
+                        <div class="detail-item">
+                            <strong>📱 Model</strong>
+                            ${analysis.model || 'Unknown'}
+                        </div>
+                        
+                        <div class="detail-item">
+                            <strong>⭐ Condition</strong>
+                            <div class="condition-rating">
+                                <div class="rating-bar">
+                                    <div class="rating-fill" style="width: ${conditionRating * 10}%"></div>
+                                </div>
+                                <span>${conditionRating}/10</span>
+                            </div>
+                        </div>
+                    </div>
+            `;
+            
+            if (analysis.description) {
+                html += `
+                    <div class="detail-item" style="grid-column: 1 / -1;">
+                        <strong>📝 Description</strong>
+                        ${analysis.description}
+                    </div>
+                `;
+            }
+            
+            if (analysis.condition?.description) {
+                html += `
+                    <div class="detail-item" style="grid-column: 1 / -1;">
+                        <strong>🔍 Condition Notes</strong>
+                        ${analysis.condition.description}
+                    </div>
+                `;
+            }
+            
+            html += `
+                    <div class="json-toggle" onclick="toggleRawJson()">
+                        📋 View Raw Analysis Data
+                    </div>
+                    <div class="raw-json" id="rawJson" style="display: none;">
+                        ${JSON.stringify(data, null, 2)}
+                    </div>
+                </div>
+            `;
+            
+            analysisResults.innerHTML = html;
+        }
+        
+        function toggleRawJson() {
+            const rawJson = document.getElementById('rawJson');
+            rawJson.style.display = rawJson.style.display === 'none' ? 'block' : 'none';
+        }
+        
+        function displayPricingResults(pricing) {
+            const profitClass = (pricing.netProfit || 0) > 0 ? 'profit-positive' : 'profit-negative';
+            
+            let html = `
+                <h4>💰 Market Analysis</h4>
+                ${pricing.ebayEnabled ? '<p style="color: green;">✅ eBay API Active</p>' : '<p style="color: orange;">⚠️ Manual Estimates Only</p>'}
+                <p><strong>Suggested Price:</strong> ${pricing.suggested || 'N/A'}</p>
+                <p><strong>Confidence:</strong> ${pricing.confidence}</p>
+            `;
+            
+            if (pricing.priceRange) {
+                html += `<p><strong>Price Range:</strong> ${pricing.priceRange.low} - ${pricing.priceRange.high}</p>`;
+                if (pricing.priceRange.median) {
+                    html += `<p><strong>Market Median:</strong> ${pricing.priceRange.median}</p>`;
+                }
+            }
+            
+            if (pricing.shippingCost !== undefined) {
+                html += `<p><strong>Estimated Shipping:</strong> ${pricing.shippingCost}</p>`;
+            }
+            
+            if (pricing.ebayFees !== undefined) {
+                html += `<p><strong>eBay Fees (13.25%):</strong> ${pricing.ebayFees.toFixed(2)}</p>`;
+            }
+            
+            if (pricing.netProfit !== undefined) {
+                html += `<p><strong>Net Profit:</strong> <span class="${profitClass}">${pricing.netProfit.toFixed(2)}</span></p>`;
+            }
+            
+            html += `<p><strong>Data Source:</strong> ${pricing.source}</p>`;
+            
+            if (pricing.searchQuery) {
+                html += `<p><strong>eBay Search:</strong> "${pricing.searchQuery}"</p>`;
+            }
+            
+            if (pricing.marketData?.totalListings) {
+                html += `<p><strong>Based on:</strong> ${pricing.marketData.totalListings} eBay listings</p>`;
+            }
+            
+            if (pricing.comparableItems && pricing.comparableItems.length > 0) {
+                html += `<h5>🔗 Similar Items on eBay:</h5>`;
+                pricing.comparableItems.slice(0, 3).forEach((item) => {
+                    html += `
+                        <div style="margin: 10px 0; padding: 10px; background: #f5f5f5; border-radius: 5px;">
+                            <strong>${item.price}</strong> - ${(item.title || '').substring(0, 50)}...
+                            ${item.condition ? `<br><small>Condition: ${item.condition}</small>` : ''}
+                            ${item.url ? `<br><small><a href="${item.url}" target="_blank">View on eBay →</a></small>` : ''}
+                        </div>
+                    `;
+                });
+            }
+            
+            if (pricing.reason) {
+                html += `<p style="font-style: italic; color: #666;">${pricing.reason}</p>`;
+            }
+            
+            pricingResults.innerHTML = html;
+        }
+        
+        // Show debug info on page load
+        window.addEventListener('load', () => {
+            console.log('Page loaded');
+            console.log('API URL configured:', API_BASE_URL);
+            console.log('Checking connection to Firebase Functions...');
+        });
+    </script>
+</body>
+</html>

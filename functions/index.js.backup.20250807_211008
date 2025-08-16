@@ -1,0 +1,655 @@
+// functions/index.js
+const {onRequest} = require('firebase-functions/v2/https');
+const {setGlobalOptions} = require('firebase-functions/v2');
+const admin = require('firebase-admin');
+const crypto = require('crypto');
+const express = require('express');
+const cors = require('cors');
+const dotenv = require('dotenv');
+const functions = require('firebase-functions');
+const busboy = require('busboy');
+
+// Load environment variables first
+dotenv.config();
+
+// Initialize Firebase Admin ONCE
+if (!admin.apps.length) {
+  admin.initializeApp();
+}
+const db = admin.firestore();
+
+// Set global options with better defaults for cold starts
+setGlobalOptions({
+  maxInstances: 10,
+  minInstances: 1,  // Keep at least one instance warm
+  region: 'us-central1'
+});
+
+// Lazy SDK initialization - loads on first request to avoid startup timeout
+let sdkInstance = null;
+let sdkInitPromise = null;
+
+async function getSDK() {
+  if (sdkInstance) {
+    return sdkInstance;
+  }
+  
+  if (sdkInitPromise) {
+    return await sdkInitPromise;
+  }
+  
+  console.log('🔍 Initializing SDK on first request...');
+  
+  sdkInitPromise = (async () => {
+    try {
+      // Try-catch around require to handle module issues
+      let CaptureSDK;
+      try {
+        CaptureSDK = require('./capture-sdk/index.js');
+      } catch (requireError) {
+        console.error('Failed to require SDK:', requireError);
+        return createFallbackSDK();
+      }
+      
+      sdkInstance = new CaptureSDK({
+        visionProvider: 'gpt-4o',
+        apiKeys: { 
+          gpt-4o: process.env.OPENAI_API_KEY || functions.config().openai?.api_key
+        },
+        integrations: {
+          ebay: {
+            clientId: process.env.EBAY_CLIENT_ID || functions.config().ebay?.client_id,
+            clientSecret: process.env.EBAY_CLIENT_SECRET || functions.config().ebay?.client_secret,
+            redirectUri: process.env.EBAY_REDIRECT_URI || functions.config().ebay?.redirect_uri,
+            environment: process.env.EBAY_ENVIRONMENT || 'production'
+          }
+        }
+      });
+      console.log('✅ SDK initialized successfully on demand');
+      return sdkInstance;
+    } catch (error) {
+      console.error('❌ SDK initialization failed:', error);
+      sdkInstance = createFallbackSDK();
+      return sdkInstance;
+    } finally {
+      sdkInitPromise = null;
+    }
+  })();
+  
+  return await sdkInitPromise;
+}
+
+function createFallbackSDK() {
+  console.log('⚠️ Using fallback mock SDK');
+  return {
+    async analyzeItem(images) {
+      console.log('Fallback analyzeItem called with', images.length, 'images');
+      return {
+        category: 'Electronics',
+        brand: 'Unknown',
+        condition: { rating: 'good', description: 'Item appears to be in good condition' },
+        confidence: 8,
+        resale: {
+          priceRange: { low: 15, high: 35 }
+        }
+      };
+    },
+    async getRoutes(itemData) {
+      console.log('Fallback getRoutes called');
+      return [
+        { type: 'ebay', estimatedReturn: 20.00, confidence: 'high' },
+        { type: 'local', pickup: true, confidence: 'medium' }
+      ];
+    },
+    async generateListing(item, platform) {
+      console.log('Fallback generateListing called');
+      return {
+        title: `${item.brand} ${item.category}`,
+        description: 'Test listing description',
+        pricing: { buyItNowPrice: item.resale?.priceRange?.high || 25 }
+      };
+    },
+    async dropPin(pinData) {
+      console.log('Fallback dropPin called');
+      return { pinId: 'fallback-pin-123', ...pinData };
+    },
+    async getNearbyPins(location) {
+      console.log('Fallback getNearbyPins called');
+      return [];
+    }
+  };
+}
+
+// Get configuration from Firebase Functions config OR fallback to .env
+const config = functions.config();
+
+console.log('🔧 Configuration Debug:');
+console.log('OpenAI Key source:', config.openai?.api_key ? 'Firebase Config' : 'Local .env');
+console.log('OpenAI Key present:', !!(config.openai?.api_key || process.env.OPENAI_API_KEY));
+console.log('SDK Mode: Lazy initialization (loads on first request)');
+
+// eBay Webhook Configuration
+const VERIFICATION_TOKEN = 'treasurehunter-sdk-1753755107391-zfgw1dyhl';
+const ENDPOINT_URL = 'https://ebaynotifications-beprv7ll2q-uc.a.run.app';
+
+/**
+ * Health check endpoint - SIMPLIFIED VERSION
+ * This is the critical function that's failing deployment
+ */
+exports.health = onRequest(
+  {
+    cors: true,
+    invoker: 'public',
+    memory: '256MiB',  // Reduced memory for faster startup
+    timeoutSeconds: 60,  // Reduced timeout for health checks
+    cpu: 1,
+    minInstances: 0,  // Allow scaling to zero for health endpoint
+    maxInstances: 10
+  },
+  async (req, res) => {
+    // Set CORS headers immediately
+    res.set('Access-Control-Allow-Origin', '*');
+    res.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    res.set('Access-Control-Allow-Headers', 'Content-Type');
+    
+    if (req.method === 'OPTIONS') {
+      res.status(204).send('');
+      return;
+    }
+    
+    try {
+      // Don't initialize SDK for health check - just return status
+      res.status(200).json({
+        status: 'healthy',
+        timestamp: new Date().toISOString(),
+        service: 'Incremental Test',
+        components: {
+          sdk: true,
+          estimatePrice: true,
+          tokenUtils: true,
+          express: true,
+          busboy: true
+        }
+      });
+    } catch (error) {
+      console.error('Health check error:', error);
+      res.status(500).json({
+        status: 'error',
+        error: error.message
+      });
+    }
+  }
+);
+
+/**
+ * eBay Marketplace Account Deletion Notification Handler
+ */
+exports.ebayNotifications = onRequest(
+  {
+    cors: true,
+    invoker: 'public',
+    memory: '1GiB',
+    timeoutSeconds: 540,
+    cpu: 1,
+    minInstances: 0,
+    maxInstances: 10
+  },
+  async (req, res) => {
+    res.set('Access-Control-Allow-Origin', '*');
+    res.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-eBay-Signature');
+
+    if (req.method === 'OPTIONS') {
+      res.status(200).end();
+      return;
+    }
+
+    if (req.method === 'GET') {
+      return handleChallengeVerification(req, res);
+    }
+
+    if (req.method === 'POST') {
+      return handleAccountDeletionNotification(req, res);
+    }
+
+    res.status(405).json({ error: 'Method not allowed' });
+  }
+);
+
+function handleChallengeVerification(req, res) {
+  const challengeCode = req.query.challenge_code;
+  if (!challengeCode) {
+    console.error('Missing challenge_code parameter');
+    res.status(400).json({ error: 'Missing challenge_code parameter' });
+    return;
+  }
+
+  try {
+    const hash = crypto.createHash('sha256');
+    hash.update(challengeCode);
+    hash.update(VERIFICATION_TOKEN);
+    hash.update(ENDPOINT_URL);
+    const responseHash = hash.digest('hex');
+
+    console.log('eBay challenge verification successful:', {
+      challengeCode: challengeCode,
+      responseHashPreview: responseHash.substring(0, 10) + '...',
+      timestamp: new Date().toISOString()
+    });
+
+    res.set('Content-Type', 'application/json');
+    res.status(200).json({
+      challengeResponse: responseHash
+    });
+
+  } catch (error) {
+    console.error('Challenge verification failed:', error);
+    res.status(500).json({ error: 'Challenge verification failed' });
+  }
+}
+
+async function handleAccountDeletionNotification(req, res) {
+  try {
+    // Respond immediately to avoid timeout
+    res.status(200).json({
+      status: 'received',
+      timestamp: new Date().toISOString(),
+      notificationId: req.body?.notification?.notificationId || 'unknown'
+    });
+
+    // Process asynchronously after responding
+    const notification = req.body;
+    const notificationData = notification.notification?.data || null;
+
+    if (notificationData) {
+      console.log('Received eBay account deletion notification:', {
+        notificationId: notification.notification?.notificationId || 'unknown',
+        username: notificationData.username || 'unknown',
+        userId: notificationData.userId || 'unknown'
+      });
+      
+      // Fire and forget - process in background
+      processAccountDeletion(notificationData).catch(error => {
+        console.error('Background processing error:', error);
+      });
+    }
+    
+    // Store for audit
+    storeNotificationForAudit(notification).catch(error => {
+      console.error('Audit storage error:', error);
+    });
+
+  } catch (error) {
+    console.error('Error processing eBay notification:', error);
+    // Don't throw - we already responded
+  }
+}
+
+async function processAccountDeletion(userData) {
+  const username = userData.username || 'unknown';
+  const userId = userData.userId || 'unknown';
+
+  console.log('Processing account deletion for eBay user:', username, '(' + userId + ')');
+
+  try {
+    const batch = db.batch();
+
+    // Delete user profile if stored
+    const userRef = db.collection('users').where('ebayUserId', '==', userId);
+    const userSnapshot = await userRef.get();
+    userSnapshot.docs.forEach(doc => {
+      console.log('Deleting user document:', doc.id);
+      batch.delete(doc.ref);
+    });
+
+    // Delete user's items/listings
+    const itemsRef = db.collection('items').where('ebayUserId', '==', userId);
+    const itemsSnapshot = await itemsRef.get();
+    itemsSnapshot.docs.forEach(doc => {
+      console.log('Deleting item document:', doc.id);
+      batch.delete(doc.ref);
+    });
+
+    // Delete user's pins/locations if they're tied to eBay user
+    const pinsRef = db.collection('pins').where('ebayUserId', '==', userId);
+    const pinsSnapshot = await pinsRef.get();
+    pinsSnapshot.docs.forEach(doc => {
+      console.log('Deleting pin document:', doc.id);
+      batch.delete(doc.ref);
+    });
+
+    await batch.commit();
+    console.log('Successfully deleted all data for eBay user', userId);
+
+  } catch (error) {
+    console.error('Error deleting data for user', userId + ':', error);
+    await db.collection('deletion_errors').add({
+      userId: userId,
+      username: username,
+      error: error.message,
+      timestamp: admin.firestore.FieldValue.serverTimestamp(),
+      processed: false
+    });
+  }
+}
+
+async function storeNotificationForAudit(notification) {
+  try {
+    const notificationObj = notification.notification || {};
+    await db.collection('ebay_deletion_notifications').add({
+      notificationId: notificationObj.notificationId || 'unknown',
+      eventDate: notificationObj.eventDate || null,
+      publishDate: notificationObj.publishDate || null,
+      userData: notificationObj.data || null,
+      processedAt: admin.firestore.FieldValue.serverTimestamp(),
+      status: 'processed'
+    });
+  } catch (error) {
+    console.error('Error storing notification for audit:', error);
+  }
+}
+
+/**
+ * Test endpoint for development
+ */
+exports.testEbayEndpoint = onRequest(
+  {
+    cors: true,
+    invoker: 'public',
+    memory: '256MiB',
+    timeoutSeconds: 60,
+    cpu: 1,
+    minInstances: 0,
+    maxInstances: 10
+  },
+  async (req, res) => {
+    try {
+      res.status(200).json({
+        message: 'eBay notification endpoint is ready',
+        verificationToken: 'configured',
+        endpointUrl: ENDPOINT_URL,
+        timestamp: new Date().toISOString()
+      });
+    } catch (error) {
+      res.status(500).json({
+        error: error.message
+      });
+    }
+  }
+);
+
+//
+// Express App for API endpoints
+//
+
+const app = express();
+app.use(cors({ origin: true }));
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+
+// Express health check
+app.get('/health', async (req, res) => {
+  res.status(200).json({
+    status: 'ok',
+    service: 'Treasure Hunter SDK API',
+    version: '1.0.0',
+    timestamp: new Date().toISOString()
+  });
+});
+
+// eBay OAuth Success Handler
+app.get('/success', async (req, res) => {
+  const code = req.query.code;
+  const uid = req.query.state || req.query.uid || 'demo-user';
+  
+  if (!code) {
+    return res.status(400).send('Missing code parameter from eBay');
+  }
+
+  try {
+    console.log('eBay authentication for user:', uid);
+    
+    // If SDK has eBay integration, use it
+    const realSDK = await getSDK();
+    if (realSDK && realSDK.ebay) {
+      const authResult = await realSDK.ebay.authenticate(code);
+      res.json({
+        success: true,
+        message: "eBay authentication successful!",
+        uid: uid,
+        tokenInfo: {
+          hasAccessToken: !!authResult.accessToken,
+          expiresIn: authResult.expiresIn
+        }
+      });
+    } else {
+      res.json({
+        success: true,
+        message: "eBay authentication received (mock mode)",
+        uid: uid
+      });
+    }
+  } catch (err) {
+    console.error('eBay token exchange failed:', err);
+    res.status(500).send('eBay token exchange failed: ' + err.message);
+  }
+});
+
+// Image Analysis API (Multiple Images with Busboy)
+app.post('/api/analyze', async (req, res) => {
+  try {
+    console.log('🖼️ Analysis request received, content-type:', req.get('content-type'));
+    
+    const files = [];
+    const bb = busboy({ headers: req.headers });
+    
+    bb.on('file', (name, file, info) => {
+      console.log('File received:', info.filename, info.mimeType);
+      const chunks = [];
+      
+      file.on('data', (chunk) => {
+        chunks.push(chunk);
+      });
+      
+      file.on('end', () => {
+        const buffer = Buffer.concat(chunks);
+        files.push({
+          buffer,
+          mimetype: info.mimeType,
+          originalname: info.filename
+        });
+      });
+    });
+    
+    bb.on('finish', async () => {
+      try {
+        if (files.length === 0) {
+          return res.status(400).json({ error: 'No images provided' });
+        }
+        
+        // Limit to 3 files as per SDK specification
+        const limitedFiles = files.slice(0, 3);
+        console.log('📸 Processing', limitedFiles.length, 'files with SDK');
+        
+        const base64Images = limitedFiles.map(file =>
+          `data:${file.mimetype};base64,${file.buffer.toString('base64')}`
+        );
+        
+        // Use SDK for analysis
+        console.log('🤖 Getting SDK instance...');
+        const sdk = await getSDK();
+        
+        console.log('🤖 Calling SDK analyzeItem...');
+        const result = await sdk.analyzeItem(base64Images);
+        console.log('✅ Analysis complete:', result.category, result.brand);
+        
+        console.log('🛣️ Getting routes...');
+        const routes = await sdk.getRoutes(result);
+        console.log('✅ Routes generated:', routes.length, 'options');
+
+        res.json({
+          success: true,
+          analysis: result,
+          routes,
+          imageCount: limitedFiles.length,
+          processingTime: Date.now()
+        });
+        
+      } catch (error) {
+        console.error('❌ Processing error:', error);
+        res.status(500).json({
+          error: 'Failed to analyze item',
+          message: error.message
+        });
+      }
+    });
+    
+    bb.end(req.body);
+    
+  } catch (error) {
+    console.error('❌ Request error:', error);
+    res.status(500).json({
+      error: 'Request processing failed',
+      message: error.message
+    });
+  }
+});
+
+// Pricing API
+app.post('/api/pricing', async (req, res) => {
+  try {
+    const { itemData, options = {} } = req.body;
+    if (!itemData) {
+      return res.status(400).json({ error: 'Item data is required' });
+    }
+
+    console.log('💰 Getting pricing for:', itemData.category, itemData.brand);
+    
+    const sdk = await getSDK();
+    const routes = await sdk.getRoutes(itemData, options);
+    const ebayRoute = routes.find(r => r.type === 'ebay');
+    
+    const pricing = ebayRoute ? {
+      estimatedValue: ebayRoute.estimatedReturn,
+      confidence: ebayRoute.confidence || 'medium',
+      source: 'sdk_routing',
+      marketData: {
+        recentSales: [],
+        averagePrice: ebayRoute.estimatedReturn
+      }
+    } : {
+      estimatedValue: 25.00,
+      confidence: 'low',
+      source: 'fallback',
+      marketData: {
+        recentSales: [],
+        averagePrice: 25.00
+      }
+    };
+    
+    res.json(pricing);
+
+  } catch (error) {
+    console.error('Pricing API error:', error);
+    res.status(500).json({
+      error: 'Pricing analysis failed',
+      message: error.message
+    });
+  }
+});
+
+// Pin creation
+app.post('/api/pins', async (req, res) => {
+  try {
+    const { location, item, expiresIn } = req.body;
+    if (!location || !item) {
+      return res.status(400).json({ error: 'Location and item data required' });
+    }
+
+    console.log('📍 Creating pin at:', location);
+    
+    const sdk = await getSDK();
+    const pin = await sdk.dropPin({
+      location,
+      item,
+      expiresIn: expiresIn || 4 * 60 * 60 * 1000 // 4 hours default
+    });
+
+    res.json({ success: true, pin });
+  } catch (error) {
+    console.error('Pin creation error:', error);
+    res.status(500).json({
+      error: 'Failed to create pin',
+      message: error.message
+    });
+  }
+});
+
+// Get nearby pins
+app.get('/api/pins/nearby', async (req, res) => {
+  try {
+    const { lat, lng, radius = 5000 } = req.query;
+    if (!lat || !lng) {
+      return res.status(400).json({ error: 'Latitude and longitude required' });
+    }
+
+    console.log('🗺️ Finding pins near:', lat, lng);
+    
+    const sdk = await getSDK();
+    const pins = await sdk.getNearbyPins({
+      latitude: parseFloat(lat),
+      longitude: parseFloat(lng),
+      radius: parseInt(radius)
+    });
+
+    res.json({ success: true, pins, count: pins.length });
+  } catch (error) {
+    console.error('Get pins error:', error);
+    res.status(500).json({
+      error: 'Failed to get nearby pins',
+      message: error.message
+    });
+  }
+});
+
+// Generate listing for an item
+app.post('/api/listings/generate', async (req, res) => {
+  try {
+    const { item, platform = 'ebay' } = req.body;
+    if (!item) {
+      return res.status(400).json({ error: 'Item data required' });
+    }
+
+    console.log('📝 Generating listing for:', item.category, platform);
+    
+    const sdk = await getSDK();
+    const listing = await sdk.generateListing(item, { type: platform }, { platform });
+    res.json({ success: true, listing });
+  } catch (error) {
+    console.error('Listing generation error:', error);
+    res.status(500).json({
+      error: 'Failed to generate listing',
+      message: error.message
+    });
+  }
+});
+
+// Error handling middleware
+app.use((error, req, res, next) => {
+  console.error('Server error:', error);
+  res.status(500).json({
+    error: 'Internal server error',
+    message: error.message
+  });
+});
+
+// Export the Express app as a Cloud Function with better config
+exports.app = onRequest({ 
+  cors: true,
+  invoker: 'public',
+  memory: '2GiB',
+  timeoutSeconds: 540,
+  cpu: 2,
+  minInstances: 0,  // Allow scaling to zero
+  maxInstances: 10
+}, app);

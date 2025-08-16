@@ -3,14 +3,14 @@
   "version": "1.0.0",
   "description": "Modular SDK for automated product recognition and circular economy",
   "main": "index.js",
-  "type": "module",
   "scripts": {
     "start": "node index.js",
     "dev": "nodemon index.js",
     "test": "node test.js",
     "test:api": "node test-real-api.js",
     "server": "node server.js",
-    "server:dev": "nodemon server.js"
+    "server:dev": "nodemon server.js",
+    "dev-ui": "node simple-dev-server.js"
   },
   "dependencies": {
     "cors": "^2.8.5",
