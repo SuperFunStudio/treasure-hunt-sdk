@@ -310,12 +310,31 @@
             border-left-color: #f44336;
             background: #ffebee;
         }
+        .ebay-status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+            background: #f5f5f5;
+            text-align: center;
+        }
+        .ebay-status.enabled {
+            background: #e8f5e9;
+            color: #2e7d32;
+        }
+        .ebay-status.disabled {
+            background: #ffebee;
+            color: #c62828;
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>🏴‍☠️ Treasure Hunter SDK - Complete Analysis</h1>
         <p>Upload photos to analyze items with AI and get real eBay market pricing!</p>
+        
+        <div class="ebay-status" id="ebayStatus">
+            Checking eBay API status...
+        </div>
         
         <div class="quality-selector">
             <label>Compression Quality:</label>
@@ -340,7 +359,6 @@
             <p style="font-size: 14px; color: #666;">You can select multiple images (up to 3)</p>
             <input type="file" id="fileInput" accept="image/*" multiple>
         </div>
-        
         
         <div class="images-preview" id="imagesPreview" style="display: none;"></div>
         
@@ -388,6 +406,11 @@
     </div>
 
     <script>
+        // CRITICAL: Configure the correct API URL based on your Firebase deployment
+        const API_BASE_URL = 'https://app-beprv7ll2q-uc.a.run.app';  // Your Cloud Run URL
+        
+        console.log('Using API URL:', API_BASE_URL);
+        
         const uploadArea = document.getElementById('uploadArea');
         const fileInput = document.getElementById('fileInput');
         const imagesPreview = document.getElementById('imagesPreview');
@@ -398,10 +421,47 @@
         const resultsSection = document.getElementById('resultsSection');
         const analysisResults = document.getElementById('analysisResults');
         const pricingResults = document.getElementById('pricingResults');
+        const ebayStatus = document.getElementById('ebayStatus');
         
         let selectedFiles = [];
         let compressedFiles = [];
+        let base64Images = [];
         let selectedQuality = 'balanced';
+        
+        // Check eBay API status on load
+        checkEbayStatus();
+        
+        async function checkEbayStatus() {
+            try {
+                console.log('Checking eBay status at:', `${API_BASE_URL}/health`);
+                const response = await fetch(`${API_BASE_URL}/health`);
+                
+                if (!response.ok) {
+                    throw new Error(`Health check failed: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                console.log('Health check response:', data);
+                
+                // Check if eBay is configured
+                if (data.sdk && data.sdk.available) {
+                    ebayStatus.textContent = '✅ eBay API: Connected and ready';
+                    ebayStatus.className = 'ebay-status enabled';
+                } else {
+                    ebayStatus.textContent = '⚠️ eBay API: Using fallback mode';
+                    ebayStatus.className = 'ebay-status disabled';
+                }
+            } catch (err) {
+                console.error('Health check error:', err);
+                ebayStatus.textContent = '⚠️ eBay API: Connection error - check console';
+                ebayStatus.className = 'ebay-status disabled';
+                
+                console.log('Possible issues:');
+                console.log('1. Check if Firebase Functions are deployed');
+                console.log('2. Verify API_BASE_URL is correct');
+                console.log('3. Check CORS settings in Firebase');
+            }
+        }
         
         // Quality presets
         const qualityPresets = {
@@ -476,23 +536,24 @@
             return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
         }
         
+        // Convert file to base64
+        function fileToBase64(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => {
+                    // Remove the data:image/jpeg;base64, prefix
+                    const base64 = reader.result.split(',')[1];
+                    resolve(base64);
+                };
+                reader.onerror = reject;
+                reader.readAsDataURL(file);
+            });
+        }
+        
         async function handleFiles(files) {
-            // Instead of replacing, add to existing files
-            const newFiles = Array.from(files);
-            const totalFiles = selectedFiles.length + newFiles.length;
-            
-            // Limit to 3 total images
-            if (totalFiles > 3) {
-                const allowedNew = 3 - selectedFiles.length;
-                if (allowedNew <= 0) {
-                    alert('Maximum 3 images allowed. Please remove some images first.');
-                    return;
-                }
-                newFiles.splice(allowedNew);
-            }
-            
-            selectedFiles = selectedFiles.concat(newFiles);
-            compressedFiles = []; // Reset compressed files array
+            selectedFiles = Array.from(files).slice(0, 3); // Ensure max 3 files
+            compressedFiles = [];
+            base64Images = [];
             imagesPreview.innerHTML = '';
             imagesPreview.style.display = 'grid';
             compressionStats.style.display = 'block';
@@ -526,6 +587,10 @@
                     compressedFiles.push(compressed);
                     totalCompressed += compressed.size;
                     
+                    // Convert to base64
+                    const base64 = await fileToBase64(compressed);
+                    base64Images.push(base64);
+                    
                     const reader = new FileReader();
                     reader.onload = (e) => {
                         itemDiv.innerHTML = `
@@ -545,6 +610,8 @@
                     console.error('Compression error:', err);
                     compressedFiles.push(file);
                     totalCompressed += file.size;
+                    const base64 = await fileToBase64(file);
+                    base64Images.push(base64);
                 }
             }
             
@@ -563,6 +630,7 @@
         function removeImage(index) {
             selectedFiles = selectedFiles.filter((_, i) => i !== index);
             compressedFiles = compressedFiles.filter((_, i) => i !== index);
+            base64Images = base64Images.filter((_, i) => i !== index);
             
             if (selectedFiles.length === 0) {
                 imagesPreview.style.display = 'none';
@@ -581,9 +649,9 @@
             }
         }
         
-        // Main analyze function - properly accessing your backend data structure
+        // Main analyze function - FIXED to send JSON
         analyzeBtn.addEventListener('click', async () => {
-            if (compressedFiles.length === 0) return;
+            if (base64Images.length === 0) return;
             
             // Reset UI
             error.style.display = 'none';
@@ -597,74 +665,108 @@
             updateWorkflowStep('step3', '', 'Calculating pricing and profit...');
             
             try {
-                // Step 1: Get AI analysis
-                const formData = new FormData();
-                compressedFiles.forEach((file, index) => {
-                    formData.append('image', file, selectedFiles[index].name);
-                });
+                // Create JSON payload instead of FormData
+                const jsonPayload = {
+                    images: base64Images,
+                    uid: 'test_brooklyn_hunter', 
+                    saveToFirestore: true,
+                    location: 'brooklyn_ny', // Add this
+                    imageCount: base64Images.length,
+                    quality: selectedQuality,
+                    timestamp: new Date().toISOString()
+                };
                 
-                const analysisResponse = await fetch('https://app-beprv7ll2q-uc.a.run.app/api/analyze', {
+                console.log(`Sending ${base64Images.length} images as JSON to: ${API_BASE_URL}/api/analyze-json`);
+                console.log('Payload size:', JSON.stringify(jsonPayload).length, 'bytes');
+                console.log('📦 Payload being sent:', {
+    hasImages: jsonPayload.images?.length > 0,
+    uid: jsonPayload.uid,
+    saveToFirestore: jsonPayload.saveToFirestore,
+    imageCount: jsonPayload.imageCount,
+    payloadKeys: Object.keys(jsonPayload)
+});
+                
+                const analysisResponse = await fetch(`${API_BASE_URL}/api/analyze-json`, {
                     method: 'POST',
-                    body: formData
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
+                    body: JSON.stringify(jsonPayload)
                 });
                 
-                const analysisData = await analysisResponse.json();
+                const responseText = await analysisResponse.text();
+                console.log('Response status:', analysisResponse.status);
+                console.log('Response text:', responseText);
                 
                 if (!analysisResponse.ok) {
-                    throw new Error(analysisData.message || 'Analysis failed');
+                    throw new Error(`Analysis failed (${analysisResponse.status}): ${responseText}`);
+                }
+                
+                let analysisData;
+                try {
+                    analysisData = JSON.parse(responseText);
+                } catch (parseError) {
+                    throw new Error(`Failed to parse response: ${responseText}`);
+                }
+                
+                console.log('Analysis data received:', analysisData);
+                
+                // Check if we have a successful response
+                if (!analysisData.success) {
+                    throw new Error(analysisData.error || 'Analysis failed');
                 }
                 
                 updateWorkflowStep('step1', 'completed', 'AI analysis complete!');
                 
-                // Debug: Log what we received
-                console.log('Analysis data received:', analysisData);
-                console.log('Routes data:', analysisData.routes);
-                
-                // Display analysis results in a visual format
+                // Display analysis results
                 displayAnalysisResults(analysisData);
                 
-                // Step 2 & 3: Your backend already did the eBay pricing!
-                // Just extract and display the results
-                updateWorkflowStep('step2', 'current', 'Extracting eBay pricing data...');
-                
-                if (analysisData.routes && analysisData.routes.marketAnalysis && analysisData.routes.marketAnalysis.estimatedValue) {
+                // Check if we have eBay pricing data
+                if (analysisData.routes && analysisData.routes.marketAnalysis) {
                     updateWorkflowStep('step2', 'completed', 'eBay search complete!');
                     updateWorkflowStep('step3', 'completed', 'Pricing analysis complete!');
                     
-                    // Extract the pricing data that your backend already calculated
-                    const pricingData = analysisData.routes.marketAnalysis.estimatedValue;
+                    const marketAnalysis = analysisData.routes.marketAnalysis;
                     
-                    displayPricingResults({
-                        suggested: pricingData.suggested,
-                        confidence: pricingData.confidence || 'high',
-                        priceRange: pricingData.priceRange,
-                        shippingCost: pricingData.shippingCost,
-                        ebayFees: pricingData.ebayFees,
-                        netProfit: pricingData.netProfit,
-                        marketData: pricingData.marketData,
-                        comparableItems: pricingData.comparableItems,
-                        source: pricingData.source || 'ebay_api',
-                        searchQuery: pricingData.marketData?.searchQuery,
-                        lastUpdated: pricingData.lastUpdated
-                    });
+                    if (marketAnalysis.estimatedValue) {
+                        displayPricingResults({
+                            suggested: marketAnalysis.estimatedValue.suggested,
+                            confidence: marketAnalysis.estimatedValue.confidence || 'medium',
+                            priceRange: marketAnalysis.estimatedValue.priceRange,
+                            shippingCost: marketAnalysis.estimatedValue.shippingCost,
+                            ebayFees: marketAnalysis.estimatedValue.ebayFees,
+                            netProfit: marketAnalysis.estimatedValue.netProfit,
+                            marketData: marketAnalysis.estimatedValue.marketData,
+                            comparableItems: marketAnalysis.estimatedValue.comparableItems,
+                            source: marketAnalysis.estimatedValue.source || 'analysis',
+                            searchQuery: marketAnalysis.estimatedValue.searchQuery,
+                            ebayEnabled: analysisData.ebayEnabled
+                        });
+                    }
                 } else {
-                    // Fallback if no pricing data found
-                    updateWorkflowStep('step2', 'error', 'No eBay pricing data found');
-                    updateWorkflowStep('step3', 'completed', 'Manual pricing only');
+                    // Fallback if no pricing data
+                    updateWorkflowStep('step2', 'error', 'eBay search not available');
+                    updateWorkflowStep('step3', 'completed', 'Using manual estimates');
                     
                     displayPricingResults({
                         suggested: 20,
                         confidence: 'low',
                         source: 'manual_fallback',
-                        reason: 'No market analysis data available'
+                        reason: 'eBay API not configured or no market data available',
+                        ebayEnabled: false
                     });
                 }
                 
                 resultsSection.style.display = 'grid';
                 
             } catch (err) {
+                console.error('Analysis error:', err);
                 updateWorkflowStep('step1', 'error', `Error: ${err.message}`);
-                error.textContent = `Error: ${err.message}`;
+                error.innerHTML = `
+                    <strong>Error:</strong> ${err.message}<br>
+                    <small>Check browser console for details. Make sure Firebase Functions are deployed.</small>
+                `;
                 error.style.display = 'block';
             } finally {
                 analyzeBtn.disabled = false;
@@ -672,15 +774,12 @@
         });
         
         function displayAnalysisResults(data) {
-            const analysis = data.analysis || data; // Handle both nested and flat structures
-            
-            // Get confidence level
+            const analysis = data.analysis || data;
             const confidence = analysis.confidence || 'medium';
             const confidenceClass = confidence === 'high' ? 'confidence-high' : 
                                    confidence === 'low' ? 'confidence-low' : 'confidence-medium';
             
-            // Get condition rating (convert to 1-10 scale if needed)
-            let conditionRating = analysis.condition?.rating || analysis.condition?.overall || 7;
+            let conditionRating = analysis.condition?.numeric_rating || analysis.condition?.rating || 7;
             if (typeof conditionRating === 'string') {
                 const ratingMap = { 'excellent': 10, 'good': 8, 'fair': 6, 'poor': 4, 'damaged': 2 };
                 conditionRating = ratingMap[conditionRating.toLowerCase()] || 7;
@@ -722,7 +821,6 @@
                     </div>
             `;
             
-            // Add description if available
             if (analysis.description) {
                 html += `
                     <div class="detail-item" style="grid-column: 1 / -1;">
@@ -732,7 +830,6 @@
                 `;
             }
             
-            // Add condition details if available
             if (analysis.condition?.description) {
                 html += `
                     <div class="detail-item" style="grid-column: 1 / -1;">
@@ -765,25 +862,28 @@
             
             let html = `
                 <h4>💰 Market Analysis</h4>
-                <p><strong>Suggested Price:</strong> $${pricing.suggested || 'N/A'}</p>
+                ${pricing.ebayEnabled ? '<p style="color: green;">✅ eBay API Active</p>' : '<p style="color: orange;">⚠️ Manual Estimates Only</p>'}
+                <p><strong>Suggested Price:</strong> ${pricing.suggested || 'N/A'}</p>
                 <p><strong>Confidence:</strong> ${pricing.confidence}</p>
             `;
             
             if (pricing.priceRange) {
-                html += `<p><strong>Price Range:</strong> $${pricing.priceRange.low} - $${pricing.priceRange.high}</p>`;
-                html += `<p><strong>Market Median:</strong> $${pricing.priceRange.median}</p>`;
+                html += `<p><strong>Price Range:</strong> ${pricing.priceRange.low} - ${pricing.priceRange.high}</p>`;
+                if (pricing.priceRange.median) {
+                    html += `<p><strong>Market Median:</strong> ${pricing.priceRange.median}</p>`;
+                }
             }
             
             if (pricing.shippingCost !== undefined) {
-                html += `<p><strong>Shipping:</strong> $${pricing.shippingCost}</p>`;
+                html += `<p><strong>Estimated Shipping:</strong> ${pricing.shippingCost}</p>`;
             }
             
             if (pricing.ebayFees !== undefined) {
-                html += `<p><strong>eBay Fees:</strong> $${pricing.ebayFees.toFixed(2)}</p>`;
+                html += `<p><strong>eBay Fees (13.25%):</strong> ${pricing.ebayFees.toFixed(2)}</p>`;
             }
             
             if (pricing.netProfit !== undefined) {
-                html += `<p><strong>Net Profit:</strong> <span class="${profitClass}">$${pricing.netProfit.toFixed(2)}</span></p>`;
+                html += `<p><strong>Net Profit:</strong> <span class="${profitClass}">${pricing.netProfit.toFixed(2)}</span></p>`;
             }
             
             html += `<p><strong>Data Source:</strong> ${pricing.source}</p>`;
@@ -792,29 +892,36 @@
                 html += `<p><strong>eBay Search:</strong> "${pricing.searchQuery}"</p>`;
             }
             
-            if (pricing.marketData?.sampleSize) {
-                html += `<p><strong>Sample Size:</strong> ${pricing.marketData.sampleSize} items</p>`;
+            if (pricing.marketData?.totalListings) {
+                html += `<p><strong>Based on:</strong> ${pricing.marketData.totalListings} eBay listings</p>`;
             }
             
             if (pricing.comparableItems && pricing.comparableItems.length > 0) {
-                html += `<h5>🔗 Found on eBay:</h5>`;
-                pricing.comparableItems.slice(0, 3).forEach((item, index) => {
+                html += `<h5>🔗 Similar Items on eBay:</h5>`;
+                pricing.comparableItems.slice(0, 3).forEach((item) => {
                     html += `
-                        <div class="comparable-item">
-                            <strong>$${item.price}</strong> - ${item.title?.substring(0, 70)}...
-                            <br><small>Condition: ${item.condition || 'Not specified'}</small>
-                            <br><small><a href="${item.url}" target="_blank">View on eBay</a></small>
+                        <div style="margin: 10px 0; padding: 10px; background: #f5f5f5; border-radius: 5px;">
+                            <strong>${item.price}</strong> - ${(item.title || '').substring(0, 50)}...
+                            ${item.condition ? `<br><small>Condition: ${item.condition}</small>` : ''}
+                            ${item.url ? `<br><small><a href="${item.url}" target="_blank">View on eBay →</a></small>` : ''}
                         </div>
                     `;
                 });
             }
             
             if (pricing.reason) {
-                html += `<p><em>${pricing.reason}</em></p>`;
+                html += `<p style="font-style: italic; color: #666;">${pricing.reason}</p>`;
             }
             
             pricingResults.innerHTML = html;
         }
+        
+        // Show debug info on page load
+        window.addEventListener('load', () => {
+            console.log('Page loaded');
+            console.log('API URL configured:', API_BASE_URL);
+            console.log('Checking connection to Firebase Functions...');
+        });
     </script>
 </body>
 </html>

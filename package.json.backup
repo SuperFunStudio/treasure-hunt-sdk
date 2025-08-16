@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "Modular SDK for automated product recognition and circular economy",
   "main": "index.js",
+  "type": "module",
   "scripts": {
     "start": "node index.js",
     "dev": "nodemon index.js",

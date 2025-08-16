@@ -1,0 +1,30 @@
+{
+  "scanId": "scan_20250811_213150",
+  "userId": "test_brooklyn_hunter",
+  "scanData": {
+    "category": "bamboo side table",
+    "brand": "Unknown",
+    "model": "Unknown", 
+    "condition": {
+      "rating": "good",
+      "description": "Vintage bamboo side table with drawer, shows minor wear",
+      "usableAsIs": true,
+      "issues": ["minor scratches", "slightly loose drawer"]
+    },
+    "confidence": 8,
+    "estimatedValue": {
+      "suggested": 45,
+      "range": {"low": 35, "high": 60}
+    }
+  },
+  "disposition": {
+    "chosen": "sell",
+    "route": "ebay",
+    "estimatedReturn": 32
+  },
+  "metadata": {
+    "scannedAt": "2025-08-11T21:31:50Z",
+    "appVersion": "1.0.0",
+    "gptModel": "gpt-4-vision"
+  }
+}

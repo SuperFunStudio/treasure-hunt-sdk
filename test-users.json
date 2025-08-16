@@ -1,0 +1,32 @@
+﻿{
+  "testUsers": [
+    {
+      "uid": "test_brooklyn_hunter",
+      "email": "brooklyn.hunter@example.com",
+      "profile": {
+        "displayName": "Brooklyn Treasure Hunter",
+        "bio": "Love finding amazing items on street corners!",
+        "joinedAt": "2024-01-15T10:30:00Z"
+      },
+      "location": {
+        "city": "Brooklyn",
+        "state": "NY",
+        "geopoint": {"latitude": 40.7128, "longitude": -74.0060}
+      },
+      "ebay": {
+        "isConnected": true,
+        "sellerAccount": "brooklyn_treasure_hunter"
+      },
+      "stats": {
+        "totalScans": 45,
+        "totalEarnings": 1247.50,
+        "pinsCreated": 8,
+        "pinsClaimed": 12
+      },
+      "verification": {
+        "emailVerified": true,
+        "communityRating": 4.5
+      }
+    }
+  ]
+}
