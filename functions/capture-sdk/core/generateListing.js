@@ -132,18 +132,20 @@ function generateListing(itemData, route, options = {}) {
   
     return categoryMappings[platform]?.[category.toLowerCase()] || '0';
   }
-  
   function mapCondition(rating, platform) {
-    const conditionMappings = {
-      ebay: {
-        'good': '3000',  // Used
-        'fair': '3000',  // Used
-        'poor': '7000'   // For Parts or Not Working
-      }
-    };
-  
-    return conditionMappings[platform]?.[rating] || '3000';
-  }
+  if (platform !== 'ebay') return rating;
+
+  // Convert your internal rating → eBay Inventory ConditionEnum
+  const map = {
+    excellent: 'LIKE_NEW',                // or 'NEW_OTHER' if your UX intends that
+    good:      'USED',
+    fair:      'USED',
+    poor:      'FOR_PARTS_OR_NOT_WORKING'
+  };
+
+  const key = String(rating).toLowerCase();
+  return map[key] || 'USED';
+}
   
   function extractItemSpecifics(itemData) {
     const specifics = {};

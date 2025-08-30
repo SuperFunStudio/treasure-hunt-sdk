@@ -35,7 +35,8 @@
           'https://api.ebay.com/oauth/api_scope/sell.inventory.readonly',
           'https://api.ebay.com/oauth/api_scope/sell.inventory',
           'https://api.ebay.com/oauth/api_scope/sell.account.readonly',
-          'https://api.ebay.com/oauth/api_scope/sell.account'
+          'https://api.ebay.com/oauth/api_scope/sell.account',
+          'https://api.ebay.com/oauth/api_scope/commerce.identity.readonly'
         ].join(' ');
         
         const params = new URLSearchParams({
@@ -257,46 +258,44 @@
     
       // Better error handling and token refresh
       async apiCall(method, endpoint, body = null) {
-        let retries = 0;
-        const maxRetries = 2;
-        
-        while (retries <= maxRetries) {
-          try {
-            // For Auth'n'Auth tokens, we don't refresh - we just use what we have
-            if (!this.accessToken) {
-              throw new Error('No access token available. Please set accessToken in config or get one from eBay Developer Console.');
-            }
-      
-            const response = await fetch(`${this.getApiUrl()}${endpoint}`, {
-              method,
-              headers: {
-                'Authorization': `Bearer ${this.accessToken}`,
-                'Content-Type': 'application/json',
-                'Accept': 'application/json',
-                'Accept-Language': 'en-US',
-                'X-EBAY-C-MARKETPLACE-ID': 'EBAY_US'
-              },
-              body: body ? JSON.stringify(body) : null
-            });
-      
-            if (response.status === 401) {
-              throw new Error('Access token invalid or expired. Get a new token from eBay Developer Console "Sign in to Production".');
-            }
-      
-            if (!response.ok) {
-              const error = await response.json();
-              throw new Error(`eBay API Error (${response.status}): ${error.message || JSON.stringify(error)}`);
-            }
-      
-            return response.status === 204 ? {} : await response.json();
-          } catch (error) {
-            if (retries === maxRetries || error.message.includes('Access token invalid')) {
-              throw error;
-            }
-            retries++;
-          }
-        }
+  let retries = 0;
+  const maxRetries = 2;
+  
+  while (retries <= maxRetries) {
+    try {
+      if (!this.accessToken) {
+        throw new Error('No access token available. Please set accessToken in config or get one from eBay Developer Console.');
       }
+
+     const response = await fetch(`${this.getApiUrl()}${endpoint}`, {
+        method,
+        headers: {
+          'Authorization': `Bearer ${this.accessToken}`,
+          'Content-Type': 'application/json',
+          'X-EBAY-C-MARKETPLACE-ID': 'EBAY_US'
+        },
+        body: body ? JSON.stringify(body) : null
+      });
+
+      if (response.status === 401) {
+        throw new Error('Access token invalid or expired. Get a new token from eBay Developer Console.');
+      }
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(`eBay API Error (${response.status}): ${error.message || JSON.stringify(error)}`);
+      }
+
+      return response.status === 204 ? {} : await response.json();
+    } catch (error) {
+      if (retries === maxRetries || error.message.includes('Access token invalid')) {
+        throw error;
+      }
+      retries++;
+    }
+  }
+}
+
     
       // Implement proper policy management
       async getOrCreateFulfillmentPolicy() {
@@ -457,7 +456,7 @@
             grant_type: 'refresh_token',
             refresh_token: this.refreshToken,
             // Use same scopes as getAuthUrl for consistency
-            scope: 'https://api.ebay.com/oauth/api_scope/sell.inventory.readonly https://api.ebay.com/oauth/api_scope/sell.inventory https://api.ebay.com/oauth/api_scope/sell.account.readonly https://api.ebay.com/oauth/api_scope/sell.account'
+scope: 'https://api.ebay.com/oauth/api_scope/sell.inventory.readonly https://api.ebay.com/oauth/api_scope/sell.inventory https://api.ebay.com/oauth/api_scope/sell.account.readonly https://api.ebay.com/oauth/api_scope/sell.account https://api.ebay.com/oauth/api_scope/commerce.identity.readonly'
           })
         });
     

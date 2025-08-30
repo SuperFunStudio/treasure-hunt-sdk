@@ -275,9 +275,7 @@ class EnhancedEbayIntegration {
           headers: {
             'Authorization': `Bearer ${this.accessToken}`,
             'Content-Type': 'application/json',
-            'Accept': 'application/json',
-            'Accept-Language': 'en-US',
-            'X-EBAY-C-MARKETPLACE-ID': 'EBAY_US'
+             'X-EBAY-C-MARKETPLACE-ID': 'EBAY_US'
           },
           body: body ? JSON.stringify(body) : null
         });

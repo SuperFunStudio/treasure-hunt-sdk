@@ -716,17 +716,17 @@
     <script>
         // Configuration
         const API_BASE_URL = 'https://app-beprv7ll2q-uc.a.run.app';
-        
+
         // Firebase configuration
-       const firebaseConfig = {
-  apiKey: "AIzaSyDymYwo7NUAu7lhoPfS9KLQmckvVgky7PU",
-  authDomain: "treasurehunter-sdk.firebaseapp.com",
-  projectId: "treasurehunter-sdk",
-  storageBucket: "treasurehunter-sdk.firebasestorage.app",
-  messagingSenderId: "328804663359",
-  appId: "1:328804663359:web:eb124f150c4853c123788a",
-  measurementId: "G-YNJ58GLX3T"
-};
+        const firebaseConfig = {
+            apiKey: "AIzaSyDymYwo7NUAu7lhoPfS9KLQmckvVgky7PU",
+            authDomain: "treasurehunter-sdk.firebaseapp.com",
+            projectId: "treasurehunter-sdk",
+            storageBucket: "treasurehunter-sdk.firebasestorage.app",
+            messagingSenderId: "328804663359",
+            appId: "1:328804663359:web:eb124f150c4853c123788a",
+            measurementId: "G-YNJ58GLX3T"
+        };
 
         // Initialize Firebase
         firebase.initializeApp(firebaseConfig);
@@ -758,21 +758,265 @@
         const successMessage = document.getElementById('successMessage');
         const loadingState = document.getElementById('loadingState');
 
-        // Check authentication and load data
-        auauth.onAuthStateChanged(async (user) => {
-    if (user) {
-        currentUser = user;
+        // ===== SECURE FIREBASE SDK CLASS =====
+        class SecureFirebaseSDK {
+            constructor() {
+                this.apiBaseUrl = API_BASE_URL;
+                this.initialized = false;
+            }
+
+            async init() {
+                if (this.initialized) return;
+                
+                // Wait for Firebase Auth to be ready
+                return new Promise((resolve) => {
+                    const unsubscribe = auth.onAuthStateChanged((user) => {
+                        if (user) {
+                            this.currentUser = user;
+                            this.initialized = true;
+                            unsubscribe();
+                            resolve();
+                        }
+                    });
+                });
+            }
+
+            async getAuthToken() {
+                if (!this.currentUser) {
+                    throw new Error('User not authenticated');
+                }
+                return await this.currentUser.getIdToken();
+            }
+
+            async getEbayAccountInfo() {
+                try {
+                    const token = await this.getAuthToken();
+                    
+                    const response = await fetch(`${this.apiBaseUrl}/api/ebay/account-info`, {
+                        method: 'GET',
+                        headers: {
+                            'Authorization': `Bearer ${token}`,
+                            'Content-Type': 'application/json'
+                        }
+                    });
+
+                    const result = await response.json();
+                    
+                    if (!response.ok) {
+                        throw new Error(result.error || 'Failed to get eBay account info');
+                    }
+
+                    return result;
+
+                } catch (error) {
+                    console.error('❌ Error getting eBay account info:', error);
+                    throw error;
+                }
+            }
+
+            async createEbayListing(listingData) {
+    try {
+        console.log('🛒 Creating eBay listing with category validation...');
         
-        // Use email as document ID (same as scan-editor)
-        const cleanEmail = user.email.replace(/[.#$[\]]/g, '_');
-        currentUser.docId = cleanEmail;
-                await loadUserData();
-                await loadScanData();
-                checkEbayConnection();
-            } else {
-                window.location.href = '/signin.html';
+        // Pre-validate the category
+        if (listingData.category) {
+            const categoryId = await this.testCategoryMapping(listingData.category);
+            if (!categoryId) {
+                throw new Error(`Invalid category: ${listingData.category}. Please refresh and try again.`);
+            }
+            console.log(`Category "${listingData.category}" validated -> eBay ID: ${categoryId}`);
+        }
+        
+        const token = await this.getAuthToken();
+        
+        const response = await fetch(`${this.apiBaseUrl}/api/ebay/create-listing`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(listingData)
+        });
+
+        const result = await response.json();
+        
+        if (!response.ok) {
+            // Handle specific category errors
+            if (result.error && result.error.includes('category')) {
+                console.log('Category error detected, reinitializing categories...');
+                await this.initializeEbayCategories();
+                throw new Error(`Category mapping error: ${result.error}. Please try again.`);
+            }
+            
+            throw new Error(result.error || 'Failed to create eBay listing');
+        }
+
+        console.log('✅ eBay listing created successfully:', result);
+        return result;
+
+    } catch (error) {
+        console.error('❌ Error creating eBay listing:', error);
+        throw error;
+    }
+}
+
+            async refreshEbayToken(refreshToken) {
+                try {
+                    console.log('🔄 Refreshing eBay token via secure backend...');
+                    
+                    const token = await this.getAuthToken();
+                    
+                    const response = await fetch(`${this.apiBaseUrl}/refreshEbayToken`, {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${token}`,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ refreshToken })
+                    });
+
+                    const result = await response.json();
+                    
+                    if (!response.ok) {
+                        throw new Error(result.error || 'Failed to refresh eBay token');
+                    }
+
+                    console.log('✅ eBay token refreshed successfully');
+                    return result;
+
+                } catch (error) {
+                    console.error('❌ Error refreshing eBay token:', error);
+                    throw error;
+                }
+            }
+
+            async callEbayAPI(method, endpoint, body = null, accessToken = null) {
+                try {
+                    console.log(`🔗 Calling eBay API via proxy: ${method} ${endpoint}`);
+                    
+                    const token = await this.getAuthToken();
+                    
+                    const response = await fetch(`${this.apiBaseUrl}/ebayApiProxy`, {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${token}`,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            method,
+                            endpoint,
+                            body,
+                            accessToken
+                        })
+                    });
+
+                    const result = await response.json();
+                    
+                    if (!response.ok) {
+                        throw new Error(result.error || 'eBay API call failed');
+                    }
+
+                    return result.data;
+
+                } catch (error) {
+                    console.error('❌ Error calling eBay API:', error);
+                    throw error;
+                }
+
+                
+            }
+    async initializeEbayCategories() {
+    console.log('Initializing eBay categories...');
+    
+    try {
+        const response = await fetch(`${this.apiBaseUrl}/api/ebay/init-categories`, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json'
             }
         });
+        
+        if (!response.ok) {
+            throw new Error(`Category initialization failed: ${response.status}`);
+        }
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            console.log('eBay categories initialized successfully');
+            localStorage.setItem('ebayCategories', JSON.stringify(result.mapping));
+            localStorage.setItem('ebayCategoriesTimestamp', Date.now().toString());
+            return result.mapping;
+        } else {
+            console.warn('Category initialization returned failure:', result.error);
+            return result.fallbackMapping || null;
+        }
+        
+    } catch (error) {
+        console.error('Failed to initialize eBay categories:', error);
+        return null;
+    }
+}
+async testCategoryMapping(category) {
+    try {
+        const response = await fetch(`${this.apiBaseUrl}/api/ebay/test-category`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ category })
+        });
+        
+        if (!response.ok) {
+            throw new Error(`Category test failed: ${response.status}`);
+        }
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            return result.mapped;
+        } else {
+            console.error('Category test failed:', result.error);
+            return null;
+        }
+        
+    } catch (error) {
+        console.error('Category test error:', error);
+        return null;
+    }
+}
+    }
+
+    
+
+        // Initialize the secure SDK
+        const secureSDK = new SecureFirebaseSDK();
+
+        // Check authentication and load data
+        auth.onAuthStateChanged(async (user) => {
+    if (user) {
+        currentUser = user;
+        await secureSDK.init();
+        await loadUserData();
+        await loadScanData();
+        await checkEbayConnection();
+        
+        // ADD THIS: Initialize categories
+        const cachedCategories = localStorage.getItem('ebayCategories');
+        const cacheTimestamp = localStorage.getItem('ebayCategoriesTimestamp');
+        const oneHourAgo = Date.now() - (60 * 60 * 1000);
+        
+        if (!cachedCategories || !cacheTimestamp || parseInt(cacheTimestamp) < oneHourAgo) {
+            console.log('Categories cache is stale or missing, initializing...');
+            await secureSDK.initializeEbayCategories();
+        } else {
+            console.log('Using cached eBay categories');
+        }
+    } else {
+        window.location.href = '/signin.html';
+    }
+});
+
 
         // Load user data
         async function loadUserData() {
@@ -830,15 +1074,22 @@
             }
         }
 
-        // Check eBay connection status
-        function checkEbayConnection() {
-            if (userData?.ebay?.isConnected) {
-                ebayStatus.className = 'ebay-status connected';
-                ebayStatus.innerHTML = `
-                    ✅ <strong>eBay Connected:</strong> Ready to create listings as ${userData.ebay.sellerAccount}
-                `;
-                createListingBtn.disabled = false;
-            } else {
+        // Check eBay connection status using secure backend
+        async function checkEbayConnection() {
+            try {
+                const accountInfo = await secureSDK.getEbayAccountInfo();
+                
+                if (accountInfo.success && accountInfo.connected) {
+                    ebayStatus.className = 'ebay-status connected';
+                    ebayStatus.innerHTML = `
+                        ✅ <strong>eBay Connected:</strong> Ready to create listings as ${accountInfo.accountInfo.sellerAccount}
+                    `;
+                    createListingBtn.disabled = false;
+                } else {
+                    throw new Error('eBay account not connected');
+                }
+            } catch (error) {
+                console.log('eBay not connected:', error.message);
                 ebayStatus.className = 'ebay-status disconnected';
                 ebayStatus.innerHTML = `
                     ⚠️ <strong>eBay Not Connected:</strong> You need to connect your eBay account first.
@@ -848,6 +1099,8 @@
             }
         }
 
+
+        
         // Generate listing data from scan
         async function generateListingData() {
             const analysis = scanData.analysis || {};
@@ -981,20 +1234,14 @@
             return selected ? selected.dataset.service : 'calculated';
         }
 
-        // Create eBay listing
+        // Create eBay listing using secure backend
         createListingBtn.addEventListener('click', async () => {
-            if (!userData?.ebay?.isConnected) {
-                showError('Please connect your eBay account first');
-                return;
-            }
-            
             try {
                 showLoading(true, 'Creating eBay listing...');
                 
-                // Prepare listing data
+                // Prepare listing data for secure backend
                 const ebayListingData = {
                     scanId: currentScanId,
-                    userId: currentUser.uid,
                     title: listingData.title,
                     description: listingData.description,
                     category: listingData.category,
@@ -1013,76 +1260,59 @@
                     returnPolicy: document.getElementById('returnPolicy').value
                 };
                 
-                console.log('Creating eBay listing with data:', ebayListingData);
+                console.log('Creating eBay listing with secure backend:', ebayListingData);
                 
-                // Call your backend to create the listing
-                const response = await fetch(`${API_BASE_URL}/api/ebay/create-listing`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${await currentUser.getIdToken()}`
-                    },
-                    body: JSON.stringify(ebayListingData)
-                });
+                // Call secure backend to create listing
+                const result = await secureSDK.createEbayListing(ebayListingData);
                 
-                const responseText = await response.text();
-                console.log('eBay listing response:', responseText);
-                
-                if (!response.ok) {
-                    throw new Error(`Failed to create listing: ${response.status} - ${responseText}`);
+                if (result.success) {
+                    // Update scan status locally (backend also updates it)
+                    try {
+                        await db.collection('users')
+                            .doc(currentUser.uid)
+                            .collection('scans')
+                            .doc(currentScanId)
+                            .update({
+                                status: 'listed',
+                                ebayListingId: result.listingId,
+                                ebayUrl: result.url,
+                                listedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                            });
+                    } catch (updateError) {
+                        console.warn('Local scan update failed:', updateError);
+                        // Don't fail the whole process if local update fails
+                    }
+                    
+                    showSuccess(`🎉 Listing created successfully! <a href="${result.url}" target="_blank" style="color: #2e7d32; text-decoration: underline;">View on eBay</a>`);
+                    
+                    // Redirect to dashboard after delay
+                    setTimeout(() => {
+                        window.location.href = '/dashboard.html';
+                    }, 3000);
+                    
+                } else {
+                    throw new Error(result.error || 'Listing creation failed');
                 }
-                
-                const result = JSON.parse(responseText);
-                
-                if (!result.success) {
-                    throw new Error(result.error || 'Failed to create listing');
-                }
-                
-                // Update scan status
-                await db.collection('users')
-                    .doc(currentUser.uid)
-                    .collection('scans')
-                    .doc(currentScanId)
-                    .update({
-                        status: 'listed',
-                        ebayListingId: result.listingId,
-                        ebayUrl: result.url,
-                        listedAt: firebase.firestore.FieldValue.serverTimestamp(),
-                        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-                    });
-                
-                // Update user stats
-                await updateUserStats();
-                
-                showSuccess(`🎉 Listing created successfully! <a href="${result.url}" target="_blank" style="color: #2e7d32; text-decoration: underline;">View on eBay</a>`);
-                
-                // Redirect to dashboard after delay
-                setTimeout(() => {
-                    window.location.href = '/dashboard.html';
-                }, 3000);
                 
             } catch (error) {
                 console.error('Error creating eBay listing:', error);
-                showError('Failed to create listing: ' + error.message);
+                
+                // Handle specific error types
+                if (error.message.includes('authentication') || error.message.includes('token')) {
+                    showError('eBay authentication error. Please reconnect your eBay account.');
+                } else if (error.message.includes('policy')) {
+                    showError('eBay seller policies not set up. Please configure your policies on eBay.com');
+                } else if (error.message.includes('requiresReauth')) {
+                    showError('eBay authentication expired. <a href="/ebay-connect.html" style="color: #c62828;">Reconnect your account</a>');
+                } else {
+                    showError('Failed to create listing: ' + error.message);
+                }
+                
             } finally {
                 showLoading(false);
             }
         });
-
-        // Update user stats
-        async function updateUserStats() {
-            try {
-                const listingPrice = parseFloat(startingPrice.value) || 0;
-                
-                await db.collection('users').doc(currentUser.uid).update({
-                    'stats.totalEarnings': firebase.firestore.FieldValue.increment(listingPrice),
-                    'metadata.lastActiveAt': firebase.firestore.FieldValue.serverTimestamp(),
-                    'metadata.updatedAt': firebase.firestore.FieldValue.serverTimestamp()
-                });
-            } catch (error) {
-                console.error('Error updating user stats:', error);
-            }
-        }
 
         // Save draft
         async function saveDraft() {
@@ -1224,7 +1454,7 @@
 
         // Initialize page
         document.addEventListener('DOMContentLoaded', () => {
-            console.log('Listing preview page loaded');
+            console.log('Secure listing preview page loaded');
         });
     </script>
 </body>

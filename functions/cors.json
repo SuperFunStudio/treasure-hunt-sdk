@@ -1,0 +1,8 @@
+[
+  {
+    "origin": ["https://treasurehunter-sdk.web.app"],
+    "method": ["GET", "PUT", "POST"],
+    "maxAgeSeconds": 3600,
+    "responseHeader": ["Content-Type"]
+  }
+]

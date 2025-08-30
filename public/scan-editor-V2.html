@@ -1,0 +1,1834 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Treasure Hunt - Smart Scanner</title>
+    <script src="https://cdn.jsdelivr.net/npm/browser-image-compression@2.0.2/dist/browser-image-compression.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            transition: all 0.3s ease;
+        }
+
+        body.editing {
+            background: #f5f7fa;
+            color: #333;
+        }
+
+        .scanner-container {
+            width: 100%;
+            max-width: 400px;
+            text-align: center;
+            position: relative;
+            transition: all 0.3s ease;
+        }
+
+        /* Header */
+        .header {
+            margin-bottom: 60px;
+        }
+
+        .logo {
+            font-size: 32px;
+            margin-bottom: 8px;
+        }
+
+        .tagline {
+            font-size: 18px;
+            opacity: 0.9;
+            font-weight: 500;
+        }
+
+        /* Main Scan Button */
+        .scan-button-container {
+            position: relative;
+            margin: 60px 0;
+        }
+
+        .scan-button {
+            width: 200px;
+            height: 200px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #ff6b6b 0%, #feca57 100%);
+            border: none;
+            cursor: pointer;
+            position: relative;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            font-weight: 600;
+            color: white;
+            margin: 0 auto;
+        }
+
+        .scan-button:hover {
+            transform: scale(1.05);
+            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.3);
+        }
+
+        .scan-button:active {
+            transform: scale(0.95);
+        }
+
+        .scan-button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .scan-icon {
+            font-size: 48px;
+            margin-bottom: 8px;
+        }
+
+        /* Scanning State */
+        .scan-button.scanning {
+            animation: scanPulse 2s infinite;
+            background: linear-gradient(135deg, #00ff88 0%, #00d4ff 100%);
+        }
+
+        @keyframes scanPulse {
+            0% { 
+                transform: scale(1);
+                box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2), 0 0 0 0 rgba(0, 255, 136, 0.7);
+            }
+            50% { 
+                transform: scale(1.1);
+                box-shadow: 0 25px 50px rgba(0, 0, 0, 0.3), 0 0 0 20px rgba(0, 255, 136, 0.2);
+            }
+            100% { 
+                transform: scale(1);
+                box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2), 0 0 0 30px rgba(0, 255, 136, 0);
+            }
+        }
+
+        /* Scanning Reticle Overlay */
+        .scan-reticle {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 120px;
+            height: 120px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 20px;
+            opacity: 0;
+            transition: all 0.3s ease;
+        }
+
+        .scan-reticle.visible {
+            opacity: 1;
+            animation: reticlePulse 2s infinite;
+        }
+
+        @keyframes reticlePulse {
+            0% { transform: translate(-50%, -50%) scale(1); border-color: rgba(255, 255, 255, 0.3); }
+            50% { transform: translate(-50%, -50%) scale(1.1); border-color: rgba(0, 255, 136, 0.8); }
+            100% { transform: translate(-50%, -50%) scale(1); border-color: rgba(255, 255, 255, 0.3); }
+        }
+
+        /* Corner brackets for reticle */
+        .corner {
+            position: absolute;
+            width: 20px;
+            height: 20px;
+        }
+
+        .corner::before {
+            content: '';
+            position: absolute;
+            border: 3px solid #00ff88;
+        }
+
+        .corner.top-left {
+            top: -3px;
+            left: -3px;
+        }
+
+        .corner.top-left::before {
+            top: 0;
+            left: 0;
+            border-right: none;
+            border-bottom: none;
+            width: 100%;
+            height: 100%;
+        }
+
+        .corner.top-right {
+            top: -3px;
+            right: -3px;
+        }
+
+        .corner.top-right::before {
+            top: 0;
+            right: 0;
+            border-left: none;
+            border-bottom: none;
+            width: 100%;
+            height: 100%;
+        }
+
+        .corner.bottom-left {
+            bottom: -3px;
+            left: -3px;
+        }
+
+        .corner.bottom-left::before {
+            bottom: 0;
+            left: 0;
+            border-right: none;
+            border-top: none;
+            width: 100%;
+            height: 100%;
+        }
+
+        .corner.bottom-right {
+            bottom: -3px;
+            right: -3px;
+        }
+
+        .corner.bottom-right::before {
+            bottom: 0;
+            right: 0;
+            border-left: none;
+            border-top: none;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* Status Message */
+        .status-message {
+            margin-top: 30px;
+            font-size: 16px;
+            opacity: 0.8;
+            transition: all 0.3s ease;
+            min-height: 20px;
+        }
+
+        .status-message.analyzing {
+            opacity: 1;
+            color: #00ff88;
+            font-weight: 600;
+        }
+
+        /* Upload Options */
+        .upload-options {
+            margin-top: 40px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .upload-option {
+            padding: 15px 25px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 2px dashed rgba(255, 255, 255, 0.3);
+            border-radius: 15px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            backdrop-filter: blur(10px);
+        }
+
+        .upload-option:hover {
+            background: rgba(255, 255, 255, 0.15);
+            border-color: rgba(255, 255, 255, 0.5);
+        }
+
+        .upload-text {
+            font-size: 14px;
+            opacity: 0.8;
+            margin-bottom: 5px;
+        }
+
+        .upload-icon {
+            font-size: 24px;
+        }
+
+        /* Quality Selector (hidden initially) */
+        .quality-selector {
+            display: none;
+            margin-top: 20px;
+            padding: 20px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+        }
+
+        .quality-selector.visible {
+            display: block;
+        }
+
+        .quality-label {
+            font-size: 14px;
+            margin-bottom: 15px;
+            opacity: 0.9;
+        }
+
+        .quality-options {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+        }
+
+        .quality-option {
+            padding: 12px 8px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 10px;
+            cursor: pointer;
+            text-align: center;
+            transition: all 0.3s;
+            background: rgba(255, 255, 255, 0.05);
+            font-size: 12px;
+        }
+
+        .quality-option:hover {
+            border-color: rgba(255, 255, 255, 0.6);
+        }
+
+        .quality-option.selected {
+            border-color: #00ff88;
+            background: rgba(0, 255, 136, 0.2);
+        }
+
+        .quality-option strong {
+            display: block;
+            margin-bottom: 5px;
+            font-size: 13px;
+        }
+
+        .quality-option .size {
+            font-size: 10px;
+            opacity: 0.8;
+        }
+
+        /* Image Preview */
+        .images-preview {
+            display: none;
+            grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+            max-width: 350px;
+        }
+
+        .images-preview.visible {
+            display: grid;
+        }
+
+        .image-preview-item {
+            position: relative;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            transition: transform 0.2s;
+        }
+
+        .image-preview-item:hover {
+            transform: translateY(-2px);
+        }
+
+        .image-preview-item img {
+            width: 100%;
+            height: 100px;
+            object-fit: cover;
+        }
+
+        .image-preview-item .remove-btn {
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            background: rgba(255, 255, 255, 0.9);
+            border: none;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            cursor: pointer;
+            font-size: 14px;
+            line-height: 1;
+            color: #666;
+            transition: all 0.2s;
+        }
+
+        .image-preview-item .remove-btn:hover {
+            background: #ff5252;
+            color: white;
+        }
+
+        .image-preview-item .info {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: linear-gradient(transparent, rgba(0, 0, 0, 0.8));
+            color: white;
+            padding: 10px 5px 5px;
+            font-size: 10px;
+            text-align: center;
+        }
+
+        #fileInput {
+            display: none;
+        }
+
+        /* Recognition Card */
+        .recognition-card {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            border-radius: 25px 25px 0 0;
+            padding: 30px 20px 40px;
+            transform: translateY(100%);
+            transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.3);
+            z-index: 1000;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+
+        .recognition-card.visible {
+            transform: translateY(0);
+        }
+
+        .card-header {
+            text-align: center;
+            margin-bottom: 25px;
+        }
+
+        .confidence-indicator {
+            display: inline-flex;
+            align-items: center;
+            background: rgba(0, 255, 136, 0.2);
+            color: #00ff88;
+            padding: 6px 12px;
+            border-radius: 15px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-bottom: 15px;
+        }
+
+        .confidence-indicator.medium {
+            background: rgba(255, 193, 7, 0.2);
+            color: #ffc107;
+        }
+
+        .confidence-indicator.low {
+            background: rgba(255, 87, 51, 0.2);
+            color: #ff5733;
+        }
+
+        .item-title {
+            font-size: 24px;
+            font-weight: 700;
+            margin-bottom: 8px;
+            line-height: 1.2;
+        }
+
+        .item-details {
+            font-size: 16px;
+            color: rgba(255, 255, 255, 0.7);
+            margin-bottom: 5px;
+        }
+
+        .estimated-value {
+            font-size: 18px;
+            font-weight: 600;
+            color: #00ff88;
+            margin-bottom: 20px;
+        }
+
+        /* Market Analysis */
+        .market-analysis {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            padding: 15px;
+            margin: 15px 0;
+            font-size: 14px;
+        }
+
+        .market-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            padding-bottom: 5px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .market-row:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+        }
+
+        /* Action Buttons */
+        .action-buttons {
+            display: flex;
+            gap: 15px;
+            margin-top: 25px;
+        }
+
+        .action-btn {
+            flex: 1;
+            padding: 16px 20px;
+            border: none;
+            border-radius: 15px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .btn-edit {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-map {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+        }
+
+        .btn-resell {
+            background: linear-gradient(135deg, #00c9ff 0%, #92fe9d 100%);
+            color: white;
+        }
+
+        .action-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+        }
+
+        .action-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        /* Edit Form */
+        .edit-form {
+            display: none;
+            background: white;
+            color: #333;
+            padding: 30px;
+            border-radius: 15px;
+            margin: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        }
+
+        .edit-form.visible {
+            display: block;
+        }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .form-group textarea {
+            min-height: 100px;
+            resize: vertical;
+        }
+
+        .form-actions {
+            display: flex;
+            gap: 15px;
+            justify-content: flex-end;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-secondary {
+            background: #f5f5f5;
+            color: #333;
+            border: 2px solid #e0e0e0;
+        }
+
+        .btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        }
+
+        /* Loading spinner */
+        .loading-spinner {
+            width: 24px;
+            height: 24px;
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-top: 3px solid white;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Error/Success Messages */
+        .message {
+            margin: 20px;
+            padding: 15px;
+            border-radius: 10px;
+            font-weight: 500;
+            display: none;
+        }
+
+        .message.visible {
+            display: block;
+        }
+
+        .message.error {
+            background: #ffebee;
+            color: #c62828;
+            border-left: 4px solid #f44336;
+        }
+
+        .message.success {
+            background: #e8f5e9;
+            color: #2e7d32;
+            border-left: 4px solid #4caf50;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        /* Responsive */
+        @media (max-width: 480px) {
+            .scan-button {
+                width: 180px;
+                height: 180px;
+            }
+            
+            .scan-icon {
+                font-size: 40px;
+            }
+            
+            .header {
+                margin-bottom: 40px;
+            }
+            
+            .logo {
+                font-size: 28px;
+            }
+            
+            .tagline {
+                font-size: 16px;
+            }
+
+            .quality-options {
+                grid-template-columns: 1fr;
+            }
+
+            .form-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .form-actions {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Messages -->
+    <div class="message error" id="errorMessage"></div>
+    <div class="message success" id="successMessage"></div>
+
+    <div class="scanner-container" id="scannerContainer">
+        <!-- Header -->
+        <div class="header">
+            <div class="logo">🏴‍☠️ Treasure Hunt</div>
+            <div class="tagline">Smart Item Recognition</div>
+        </div>
+
+        <!-- Main Scan Button -->
+        <div class="scan-button-container">
+            <button class="scan-button" id="scanButton">
+                <div class="scan-icon" id="scanIcon">📸</div>
+                <div id="buttonText">Tap to Scan</div>
+                <div class="loading-spinner hidden" id="loadingSpinner"></div>
+            </button>
+
+            <!-- Scanning Reticle Overlay -->
+            <div class="scan-reticle" id="scanReticle">
+                <div class="corner top-left"></div>
+                <div class="corner top-right"></div>
+                <div class="corner bottom-left"></div>
+                <div class="corner bottom-right"></div>
+            </div>
+        </div>
+
+        <!-- Status Message -->
+        <div class="status-message" id="statusMessage">
+            Point your camera at any item to identify it
+        </div>
+
+        <!-- Upload Options -->
+        <div class="upload-options">
+            <div class="upload-option" id="uploadOption">
+                <div class="upload-text">Or upload photos (up to 3)</div>
+                <div class="upload-icon">📁</div>
+            </div>
+        </div>
+
+        <!-- Quality Selector -->
+        <div class="quality-selector" id="qualitySelector">
+            <div class="quality-label">Photo Quality:</div>
+            <div class="quality-options">
+                <div class="quality-option" data-quality="fast">
+                    <strong>Fast</strong>
+                    <div class="size">~200KB</div>
+                </div>
+                <div class="quality-option selected" data-quality="balanced">
+                    <strong>Balanced</strong>
+                    <div class="size">~400KB</div>
+                </div>
+                <div class="quality-option" data-quality="high">
+                    <strong>High Detail</strong>
+                    <div class="size">~800KB</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Image Preview -->
+        <div class="images-preview" id="imagesPreview"></div>
+
+        <input type="file" id="fileInput" accept="image/*" multiple capture="environment">
+    </div>
+
+    <!-- Recognition Card -->
+    <div class="recognition-card" id="recognitionCard">
+        <div class="card-header">
+            <div class="confidence-indicator" id="confidenceIndicator">
+                ✨ 92% Match
+            </div>
+            <div class="item-title" id="itemTitle">
+                Vintage Bamboo Side Table
+            </div>
+            <div class="item-details" id="itemDetails">
+                Wood furniture • Good condition
+            </div>
+            <div class="estimated-value" id="estimatedValue">
+                Est. value: $45-75
+            </div>
+
+            <!-- Market Analysis -->
+            <div class="market-analysis" id="marketAnalysis" style="display: none;">
+                <div class="market-row">
+                    <span>Suggested Price:</span>
+                    <span id="suggestedPrice">$0</span>
+                </div>
+                <div class="market-row">
+                    <span>eBay Fees:</span>
+                    <span id="ebayFees">$0</span>
+                </div>
+                <div class="market-row">
+                    <span>Net Profit:</span>
+                    <span id="netProfit">$0</span>
+                </div>
+                <div class="market-row">
+                    <span>Data Source:</span>
+                    <span id="dataSource">Manual estimate</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="action-buttons">
+            <button class="action-btn btn-edit" id="editBtn">
+                ✏️ Edit Details
+            </button>
+            <button class="action-btn btn-map" id="mapBtn">
+                📍 Add to Map
+            </button>
+            <button class="action-btn btn-resell" id="resellBtn">
+                💰 List on eBay
+            </button>
+        </div>
+    </div>
+
+    <!-- Edit Form -->
+    <div class="edit-form" id="editForm">
+        <h3 style="margin-bottom: 20px;">Edit Item Details</h3>
+        
+        <div class="form-grid">
+            <div>
+                <div class="form-group">
+                    <label for="category">Category *</label>
+                    <select id="category" required>
+                        <option value="">Select category...</option>
+                        <option value="electronics">Electronics</option>
+                        <option value="furniture">Furniture</option>
+                        <option value="clothing">Clothing</option>
+                        <option value="footwear">Footwear</option>
+                        <option value="tools">Tools</option>
+                        <option value="books">Books</option>
+                        <option value="toys">Toys</option>
+                        <option value="automotive">Automotive</option>
+                        <option value="sporting goods">Sporting Goods</option>
+                        <option value="home & garden">Home & Garden</option>
+                        <option value="jewelry">Jewelry</option>
+                        <option value="collectibles">Collectibles</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="brand">Brand</label>
+                    <input type="text" id="brand" placeholder="e.g., Nike, Apple, IKEA">
+                </div>
+                
+                <div class="form-group">
+                    <label for="model">Model/Product Name</label>
+                    <input type="text" id="model" placeholder="Specific product name or model">
+                </div>
+            </div>
+            
+            <div>
+                <div class="form-group">
+                    <label for="condition">Condition *</label>
+                    <select id="condition" required>
+                        <option value="">Select condition...</option>
+                        <option value="new">New</option>
+                        <option value="like_new">Like New</option>
+                        <option value="excellent">Excellent</option>
+                        <option value="very_good">Very Good</option>
+                        <option value="good">Good</option>
+                        <option value="acceptable">Acceptable</option>
+                        <option value="for_parts">For Parts/Not Working</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="price">Starting Price ($)</label>
+                    <input type="number" id="price" min="0.99" step="0.01" placeholder="9.99">
+                </div>
+                
+                <div class="form-group" id="sizeGroup" style="display: none;">
+                    <label for="size">Size</label>
+                    <input type="text" id="size" placeholder="e.g., Medium, 10, 32x34">
+                </div>
+            </div>
+        </div>
+        
+        <div class="form-group">
+            <label for="description">Description</label>
+            <textarea id="description" placeholder="Describe the item's condition, features, and any flaws..."></textarea>
+        </div>
+        
+        <div class="form-actions">
+            <button type="button" class="btn btn-secondary" id="cancelEditBtn">Cancel</button>
+            <button type="button" class="btn btn-primary" id="saveEditBtn">Save Changes</button>
+        </div>
+    </div>
+
+    <!-- Firebase -->
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-firestore-compat.js"></script>
+
+    <script>
+        // Configuration
+        const API_BASE_URL = 'https://app-beprv7ll2q-uc.a.run.app';
+        const firebaseConfig = {
+            apiKey: "AIzaSyDymYwo7NUAu7lhoPfS9KLQmckvVgky7PU",
+            authDomain: "treasurehunter-sdk.firebaseapp.com",
+            projectId: "treasurehunter-sdk",
+            storageBucket: "treasurehunter-sdk.firebasestorage.app",
+            messagingSenderId: "328804663359",
+            appId: "1:328804663359:web:eb124f150c4853c123788a",
+            measurementId: "G-YNJ58GLX3T"
+        };
+
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+
+        // State
+        let currentUser = null;
+        let userData = null;
+        let isScanning = false;
+        let selectedFiles = [];
+        let compressedFiles = [];
+        let base64Images = [];
+        let selectedQuality = 'balanced';
+        let currentScanId = null;
+        let analysisData = null;
+        let editedData = null;
+
+        // Quality presets
+        const qualityPresets = {
+            fast: { maxSizeMB: 0.2, maxWidthOrHeight: 800, quality: 0.7 },
+            balanced: { maxSizeMB: 0.8, maxWidthOrHeight: 1200, quality: 0.9 },
+            high: { maxSizeMB: 0.8, maxWidthOrHeight: 1600, quality: 0.85 }
+        };
+
+        // DOM elements
+        const scanButton = document.getElementById('scanButton');
+        const scanIcon = document.getElementById('scanIcon');
+        const buttonText = document.getElementById('buttonText');
+        const loadingSpinner = document.getElementById('loadingSpinner');
+        const scanReticle = document.getElementById('scanReticle');
+        const statusMessage = document.getElementById('statusMessage');
+        const uploadOption = document.getElementById('uploadOption');
+        const fileInput = document.getElementById('fileInput');
+        const qualitySelector = document.getElementById('qualitySelector');
+        const imagesPreview = document.getElementById('imagesPreview');
+        const recognitionCard = document.getElementById('recognitionCard');
+        const editForm = document.getElementById('editForm');
+        const errorMessage = document.getElementById('errorMessage');
+        const successMessage = document.getElementById('successMessage');
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log('Smart Scanner V2 loaded');
+            setupEventListeners();
+        });
+
+        // Auth state
+        auth.onAuthStateChanged(async (user) => {
+            if (!user) {
+                window.location.href = '/signin.html';
+                return;
+            }
+            currentUser = user;
+            console.log('User authenticated:', { uid: user.uid, email: user.email });
+            await loadUserData();
+        });
+
+        async function loadUserData() {
+            try {
+                const doc = await db.collection('users').doc(currentUser.uid).get();
+                if (doc.exists) {
+                    userData = doc.data();
+                    console.log('✅ User data loaded successfully');
+                } else {
+                    userData = {
+                        uid: currentUser.uid,
+                        email: currentUser.email,
+                        profile: currentUser.displayName || currentUser.email?.split('@')[0] || 'User',
+                        ebay: { isConnected: false, sellerAccount: "" },
+                        stats: { totalScans: 0, totalEarnings: 0, pinsCreated: 0 },
+                        metadata: { createdAt: firebase.firestore.FieldValue.serverTimestamp() }
+                    };
+                    await db.collection('users').doc(currentUser.uid).set(userData);
+                    console.log('✅ Created new user document');
+                }
+            } catch (error) {
+                console.error('❌ Error loading user data:', error);
+                userData = { email: currentUser.email, uid: currentUser.uid };
+            }
+        }
+
+        function setupEventListeners() {
+            // Main scan button
+            scanButton.addEventListener('click', startScan);
+            
+            // Upload option
+            uploadOption.addEventListener('click', () => fileInput.click());
+            fileInput.addEventListener('change', handleFileUpload);
+            
+            // Quality selector
+            document.querySelectorAll('.quality-option').forEach(option => {
+                option.addEventListener('click', () => {
+                    document.querySelectorAll('.quality-option').forEach(o => o.classList.remove('selected'));
+                    option.classList.add('selected');
+                    selectedQuality = option.dataset.quality;
+                    if (selectedFiles.length > 0) {
+                        handleFiles(selectedFiles);
+                    }
+                });
+            });
+
+            // Recognition card buttons
+            document.getElementById('editBtn').addEventListener('click', showEditForm);
+            document.getElementById('mapBtn').addEventListener('click', addToMap);
+            document.getElementById('resellBtn').addEventListener('click', resellItem);
+
+            // Edit form buttons
+            document.getElementById('cancelEditBtn').addEventListener('click', hideEditForm);
+            document.getElementById('saveEditBtn').addEventListener('click', saveEditedData);
+            document.getElementById('category').addEventListener('change', handleCategoryChange);
+
+            // Close recognition card when clicking outside
+            document.addEventListener('click', (e) => {
+                const card = recognitionCard;
+                if (card.classList.contains('visible') && 
+                    !card.contains(e.target) && 
+                    !editForm.classList.contains('visible')) {
+                    card.classList.remove('visible');
+                    resetScanner();
+                }
+            });
+        }
+
+        async function startScan() {
+            if (isScanning) return;
+
+            // Check if we have images to analyze
+            if (base64Images.length > 0) {
+                await analyzeImages();
+                return;
+            }
+
+            // Try camera first, fallback to upload
+            if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+                try {
+                    await openCameraAndScan();
+                } catch (error) {
+                    console.log('Camera access failed, using upload:', error);
+                    fileInput.click();
+                }
+            } else {
+                fileInput.click();
+            }
+        }
+
+        async function openCameraAndScan() {
+            try {
+                startScanningAnimation();
+                
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { 
+                        facingMode: 'environment',
+                        width: { ideal: 1280 },
+                        height: { ideal: 720 }
+                    } 
+                });
+                
+                const video = document.createElement('video');
+                video.srcObject = stream;
+                video.autoplay = true;
+                video.muted = true;
+                video.playsInline = true;
+                
+                video.addEventListener('loadedmetadata', () => {
+                    setTimeout(() => {
+                        captureFrame(video, stream);
+                    }, 1500);
+                });
+                
+            } catch (error) {
+                console.error('Camera access failed:', error);
+                stopScanningAnimation();
+                showError('Camera not available - please upload photos instead');
+                setTimeout(() => fileInput.click(), 1000);
+            }
+        }
+
+        function captureFrame(video, stream) {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            ctx.drawImage(video, 0, 0);
+            
+            // Clean up camera stream
+            stream.getTracks().forEach(track => track.stop());
+            
+            // Convert to blob and handle as file
+            canvas.toBlob(async (blob) => {
+                const file = new File([blob], 'camera-capture.jpg', { type: 'image/jpeg' });
+                await handleFiles([file]);
+                await analyzeImages();
+            }, 'image/jpeg', 0.8);
+        }
+
+        async function handleFileUpload(e) {
+            const files = Array.from(e.target.files).slice(0, 3);
+            if (files.length > 0) {
+                qualitySelector.classList.add('visible');
+                await handleFiles(files);
+            }
+        }
+
+        async function handleFiles(files) {
+            selectedFiles = Array.from(files).slice(0, 3);
+            compressedFiles = [];
+            base64Images = [];
+            
+            imagesPreview.innerHTML = '';
+            imagesPreview.classList.add('visible');
+            
+            updateStatus('Compressing images...');
+            
+            const preset = qualityPresets[selectedQuality];
+            
+            for (let i = 0; i < selectedFiles.length; i++) {
+                const file = selectedFiles[i];
+                
+                const itemDiv = document.createElement('div');
+                itemDiv.className = 'image-preview-item';
+                itemDiv.innerHTML = '<div style="height:100px;display:flex;align-items:center;justify-content:center;color:#666;">Processing...</div>';
+                imagesPreview.appendChild(itemDiv);
+                
+                try {
+                    const options = {
+                        maxSizeMB: preset.maxSizeMB,
+                        maxWidthOrHeight: preset.maxWidthOrHeight,
+                        useWebWorker: true,
+                        fileType: 'image/jpeg',
+                        quality: preset.quality
+                    };
+                    
+                    const compressed = await imageCompression(file, options);
+                    compressedFiles.push(compressed);
+                    
+                    const base64 = await fileToBase64(compressed);
+                    base64Images.push(base64);
+                    
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        itemDiv.innerHTML = `
+                            <img src="${e.target.result}" alt="Preview ${i + 1}">
+                            <button class="remove-btn" data-index="${i}">×</button>
+                            <div class="info">${formatFileSize(compressed.size)}</div>
+                        `;
+                        itemDiv.querySelector('.remove-btn').addEventListener('click', (ev) => {
+                            ev.stopPropagation();
+                            removeImage(parseInt(ev.target.dataset.index));
+                        });
+                    };
+                    reader.readAsDataURL(compressed);
+                    
+                } catch (error) {
+                    console.error('Compression error:', error);
+                    compressedFiles.push(file);
+                    const base64 = await fileToBase64(file);
+                    base64Images.push(base64);
+                }
+            }
+            
+            updateStatus(`${selectedFiles.length} image${selectedFiles.length > 1 ? 's' : ''} ready to analyze`);
+            scanButton.disabled = false;
+            buttonText.textContent = 'Analyze Images';
+        }
+
+        async function analyzeImages() {
+            if (base64Images.length === 0) return;
+            if (!userData) await loadUserData();
+
+            startScanningAnimation();
+            updateStatus('Analyzing images with AI...', true);
+
+            try {
+                const jsonPayload = {
+                    images: base64Images,
+                    uid: currentUser?.uid || 'anonymous',
+                    saveToFirestore: true,
+                    location: userData?.location || 'brooklyn_ny',
+                    imageCount: base64Images.length,
+                    quality: selectedQuality,
+                    timestamp: new Date().toISOString()
+                };
+
+                console.log('🔤 Sending analysis request:', { 
+                    imageCount: jsonPayload.images?.length, 
+                    uid: jsonPayload.uid 
+                });
+
+                const response = await fetch(`${API_BASE_URL}/api/analyze-json`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
+                    body: JSON.stringify(jsonPayload)
+                });
+
+                console.log('🔥 Response status:', response.status);
+                
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    console.error('❌ Response error:', errorText);
+                    throw new Error(`Analysis failed (${response.status}): ${errorText}`);
+                }
+
+                const data = await response.json();
+                console.log('✅ Analysis response received:', data);
+                
+                if (!data.success) {
+                    throw new Error(data.error || 'Analysis failed');
+                }
+
+                analysisData = data;
+                currentScanId = data.scanId || currentScanId;
+
+                await saveScanToUser(data);
+                showRecognitionResult(data);
+                
+                showSuccess('✅ AI analysis complete!');
+                
+            } catch (error) {
+                console.error('❌ Analysis error:', error);
+                showError(`Analysis failed: ${error.message}`);
+                
+                // Show fallback result
+                showRecognitionResult({
+                    analysis: {
+                        category: 'Unknown Item',
+                        brand: 'Unknown',
+                        condition: { rating: 'good', description: 'Unable to analyze' },
+                        confidence_rating: 3
+                    },
+                    routes: {
+                        marketAnalysis: {
+                            estimatedValue: { suggested: 0, confidence: 'low' }
+                        }
+                    }
+                });
+            } finally {
+                stopScanningAnimation();
+            }
+        }
+
+        async function saveScanToUser(data) {
+            try {
+                const scanData = {
+                    uid: currentUser.uid,
+                    email: currentUser.email,
+                    analysis: data.analysis,
+                    routes: data.routes,
+                    scanMetadata: {
+                        imageCount: base64Images.length,
+                        quality: selectedQuality,
+                        analyzedAt: new Date().toISOString(),
+                        confidence: data.analysis?.confidence_rating || 5
+                    },
+                    status: 'analyzed',
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                };
+
+                if (currentScanId) {
+                    await db.collection('users').doc(currentUser.uid).collection('scans').doc(currentScanId).set(scanData);
+                } else {
+                    const docRef = await db.collection('users').doc(currentUser.uid).collection('scans').add(scanData);
+                    currentScanId = docRef.id;
+                }
+
+                await updateUserStats();
+                console.log('✅ Scan saved successfully');
+            } catch (error) {
+                console.error('❌ Error saving scan:', error);
+            }
+        }
+
+        async function updateUserStats() {
+            try {
+                await db.collection('users').doc(currentUser.uid).set({
+                    stats: {
+                        totalScans: firebase.firestore.FieldValue.increment(1),
+                        lastScanDate: firebase.firestore.FieldValue.serverTimestamp(),
+                        lastConfidenceScore: analysisData?.analysis?.confidence_rating || 5
+                    },
+                    metadata: {
+                        lastActiveAt: firebase.firestore.FieldValue.serverTimestamp(),
+                        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                    }
+                }, { merge: true });
+            } catch (error) {
+                console.error('❌ Error updating user stats:', error);
+            }
+        }
+
+        function showRecognitionResult(data) {
+            const analysis = data.analysis || {};
+            const routes = data.routes || {};
+            const marketAnalysis = routes.marketAnalysis?.estimatedValue;
+
+            // Update confidence indicator
+            const confidence = analysis.confidence_rating || analysis.confidence || 5;
+            const confidenceEl = document.getElementById('confidenceIndicator');
+            let confidenceClass = 'medium';
+            let confidenceText = 'Medium Confidence';
+            
+            if (confidence >= 8) {
+                confidenceClass = 'high';
+                confidenceText = 'High Confidence';
+            } else if (confidence <= 4) {
+                confidenceClass = 'low';
+                confidenceText = 'Low Confidence';
+            }
+            
+            confidenceEl.className = `confidence-indicator ${confidenceClass}`;
+            confidenceEl.textContent = `✨ ${confidenceText} (${confidence}/10)`;
+
+            // Update item details
+            const brand = analysis.brand && analysis.brand !== 'Unknown' ? analysis.brand + ' ' : '';
+            const model = analysis.model && analysis.model !== 'Unknown' ? analysis.model + ' ' : '';
+            const category = analysis.category || 'Unknown Item';
+            
+            document.getElementById('itemTitle').textContent = `${brand}${model}${category}`;
+            
+            const condition = analysis.condition?.rating || 'unknown';
+            const materials = analysis.materials?.join(', ') || '';
+            document.getElementById('itemDetails').textContent = 
+                `${category} • ${condition} condition${materials ? ' • ' + materials : ''}`;
+
+            // Update estimated value
+            let valueText = 'Est. value: Unknown';
+            if (marketAnalysis?.suggested) {
+                const suggested = marketAnalysis.suggested;
+                const range = marketAnalysis.priceRange;
+                if (range?.low && range?.high) {
+                    valueText = `Est. value: ${range.low}-${range.high}`;
+                } else {
+                    valueText = `Est. value: ~${suggested}`;
+                }
+            }
+            document.getElementById('estimatedValue').textContent = valueText;
+
+            // Show market analysis if available
+            if (marketAnalysis) {
+                document.getElementById('marketAnalysis').style.display = 'block';
+                document.getElementById('suggestedPrice').textContent = `${marketAnalysis.suggested || 0}`;
+                document.getElementById('ebayFees').textContent = `${marketAnalysis.ebayFees || 0}`;
+                document.getElementById('netProfit').textContent = `${marketAnalysis.netProfit || 0}`;
+                document.getElementById('dataSource').textContent = marketAnalysis.source || 'Manual estimate';
+            }
+
+            // Show recognition card
+            setTimeout(() => {
+                recognitionCard.classList.add('visible');
+            }, 300);
+
+            updateStatus('Item recognized! Choose your next action.');
+        }
+
+        function showEditForm() {
+            if (!analysisData) return;
+            
+            const analysis = analysisData.analysis || {};
+            const routes = analysisData.routes || {};
+            
+            // Populate form with current data
+            populateEditForm(analysis, routes);
+            
+            // Show edit form
+            document.body.classList.add('editing');
+            editForm.classList.add('visible');
+            recognitionCard.classList.remove('visible');
+        }
+
+        function populateEditForm(analysis, routes) {
+            // Map category
+            if (analysis.category) {
+                const categorySelect = document.getElementById('category');
+                const mappedCategory = mapCategoryToSelect(analysis.category);
+                categorySelect.value = mappedCategory;
+                handleCategoryChange();
+            }
+
+            // Fill other fields
+            if (analysis.brand && !['Unknown', 'Generic'].includes(analysis.brand)) {
+                document.getElementById('brand').value = analysis.brand;
+            }
+            
+            if (analysis.model && !['Unknown', 'See photos'].includes(analysis.model)) {
+                document.getElementById('model').value = analysis.model;
+            }
+            
+            if (analysis.condition) {
+                document.getElementById('condition').value = mapConditionToSelect(analysis.condition);
+            }
+            
+            // Set price from market analysis
+            if (routes.marketAnalysis?.estimatedValue?.suggested) {
+                document.getElementById('price').value = routes.marketAnalysis.estimatedValue.suggested;
+            }
+            
+            // Generate description
+            document.getElementById('description').value = generateAutoDescription(analysis);
+        }
+
+        function hideEditForm() {
+            document.body.classList.remove('editing');
+            editForm.classList.remove('visible');
+            recognitionCard.classList.add('visible');
+        }
+
+        async function saveEditedData() {
+            const category = document.getElementById('category').value;
+            const condition = document.getElementById('condition').value;
+            
+            if (!category || !condition) {
+                showError('Please fill in all required fields (Category and Condition)');
+                return;
+            }
+
+            editedData = {
+                category: category,
+                brand: document.getElementById('brand').value,
+                model: document.getElementById('model').value,
+                condition: condition,
+                size: document.getElementById('size').value || '',
+                price: parseFloat(document.getElementById('price').value) || 0,
+                description: document.getElementById('description').value
+            };
+
+            // Save to database
+            if (currentScanId) {
+                try {
+                    await db.collection('users').doc(currentUser.uid).collection('scans').doc(currentScanId).update({
+                        editedData: editedData,
+                        status: 'edited',
+                        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                    
+                    showSuccess('Changes saved successfully!');
+                    hideEditForm();
+                } catch (error) {
+                    console.error('Error saving changes:', error);
+                    showError('Failed to save changes');
+                }
+            }
+        }
+
+        async function addToMap() {
+            console.log('Adding to map...');
+            updateStatus('Creating map pin...');
+            
+            try {
+                const pinData = {
+                    location: {
+                        latitude: 40.7128, // Default to NYC, would use user location
+                        longitude: -74.0060
+                    },
+                    item: {
+                        category: analysisData?.analysis?.category || 'Unknown',
+                        title: generateItemTitle(),
+                        description: analysisData?.analysis?.condition?.description || '',
+                        imageUrls: [], // Would upload images to storage
+                        confidence: analysisData?.analysis?.confidence_rating || 5
+                    },
+                    userId: currentUser.uid,
+                    dispositionType: 'pickup',
+                    expiresIn: 4 * 60 * 60 * 1000 // 4 hours
+                };
+
+                // This would call your pin creation API
+                const response = await fetch(`${API_BASE_URL}/api/pins/create`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${await currentUser.getIdToken()}`
+                    },
+                    body: JSON.stringify(pinData)
+                });
+
+                if (response.ok) {
+                    showSuccess('Pin created successfully! Other users can now see this item on the map.');
+                    
+                    // Update user stats
+                    await db.collection('users').doc(currentUser.uid).update({
+                        'stats.pinsCreated': firebase.firestore.FieldValue.increment(1)
+                    });
+                } else {
+                    throw new Error('Failed to create pin');
+                }
+                
+            } catch (error) {
+                console.error('Error creating pin:', error);
+                showError('Failed to create map pin. Please try again.');
+            }
+            
+            recognitionCard.classList.remove('visible');
+            resetScanner();
+        }
+
+        async function resellItem() {
+            console.log('Starting resell process...');
+            updateStatus('Preparing eBay listing...');
+
+            // Check if user has eBay connected
+            if (!userData?.ebay?.isConnected) {
+                showEbayConnectionPrompt();
+                return;
+            }
+
+            try {
+                const listingData = {
+                    title: generateListingTitle(),
+                    description: editedData?.description || generateAutoDescription(analysisData?.analysis),
+                    category: mapCategoryToEbay(editedData?.category || analysisData?.analysis?.category),
+                    condition: mapConditionToEbay(editedData?.condition || analysisData?.analysis?.condition?.rating),
+                    pricing: {
+                        buyItNowPrice: editedData?.price || analysisData?.routes?.marketAnalysis?.estimatedValue?.suggested || 10,
+                        acceptOffers: true,
+                        minimumOffer: Math.round((editedData?.price || 10) * 0.8)
+                    },
+                    images: base64Images,
+                    itemSpecifics: generateItemSpecifics()
+                };
+
+                const response = await fetch(`${API_BASE_URL}/api/ebay/create-listing`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${await currentUser.getIdToken()}`
+                    },
+                    body: JSON.stringify({
+                        userId: currentUser.uid,
+                        listingData: listingData,
+                        scanId: currentScanId
+                    })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    showSuccess(`🎉 eBay listing created! <a href="${result.url}" target="_blank">View Listing</a>`);
+                    
+                    // Update scan with listing info
+                    if (currentScanId) {
+                        await db.collection('users').doc(currentUser.uid).collection('scans').doc(currentScanId).update({
+                            status: 'listed',
+                            ebayListing: {
+                                listingId: result.listingId,
+                                url: result.url,
+                                createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                            }
+                        });
+                    }
+                } else {
+                    throw new Error(result.error || 'Listing creation failed');
+                }
+                
+            } catch (error) {
+                console.error('eBay listing error:', error);
+                showError(`Failed to create eBay listing: ${error.message}`);
+            }
+            
+            recognitionCard.classList.remove('visible');
+            resetScanner();
+        }
+
+        function showEbayConnectionPrompt() {
+            const prompt = document.createElement('div');
+            prompt.style.cssText = `
+                position: fixed; top: 0; left: 0; right: 0; bottom: 0; 
+                background: rgba(0,0,0,0.5); z-index: 2000; 
+                display: flex; align-items: center; justify-content: center;
+            `;
+            
+            prompt.innerHTML = `
+                <div style="background: white; color: #333; padding: 30px; border-radius: 15px; max-width: 400px; margin: 20px; text-align: center;">
+                    <h3 style="margin-bottom: 20px;">🛒 Connect eBay Account</h3>
+                    <p style="margin-bottom: 20px;">
+                        Connect your eBay account to create live listings directly from your scans!
+                    </p>
+                    <div style="display: flex; gap: 15px;">
+                        <button onclick="window.location.href='/ebay-connect.html'" class="btn btn-primary" style="flex: 1;">
+                            🔗 Connect eBay
+                        </button>
+                        <button onclick="this.closest('div').parentElement.remove()" class="btn btn-secondary" style="flex: 1;">
+                            Maybe Later
+                        </button>
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(prompt);
+        }
+
+        // Helper functions
+        function generateItemTitle() {
+            const analysis = analysisData?.analysis || {};
+            const brand = analysis.brand && analysis.brand !== 'Unknown' ? analysis.brand + ' ' : '';
+            const model = analysis.model && analysis.model !== 'Unknown' ? analysis.model + ' ' : '';
+            const category = analysis.category || 'Item';
+            return `${brand}${model}${category}`.trim();
+        }
+
+        function generateListingTitle() {
+            const title = generateItemTitle();
+            const condition = editedData?.condition || analysisData?.analysis?.condition?.rating;
+            if (condition === 'excellent') return title + ' - Excellent Condition';
+            if (condition === 'new') return title + ' - New';
+            return title;
+        }
+
+        function generateAutoDescription(analysis) {
+            if (!analysis) return '';
+            
+            const parts = [];
+            if (analysis.condition?.description) parts.push(analysis.condition.description);
+            if (analysis.materials?.length > 0) parts.push(`Materials: ${analysis.materials.join(', ')}`);
+            if (analysis.keyFeatures?.length > 0) {
+                parts.push('\nKey Features:');
+                analysis.keyFeatures.forEach(f => parts.push(`• ${f}`));
+            }
+            if (analysis.condition?.issues?.length > 0) {
+                parts.push('\nPlease note:');
+                analysis.condition.issues.forEach(i => parts.push(`• ${i}`));
+            }
+            parts.push('\nItem sold as-is. Please review all photos carefully before purchasing.');
+            return parts.join('\n').trim();
+        }
+
+        function generateItemSpecifics() {
+            const specifics = {};
+            if (editedData?.brand) specifics.Brand = editedData.brand;
+            if (editedData?.model) specifics.Model = editedData.model;
+            if (editedData?.size) specifics.Size = editedData.size;
+            return specifics;
+        }
+
+        function mapCategoryToSelect(category) {
+            if (!category) return '';
+            const categoryLower = category.toLowerCase().trim();
+            const directMap = {
+                'electronics': 'electronics',
+                'furniture': 'furniture',
+                'clothing': 'clothing',
+                'footwear': 'footwear',
+                'tools': 'tools',
+                'books': 'books',
+                'toys': 'toys',
+                'automotive': 'automotive',
+                'sporting goods': 'sporting goods',
+                'home & garden': 'home & garden',
+                'jewelry': 'jewelry',
+                'collectibles': 'collectibles'
+            };
+            return directMap[categoryLower] || 'electronics';
+        }
+
+        function mapConditionToSelect(condition) {
+            if (!condition) return 'good';
+            let rating = typeof condition === 'object' ? condition.rating : condition;
+            if (typeof rating === 'string') {
+                const r = rating.toLowerCase().trim();
+                const map = {
+                    'new': 'new',
+                    'like new': 'like_new',
+                    'excellent': 'excellent',
+                    'very good': 'very_good',
+                    'good': 'good',
+                    'fair': 'acceptable',
+                    'poor': 'for_parts'
+                };
+                return map[r] || 'good';
+            }
+            return 'good';
+        }
+
+        function mapCategoryToEbay(category) {
+            const categoryMap = {
+                'electronics': '58058',
+                'furniture': '3197',
+                'clothing': '11450',
+                'footwear': '15709',
+                'tools': '631'
+            };
+            return categoryMap[category] || '11233';
+        }
+
+        function mapConditionToEbay(condition) {
+            const conditionMap = {
+                'new': '1000',
+                'like_new': '1500',
+                'excellent': '3000',
+                'very_good': '3000',
+                'good': '3000',
+                'acceptable': '3000',
+                'for_parts': '7000'
+            };
+            return conditionMap[condition] || '3000';
+        }
+
+        function handleCategoryChange() {
+            const category = document.getElementById('category').value;
+            const sizeGroup = document.getElementById('sizeGroup');
+            
+            if (['clothing', 'footwear', 'jewelry'].includes(category)) {
+                sizeGroup.style.display = 'block';
+                const sizeInput = document.getElementById('size');
+                if (category === 'footwear') sizeInput.placeholder = 'e.g., 9, 10.5, 12';
+                else if (category === 'clothing') sizeInput.placeholder = 'e.g., Small, Medium, Large, XL';
+                else if (category === 'jewelry') sizeInput.placeholder = 'e.g., 7, 8.5, One Size';
+            } else {
+                sizeGroup.style.display = 'none';
+            }
+        }
+
+        function removeImage(index) {
+            selectedFiles = selectedFiles.filter((_, i) => i !== index);
+            compressedFiles = compressedFiles.filter((_, i) => i !== index);
+            base64Images = base64Images.filter((_, i) => i !== index);
+            
+            if (selectedFiles.length === 0) {
+                imagesPreview.classList.remove('visible');
+                qualitySelector.classList.remove('visible');
+                scanButton.disabled = false;
+                buttonText.textContent = 'Tap to Scan';
+                resetScanner();
+            } else {
+                handleFiles(selectedFiles);
+            }
+        }
+
+        function startScanningAnimation() {
+            isScanning = true;
+            scanButton.classList.add('scanning');
+            scanReticle.classList.add('visible');
+            scanIcon.classList.add('hidden');
+            buttonText.textContent = 'Analyzing...';
+            loadingSpinner.classList.remove('hidden');
+            scanButton.disabled = true;
+        }
+
+        function stopScanningAnimation() {
+            isScanning = false;
+            scanButton.classList.remove('scanning');
+            scanReticle.classList.remove('visible');
+            scanIcon.classList.remove('hidden');
+            buttonText.textContent = base64Images.length > 0 ? 'Analyze Images' : 'Tap to Scan';
+            loadingSpinner.classList.add('hidden');
+            scanButton.disabled = false;
+        }
+
+        function updateStatus(message, analyzing = false) {
+            statusMessage.textContent = message;
+            statusMessage.classList.toggle('analyzing', analyzing);
+        }
+
+        function showError(message) {
+            errorMessage.textContent = message;
+            errorMessage.classList.add('visible');
+            successMessage.classList.remove('visible');
+            setTimeout(() => {
+                errorMessage.classList.remove('visible');
+            }, 5000);
+        }
+
+        function showSuccess(message) {
+            successMessage.innerHTML = message;
+            successMessage.classList.add('visible');
+            errorMessage.classList.remove('visible');
+            setTimeout(() => {
+                successMessage.classList.remove('visible');
+            }, 5000);
+        }
+
+        function resetScanner() {
+            setTimeout(() => {
+                updateStatus('Point your camera at any item to identify it');
+            }, 1000);
+        }
+
+        async function fileToBase64(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result.split(',')[1]);
+                reader.onerror = reject;
+                reader.readAsDataURL(file);
+            });
+        }
+
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+
+        // Auto-save draft every 30 seconds when editing
+        setInterval(async () => {
+            if (editForm.classList.contains('visible') && currentScanId) {
+                const formData = {
+                    category: document.getElementById('category').value || '',
+                    brand: document.getElementById('brand').value || '',
+                    model: document.getElementById('model').value || '',
+                    condition: document.getElementById('condition').value || '',
+                    size: document.getElementById('size').value || '',
+                    price: parseFloat(document.getElementById('price').value) || 0,
+                    description: document.getElementById('description').value || ''
+                };
+                
+                if (formData.category || formData.brand || formData.description) {
+                    try {
+                        await db.collection('users').doc(currentUser.uid).collection('scans').doc(currentScanId).update({
+                            editedData: formData,
+                            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                        });
+                        console.log('Draft auto-saved');
+                    } catch (error) {
+                        console.error('Auto-save failed:', error);
+                    }
+                }
+            }
+        }, 30000);
+
+        // Initialize app when DOM is ready
+        console.log('✅ Smart Scanner V2 Fixed - Ready for scanning!');
+    </script>
+</body>
+</html>

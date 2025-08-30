@@ -1,0 +1,75 @@
+[2025-08-18T01:57:01.258Z] TEST: 
+🧪 Testing: Node.js Environment
+[2025-08-18T01:57:01.259Z] INFO: Node.js version: v20.16.0
+[2025-08-18T01:57:01.259Z] PASS: ✅ PASS: Node.js Environment
+[2025-08-18T01:57:01.259Z] TEST: 
+🧪 Testing: Project Structure
+[2025-08-18T01:57:01.259Z] INFO: Checking Firebase Functions Structure at: treasure-hunt-sdk/functions
+[2025-08-18T01:57:01.260Z] INFO: ✗ Missing: treasure-hunt-sdk\functions\package.json
+[2025-08-18T01:57:01.260Z] INFO: ✗ Missing: treasure-hunt-sdk\functions\.env
+[2025-08-18T01:57:01.260Z] INFO: ✗ Missing: treasure-hunt-sdk\functions\capture-sdk\index.js
+[2025-08-18T01:57:01.260Z] INFO: ✗ Missing: treasure-hunt-sdk\functions\capture-sdk\core\analyzeItem.js
+[2025-08-18T01:57:01.260Z] INFO: ✗ Missing: treasure-hunt-sdk\functions\capture-sdk\core\routeDisposition.js
+[2025-08-18T01:57:01.261Z] INFO: ✗ Missing: treasure-hunt-sdk\functions\capture-sdk\integrations\ebay\index.js
+[2025-08-18T01:57:01.261Z] INFO: Checking Root Structure at: .
+[2025-08-18T01:57:01.261Z] INFO: ✓ Found: package.json
+[2025-08-18T01:57:01.261Z] INFO: ✓ Found: .env
+[2025-08-18T01:57:01.261Z] INFO: ✗ Missing: capture-sdk\index.js
+[2025-08-18T01:57:01.261Z] INFO: ✗ Missing: capture-sdk\core\analyzeItem.js
+[2025-08-18T01:57:01.262Z] INFO: ✗ Missing: capture-sdk\core\routeDisposition.js
+[2025-08-18T01:57:01.262Z] INFO: ✗ Missing: capture-sdk\integrations\ebay\index.js
+[2025-08-18T01:57:01.262Z] ERROR: Could not find valid project structure in any expected location
+[2025-08-18T01:57:01.262Z] FAIL: ❌ FAIL: Project Structure
+[2025-08-18T01:57:01.262Z] TEST: 
+🧪 Testing: Environment Variables
+[2025-08-18T01:57:01.262Z] INFO: Found .env file at: .env
+[2025-08-18T01:57:01.268Z] INFO: Checking required environment variables:
+[2025-08-18T01:57:01.268Z] ERROR: ✗ Missing: OPENAI_API_KEY
+[2025-08-18T01:57:01.268Z] ERROR: ✗ Missing: EBAY_CLIENT_ID
+[2025-08-18T01:57:01.268Z] ERROR: ✗ Missing: EBAY_CLIENT_SECRET
+[2025-08-18T01:57:01.268Z] ERROR: ✗ Missing: EBAY_ACCESS_TOKEN
+[2025-08-18T01:57:01.268Z] INFO: 
+Checking optional environment variables:
+[2025-08-18T01:57:01.268Z] WARN: - EBAY_REFRESH_TOKEN: Not set
+[2025-08-18T01:57:01.268Z] WARN: - EBAY_ENVIRONMENT: Not set
+[2025-08-18T01:57:01.268Z] WARN: - FIREBASE_PROJECT_ID: Not set
+[2025-08-18T01:57:01.269Z] FAIL: ❌ FAIL: Environment Variables
+[2025-08-18T01:57:01.269Z] TEST: 
+🧪 Testing: Dependencies
+[2025-08-18T01:57:01.269Z] INFO: Found package.json at: package.json
+[2025-08-18T01:57:01.269Z] INFO: Project: treasure-hunt-sdk v1.0.0
+[2025-08-18T01:57:01.269Z] INFO: ✓ dotenv: ^17.2.0
+[2025-08-18T01:57:01.269Z] INFO: ✓ node-fetch: ^3.3.2
+[2025-08-18T01:57:01.269Z] INFO: ✓ firebase-admin: ^13.4.0
+[2025-08-18T01:57:01.270Z] INFO: ✓ node_modules found at: node_modules
+[2025-08-18T01:57:01.270Z] PASS: ✅ PASS: Dependencies
+[2025-08-18T01:57:01.270Z] TEST: 
+🧪 Testing: SDK Import
+[2025-08-18T01:57:01.270Z] ERROR: SDK file not found at: capture-sdk\index.js
+[2025-08-18T01:57:01.270Z] FAIL: ❌ FAIL: SDK Import
+[2025-08-18T01:57:01.270Z] TEST: 
+🧪 Testing: OpenAI Connection
+[2025-08-18T01:57:01.270Z] WARN: Skipping OpenAI test - no API key
+[2025-08-18T01:57:01.270Z] FAIL: ❌ FAIL: OpenAI Connection
+[2025-08-18T01:57:01.271Z] TEST: 
+🧪 Testing: eBay Token Validity
+[2025-08-18T01:57:01.271Z] WARN: Skipping eBay token test - no access token
+[2025-08-18T01:57:01.271Z] FAIL: ❌ FAIL: eBay Token Validity
+[2025-08-18T01:57:01.271Z] TEST: 
+🧪 Testing: eBay SDK Integration
+[2025-08-18T01:57:01.271Z] ERROR: Cannot test eBay SDK - SDK not loaded
+[2025-08-18T01:57:01.271Z] FAIL: ❌ FAIL: eBay SDK Integration
+[2025-08-18T01:57:01.271Z] TEST: 
+🧪 Testing: Backend Endpoint
+[2025-08-18T01:57:01.531Z] WARN: Backend health endpoint not accessible
+[2025-08-18T01:57:01.697Z] ERROR: Backend eBay endpoint error: request to https://app-bevrv2119q-uc-a.run.app/api/ebay/create-listing failed, reason: Hostname/IP does not match certificate's altnames: Host: app-bevrv2119q-uc-a.run.app. is not in the cert's altnames: DNS:*.a.run.app, DNS:run.app, DNS:*.africa-south1.run.app, DNS:*.asia-east1.run.app, DNS:*.asia-east2.run.app, DNS:*.asia-northeast1.run.app, DNS:*.asia-northeast2.run.app, DNS:*.asia-northeast3.run.app, DNS:*.asia-south1.run.app, DNS:*.asia-south2.run.app, DNS:*.asia-southeast1.run.app, DNS:*.asia-southeast2.run.app, DNS:*.asia-southeast3.run.app, DNS:*.australia-southeast1.run.app, DNS:*.australia-southeast2.run.app, DNS:*.europe-central2.run.app, DNS:*.europe-north1.run.app, DNS:*.europe-north2.run.app, DNS:*.europe-southwest1.run.app, DNS:*.europe-west1.run.app, DNS:*.europe-west10.run.app, DNS:*.europe-west12.run.app, DNS:*.europe-west15.run.app, DNS:*.europe-west2.run.app, DNS:*.europe-west3.run.app, DNS:*.europe-west4.run.app, DNS:*.europe-west5.run.app, DNS:*.europe-west6.run.app, DNS:*.europe-west8.run.app, DNS:*.europe-west9.run.app, DNS:*.me-central1.run.app, DNS:*.me-central2.run.app, DNS:*.me-west1.run.app, DNS:*.northamerica-northeast1.run.app, DNS:*.northamerica-northeast2.run.app, DNS:*.northamerica-south1.run.app, DNS:*.southamerica-east1.run.app, DNS:*.southamerica-west1.run.app, DNS:*.us-central1.run.app, DNS:*.us-central2.run.app, DNS:*.us-east1.run.app, DNS:*.us-east4.run.app, DNS:*.us-east5.run.app, DNS:*.us-east7.run.app, DNS:*.us-south1.run.app, DNS:*.us-west1.run.app, DNS:*.us-west2.run.app, DNS:*.us-west3.run.app, DNS:*.us-west4.run.app, DNS:*.us-west8.run.app, DNS:*.africa-south1.mtls.run.app, DNS:*.asia-east1.mtls.run.app, DNS:*.asia-east2.mtls.run.app, DNS:*.asia-northeast1.mtls.run.app, DNS:*.asia-northeast2.mtls.run.app, DNS:*.asia-northeast3.mtls.run.app, DNS:*.asia-south1.mtls.run.app, DNS:*.asia-south2.mtls.run.app, DNS:*.asia-southeast1.mtls.run.app, DNS:*.asia-southeast2.mtls.run.app, DNS:*.asia-southeast3.mtls.run.app, DNS:*.australia-southeast1.mtls.run.app, DNS:*.australia-southeast2.mtls.run.app, DNS:*.europe-central2.mtls.run.app, DNS:*.europe-north1.mtls.run.app, DNS:*.europe-north2.mtls.run.app, DNS:*.europe-southwest1.mtls.run.app, DNS:*.europe-west1.mtls.run.app, DNS:*.europe-west10.mtls.run.app, DNS:*.europe-west12.mtls.run.app, DNS:*.europe-west15.mtls.run.app, DNS:*.europe-west2.mtls.run.app, DNS:*.europe-west3.mtls.run.app, DNS:*.europe-west4.mtls.run.app, DNS:*.europe-west5.mtls.run.app, DNS:*.europe-west6.mtls.run.app, DNS:*.europe-west8.mtls.run.app, DNS:*.europe-west9.mtls.run.app, DNS:*.me-central1.mtls.run.app, DNS:*.me-central2.mtls.run.app, DNS:*.me-west1.mtls.run.app, DNS:*.northamerica-northeast1.mtls.run.app, DNS:*.northamerica-northeast2.mtls.run.app, DNS:*.northamerica-south1.mtls.run.app, DNS:*.southamerica-east1.mtls.run.app, DNS:*.southamerica-west1.mtls.run.app, DNS:*.us-central1.mtls.run.app, DNS:*.us-central2.mtls.run.app, DNS:*.us-east1.mtls.run.app, DNS:*.us-east4.mtls.run.app, DNS:*.us-east5.mtls.run.app, DNS:*.us-east7.mtls.run.app, DNS:*.us-south1.mtls.run.app, DNS:*.us-west1.mtls.run.app, DNS:*.us-west2.mtls.run.app, DNS:*.us-west3.mtls.run.app, DNS:*.us-west4.mtls.run.app, DNS:*.us-west8.mtls.run.app
+[2025-08-18T01:57:01.698Z] ERROR: Backend eBay endpoint not reachable
+[2025-08-18T01:57:01.698Z] FAIL: ❌ FAIL: Backend Endpoint
+[2025-08-18T01:57:01.698Z] TEST: 
+🧪 Testing: Firebase Connection
+[2025-08-18T01:57:01.698Z] WARN: Firebase config file missing in any expected location
+[2025-08-18T01:57:01.698Z] FAIL: ❌ FAIL: Firebase Connection
+[2025-08-18T01:57:01.699Z] TEST: 
+🧪 Testing: End-to-End Listing
+[2025-08-18T01:57:01.699Z] WARN: Skipping end-to-end test - missing SDK or eBay token
+[2025-08-18T01:57:01.699Z] FAIL: ❌ FAIL: End-to-End Listing

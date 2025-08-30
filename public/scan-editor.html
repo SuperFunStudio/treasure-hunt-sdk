@@ -1,740 +1,929 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Treasure Hunter - Scan Editor</title>
-  <script src="https://cdn.jsdelivr.net/npm/browser-image-compression@2.0.2/dist/browser-image-compression.min.js"></script>
-  <style>
-    /* --- styles unchanged for brevity (same visual as yours) --- */
-    *{margin:0;padding:0;box-sizing:border-box}
-    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#f5f7fa;min-height:100vh}
-    .header{background:#fff;box-shadow:0 2px 10px rgba(0,0,0,.1);padding:0 20px;position:sticky;top:0;z-index:100}
-    .header-content{max-width:1200px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;height:70px}
-    .logo{display:flex;align-items:center;gap:10px;font-size:20px;font-weight:700;color:#333;text-decoration:none}
-    .nav-actions{display:flex;align-items:center;gap:15px}
-    .nav-btn{padding:8px 16px;border:1px solid #e0e0e0;background:#fff;border-radius:6px;text-decoration:none;color:#333;font-size:14px;transition:.2s}
-    .nav-btn:hover{border-color:#667eea;color:#667eea}
-    .container{max-width:1000px;margin:0 auto;padding:30px 20px}
-    .workflow-header{text-align:center;margin-bottom:40px}
-    .workflow-header h1{font-size:32px;color:#333;margin-bottom:10px}
-    .workflow-header p{color:#666;font-size:18px}
-    .workflow-steps{display:flex;justify-content:center;margin-bottom:40px;gap:20px;flex-wrap:wrap}
-    .workflow-step{display:flex;align-items:center;gap:10px;padding:15px 25px;background:#fff;border-radius:25px;box-shadow:0 2px 10px rgba(0,0,0,.1);font-weight:600}
-    .workflow-step.active{background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);color:#fff}
-    .workflow-step.completed{background:#e8f5e9;color:#2e7d32}
-    .step-number{width:24px;height:24px;border-radius:50%;background:rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700}
-    .workflow-step.active .step-number{background:rgba(255,255,255,.3)}
-    .workflow-step.completed .step-number{background:#4caf50;color:#fff}
-    .scan-section{background:#fff;border-radius:15px;padding:40px;box-shadow:0 5px 15px rgba(0,0,0,.1);margin-bottom:30px}
-    .upload-area{border:2px dashed #ccc;border-radius:15px;padding:60px 40px;text-align:center;margin:20px 0;cursor:pointer;transition:.3s;background:#fafafa}
-    .upload-area:hover{border-color:#667eea;background:#f8f9ff}
-    .upload-area.dragover{border-color:#667eea;background:#f0f4ff;transform:scale(1.02)}
-    .upload-icon{font-size:48px;margin-bottom:20px}
-    .upload-text{font-size:18px;font-weight:600;margin-bottom:10px;color:#333}
-    .upload-subtext{color:#666;font-size:14px}
-    input[type=file]{display:none}
-    .quality-selector{margin:30px 0;padding:20px;background:#f8f9fa;border-radius:10px}
-    .quality-selector label{display:block;margin-bottom:15px;font-weight:600;color:#333}
-    .quality-options{display:grid;grid-template-columns:repeat(3,1fr);gap:15px}
-    .quality-option{padding:15px;border:2px solid #e0e0e0;border-radius:10px;cursor:pointer;text-align:center;transition:.3s;background:#fff}
-    .quality-option:hover{border-color:#667eea;transform:translateY(-2px)}
-    .quality-option.selected{border-color:#667eea;background:#f0f4ff}
-    .quality-option strong{display:block;margin-bottom:5px;color:#333}
-    .quality-option .size{font-size:12px;color:#666}
-    .images-preview{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:20px;margin:30px 0}
-    .image-preview-item{position:relative;border-radius:10px;overflow:hidden;box-shadow:0 4px 12px rgba(0,0,0,.15);transition:transform .2s}
-    .image-preview-item:hover{transform:translateY(-2px)}
-    .image-preview-item img{width:100%;height:150px;object-fit:cover}
-    .image-preview-item .remove-btn{position:absolute;top:8px;right:8px;background:rgba(255,255,255,.9);border:none;border-radius:50%;width:28px;height:28px;cursor:pointer;font-size:18px;line-height:1;color:#666;transition:.2s}
-    .image-preview-item .remove-btn:hover{background:#ff5252;color:#fff}
-    .image-preview-item .info{position:absolute;bottom:0;left:0;right:0;background:linear-gradient(transparent,rgba(0,0,0,.8));color:#fff;padding:15px 10px 10px;font-size:11px;text-align:center}
-    .compression-stats{background:linear-gradient(135deg,#e3f2fd 0%,#f3e5f5 100%);padding:20px;border-radius:10px;margin:20px 0;border-left:4px solid #2196f3}
-    .action-buttons{display:flex;gap:15px;margin-top:30px}
-    .btn{flex:1;padding:15px 30px;border:none;border-radius:10px;font-size:16px;font-weight:600;cursor:pointer;transition:.2s;text-decoration:none;text-align:center;display:flex;align-items:center;justify-content:center;gap:8px}
-    .btn-primary{background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);color:#fff}
-    .btn-primary:hover{transform:translateY(-2px);box-shadow:0 8px 25px rgba(102,126,234,.3)}
-    .btn-primary:disabled{opacity:.6;cursor:not-allowed;transform:none}
-    .btn-secondary{background:#f5f5f5;color:#333;border:2px solid #e0e0e0}
-    .btn-secondary:hover{border-color:#667eea;color:#667eea}
-    .analysis-results{background:#fff;border-radius:15px;padding:40px;box-shadow:0 5px 15px rgba(0,0,0,.1);margin:30px 0;display:none}
-    .analysis-header{display:flex;align-items:center;margin-bottom:30px;padding-bottom:20px;border-bottom:2px solid #f0f0f0}
-    .analysis-icon{font-size:32px;margin-right:15px}
-    .analysis-title h2{color:#333;margin-bottom:5px}
-    .confidence-indicator{padding:6px 12px;border-radius:15px;font-size:12px;font-weight:700;text-transform:uppercase}
-    .confidence-high{background:#e8f5e9;color:#2e7d32}
-    .confidence-medium{background:#fff3e0;color:#f57c00}
-    .confidence-low{background:#ffebee;color:#c62828}
-    .edit-form{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:30px;margin-bottom:40px}
-    .form-group{margin-bottom:20px}
-    .form-group label{display:block;margin-bottom:8px;font-weight:600;color:#333}
-    .form-group input,.form-group select,.form-group textarea{width:100%;padding:12px 15px;border:2px solid #e0e0e0;border-radius:8px;font-size:14px;transition:border-color .3s}
-    .form-group input:focus,.form-group select:focus,.form-group textarea:focus{outline:none;border-color:#667eea}
-    .form-group textarea{min-height:100px;resize:vertical}
-    .smart-suggestions{background:#f8f9ff;padding:15px;border-radius:8px;margin-top:10px;border-left:4px solid #667eea}
-    .smart-suggestions h4{margin-bottom:10px;color:#333;font-size:14px}
-    .suggestion-tags{display:flex;flex-wrap:wrap;gap:8px}
-    .suggestion-tag{padding:4px 10px;background:#fff;border:1px solid #667eea;border-radius:15px;font-size:12px;color:#667eea;cursor:pointer;transition:.2s}
-    .suggestion-tag:hover{background:#667eea;color:#fff}
-    .loading{text-align:center;padding:40px;color:#666}
-    .loading .spinner{border:3px solid #f3f3f3;border-top:3px solid #667eea;border-radius:50%;width:40px;height:40px;animation:spin 1s linear infinite;margin:0 auto 20px}
-    @keyframes spin{0%{transform:rotate(0)}100%{transform:rotate(360deg)}}
-    .error{background:#ffebee;color:#c62828;padding:15px;border-radius:10px;margin:20px 0;border-left:4px solid #f44336}
-    .success{background:#e8f5e9;color:#2e7d32;padding:15px;border-radius:10px;margin:20px 0;border-left:4px solid #4caf50}
-    .tips{background:#fff3e0;padding:20px;border-radius:10px;margin:20px 0;border-left:4px solid #ff9800}
-    .tips h3{margin-bottom:15px;color:#e65100}
-    .tips ul{margin:0;padding-left:20px}
-    .tips li{margin-bottom:8px;line-height:1.5}
-    @media (max-width:768px){
-      .container{padding:20px 15px}
-      .workflow-steps{flex-direction:column;align-items:center}
-      .scan-section{padding:30px 20px}
-      .upload-area{padding:40px 20px}
-      .quality-options{grid-template-columns:1fr}
-      .edit-form{grid-template-columns:1fr;gap:20px}
-      .action-buttons{flex-direction:column}
-    }
-  </style>
-</head>
-<body>
-  <div class="header">
-    <div class="header-content">
-      <a href="/dashboard.html" class="logo">🏴‍☠️ Treasure Hunter</a>
-      <div class="nav-actions">
-        <a href="/dashboard.html" class="nav-btn">🏠 Dashboard</a>
-        <a href="/profile.html" class="nav-btn">👤 Profile</a>
+  <!DOCTYPE html>
+  <html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Treasure Hunter - Scan Editor</title>
+    <script src="https://cdn.jsdelivr.net/npm/browser-image-compression@2.0.2/dist/browser-image-compression.min.js"></script>
+    <style>
+      /* --- styles unchanged for brevity (same visual as yours) --- */
+      *{margin:0;padding:0;box-sizing:border-box}
+      body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#f5f7fa;min-height:100vh}
+      .header{background:#fff;box-shadow:0 2px 10px rgba(0,0,0,.1);padding:0 20px;position:sticky;top:0;z-index:100}
+      .header-content{max-width:1200px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;height:70px}
+      .logo{display:flex;align-items:center;gap:10px;font-size:20px;font-weight:700;color:#333;text-decoration:none}
+      .nav-actions{display:flex;align-items:center;gap:15px}
+      .nav-btn{padding:8px 16px;border:1px solid #e0e0e0;background:#fff;border-radius:6px;text-decoration:none;color:#333;font-size:14px;transition:.2s}
+      .nav-btn:hover{border-color:#667eea;color:#667eea}
+      .container{max-width:1000px;margin:0 auto;padding:30px 20px}
+      .workflow-header{text-align:center;margin-bottom:40px}
+      .workflow-header h1{font-size:32px;color:#333;margin-bottom:10px}
+      .workflow-header p{color:#666;font-size:18px}
+      .workflow-steps{display:flex;justify-content:center;margin-bottom:40px;gap:20px;flex-wrap:wrap}
+      .workflow-step{display:flex;align-items:center;gap:10px;padding:15px 25px;background:#fff;border-radius:25px;box-shadow:0 2px 10px rgba(0,0,0,.1);font-weight:600}
+      .workflow-step.active{background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);color:#fff}
+      .workflow-step.completed{background:#e8f5e9;color:#2e7d32}
+      .step-number{width:24px;height:24px;border-radius:50%;background:rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700}
+      .workflow-step.active .step-number{background:rgba(255,255,255,.3)}
+      .workflow-step.completed .step-number{background:#4caf50;color:#fff}
+      .scan-section{background:#fff;border-radius:15px;padding:40px;box-shadow:0 5px 15px rgba(0,0,0,.1);margin-bottom:30px}
+      .upload-area{border:2px dashed #ccc;border-radius:15px;padding:60px 40px;text-align:center;margin:20px 0;cursor:pointer;transition:.3s;background:#fafafa}
+      .upload-area:hover{border-color:#667eea;background:#f8f9ff}
+      .upload-area.dragover{border-color:#667eea;background:#f0f4ff;transform:scale(1.02)}
+      .upload-icon{font-size:48px;margin-bottom:20px}
+      .upload-text{font-size:18px;font-weight:600;margin-bottom:10px;color:#333}
+      .upload-subtext{color:#666;font-size:14px}
+      input[type=file]{display:none}
+      .quality-selector{margin:30px 0;padding:20px;background:#f8f9fa;border-radius:10px}
+      .quality-selector label{display:block;margin-bottom:15px;font-weight:600;color:#333}
+      .quality-options{display:grid;grid-template-columns:repeat(3,1fr);gap:15px}
+      .quality-option{padding:15px;border:2px solid #e0e0e0;border-radius:10px;cursor:pointer;text-align:center;transition:.3s;background:#fff}
+      .quality-option:hover{border-color:#667eea;transform:translateY(-2px)}
+      .quality-option.selected{border-color:#667eea;background:#f0f4ff}
+      .quality-option strong{display:block;margin-bottom:5px;color:#333}
+      .quality-option .size{font-size:12px;color:#666}
+      .images-preview{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:20px;margin:30px 0}
+      .image-preview-item{position:relative;border-radius:10px;overflow:hidden;box-shadow:0 4px 12px rgba(0,0,0,.15);transition:transform .2s}
+      .image-preview-item:hover{transform:translateY(-2px)}
+      .image-preview-item img{width:100%;height:150px;object-fit:cover}
+      .image-preview-item .remove-btn{position:absolute;top:8px;right:8px;background:rgba(255,255,255,.9);border:none;border-radius:50%;width:28px;height:28px;cursor:pointer;font-size:18px;line-height:1;color:#666;transition:.2s}
+      .image-preview-item .remove-btn:hover{background:#ff5252;color:#fff}
+      .image-preview-item .info{position:absolute;bottom:0;left:0;right:0;background:linear-gradient(transparent,rgba(0,0,0,.8));color:#fff;padding:15px 10px 10px;font-size:11px;text-align:center}
+      .compression-stats{background:linear-gradient(135deg,#e3f2fd 0%,#f3e5f5 100%);padding:20px;border-radius:10px;margin:20px 0;border-left:4px solid #2196f3}
+      .action-buttons{display:flex;gap:15px;margin-top:30px}
+      .btn{flex:1;padding:15px 30px;border:none;border-radius:10px;font-size:16px;font-weight:600;cursor:pointer;transition:.2s;text-decoration:none;text-align:center;display:flex;align-items:center;justify-content:center;gap:8px}
+      .btn-primary{background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);color:#fff}
+      .btn-primary:hover{transform:translateY(-2px);box-shadow:0 8px 25px rgba(102,126,234,.3)}
+      .btn-primary:disabled{opacity:.6;cursor:not-allowed;transform:none}
+      .btn-secondary{background:#f5f5f5;color:#333;border:2px solid #e0e0e0}
+      .btn-secondary:hover{border-color:#667eea;color:#667eea}
+      .analysis-results{background:#fff;border-radius:15px;padding:40px;box-shadow:0 5px 15px rgba(0,0,0,.1);margin:30px 0;display:none}
+      .analysis-header{display:flex;align-items:center;margin-bottom:30px;padding-bottom:20px;border-bottom:2px solid #f0f0f0}
+      .analysis-icon{font-size:32px;margin-right:15px}
+      .analysis-title h2{color:#333;margin-bottom:5px}
+      .confidence-indicator{padding:6px 12px;border-radius:15px;font-size:12px;font-weight:700;text-transform:uppercase}
+      .confidence-high{background:#e8f5e9;color:#2e7d32}
+      .confidence-medium{background:#fff3e0;color:#f57c00}
+      .confidence-low{background:#ffebee;color:#c62828}
+      .edit-form{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:30px;margin-bottom:40px}
+      .form-group{margin-bottom:20px}
+      .form-group label{display:block;margin-bottom:8px;font-weight:600;color:#333}
+      .form-group input,.form-group select,.form-group textarea{width:100%;padding:12px 15px;border:2px solid #e0e0e0;border-radius:8px;font-size:14px;transition:border-color .3s}
+      .form-group input:focus,.form-group select:focus,.form-group textarea:focus{outline:none;border-color:#667eea}
+      .form-group textarea{min-height:100px;resize:vertical}
+      .smart-suggestions{background:#f8f9ff;padding:15px;border-radius:8px;margin-top:10px;border-left:4px solid #667eea}
+      .smart-suggestions h4{margin-bottom:10px;color:#333;font-size:14px}
+      .suggestion-tags{display:flex;flex-wrap:wrap;gap:8px}
+      .suggestion-tag{padding:4px 10px;background:#fff;border:1px solid #667eea;border-radius:15px;font-size:12px;color:#667eea;cursor:pointer;transition:.2s}
+      .suggestion-tag:hover{background:#667eea;color:#fff}
+      .loading{text-align:center;padding:40px;color:#666}
+      .loading .spinner{border:3px solid #f3f3f3;border-top:3px solid #667eea;border-radius:50%;width:40px;height:40px;animation:spin 1s linear infinite;margin:0 auto 20px}
+      @keyframes spin{0%{transform:rotate(0)}100%{transform:rotate(360deg)}}
+      .error{background:#ffebee;color:#c62828;padding:15px;border-radius:10px;margin:20px 0;border-left:4px solid #f44336}
+      .success{background:#e8f5e9;color:#2e7d32;padding:15px;border-radius:10px;margin:20px 0;border-left:4px solid #4caf50}
+      .tips{background:#fff3e0;padding:20px;border-radius:10px;margin:20px 0;border-left:4px solid #ff9800}
+      .tips h3{margin-bottom:15px;color:#e65100}
+      .tips ul{margin:0;padding-left:20px}
+      .tips li{margin-bottom:8px;line-height:1.5}
+      @media (max-width:768px){
+        .container{padding:20px 15px}
+        .workflow-steps{flex-direction:column;align-items:center}
+        .scan-section{padding:30px 20px}
+        .upload-area{padding:40px 20px}
+        .quality-options{grid-template-columns:1fr}
+        .edit-form{grid-template-columns:1fr;gap:20px}
+        .action-buttons{flex-direction:column}
+      }
+    </style>
+  </head>
+  <body>
+    <div class="header">
+      <div class="header-content">
+        <a href="/dashboard.html" class="logo">🏴‍☠️ Treasure Hunter</a>
+        <div class="nav-actions">
+          <a href="/dashboard.html" class="nav-btn">🏠 Dashboard</a>
+          <a href="/profile.html" class="nav-btn">👤 Profile</a>
+        </div>
       </div>
     </div>
-  </div>
 
-  <div class="container">
-    <div class="workflow-header">
-      <h1>Scan & List Your Treasure</h1>
-      <p>AI-powered analysis with smart eBay listing creation</p>
-    </div>
+    <div class="container">
+      <div class="workflow-header">
+        <h1>Scan & List Your Treasure</h1>
+        <p>AI-powered analysis with smart eBay listing creation</p>
+      </div>
 
-    <div class="workflow-steps">
-      <div class="workflow-step active" id="stepScan"><div class="step-number">1</div><span>Scan Item</span></div>
-      <div class="workflow-step" id="stepEdit"><div class="step-number">2</div><span>Review & Edit</span></div>
-      <div class="workflow-step" id="stepPhotos"><div class="step-number">3</div><span>Listing Photos</span></div>
-      <div class="workflow-step" id="stepList"><div class="step-number">4</div><span>Create Listing</span></div>
-    </div>
+      <div class="workflow-steps">
+        <div class="workflow-step active" id="stepScan"><div class="step-number">1</div><span>Scan Item</span></div>
+        <div class="workflow-step" id="stepEdit"><div class="step-number">2</div><span>Review & Edit</span></div>
+        <div class="workflow-step" id="stepPhotos"><div class="step-number">3</div><span>Listing Photos</span></div>
+        <div class="workflow-step" id="stepList"><div class="step-number">4</div><span>Create Listing</span></div>
+      </div>
 
-    <div id="errorMessage" class="error" style="display:none;"></div>
-    <div id="successMessage" class="success" style="display:none;"></div>
+      <div id="errorMessage" class="error" style="display:none;"></div>
+      <div id="successMessage" class="success" style="display:none;"></div>
 
-    <!-- Step 1 -->
-    <div class="scan-section" id="scanSection">
-      <h2 style="margin-bottom:20px;color:#333;">📸 Upload Photos for Analysis</h2>
+      <!-- Step 1 -->
+      <div class="scan-section" id="scanSection">
+        <h2 style="margin-bottom:20px;color:#333;">📸 Upload Photos for Analysis</h2>
 
-      <div class="quality-selector">
-        <label>Photo Quality Settings:</label>
-        <div class="quality-options">
-          <div class="quality-option" data-quality="fast"><strong>Fast</strong><div class="size">~200KB, 800px</div><div class="size">Quick scan</div></div>
-          <div class="quality-option selected" data-quality="balanced"><strong>Balanced</strong><div class="size">~400KB, 1024px</div><div class="size">Recommended</div></div>
-          <div class="quality-option" data-quality="high"><strong>High Detail</strong><div class="size">~800KB, 1600px</div><div class="size">Best accuracy</div></div>
+        <div class="quality-selector">
+          <label>Photo Quality Settings:</label>
+          <div class="quality-options">
+            <div class="quality-option" data-quality="fast"><strong>Fast</strong><div class="size">~200KB, 800px</div><div class="size">Quick scan</div></div>
+            <div class="quality-option selected" data-quality="balanced"><strong>Balanced</strong><div class="size">~400KB, 1024px</div><div class="size">Recommended</div></div>
+            <div class="quality-option" data-quality="high"><strong>High Detail</strong><div class="size">~800KB, 1600px</div><div class="size">Best accuracy</div></div>
+          </div>
+        </div>
+
+        <div class="upload-area" id="uploadArea">
+          <div class="upload-icon">📸</div>
+          <div class="upload-text">Click to upload photos or drag & drop here</div>
+          <div class="upload-subtext">Upload up to 3 photos for best analysis results</div>
+          <input type="file" id="fileInput" accept="image/*" multiple>
+        </div>
+
+        <div class="images-preview" id="imagesPreview" style="display:none;"></div>
+        <div class="compression-stats" id="compressionStats" style="display:none;"></div>
+
+        <div class="tips">
+          <h3>📷 Photo Tips for Best Results:</h3>
+          <ul>
+            <li><strong>Multiple angles:</strong> Front, back, and any damage or labels</li>
+            <li><strong>Good lighting:</strong> Natural light works best</li>
+            <li><strong>Include details:</strong> Brand labels, model numbers, condition issues</li>
+            <li><strong>Whole item:</strong> Show the complete item in at least one photo</li>
+            <li><strong>Clear focus:</strong> Avoid blurry or dark images</li>
+          </ul>
+        </div>
+
+        <div class="action-buttons">
+          <button class="btn btn-primary" id="analyzeBtn" disabled>🔍 Analyze Item with AI</button>
         </div>
       </div>
 
-      <div class="upload-area" id="uploadArea">
-        <div class="upload-icon">📸</div>
-        <div class="upload-text">Click to upload photos or drag & drop here</div>
-        <div class="upload-subtext">Upload up to 3 photos for best analysis results</div>
-        <input type="file" id="fileInput" accept="image/*" multiple>
-      </div>
-
-      <div class="images-preview" id="imagesPreview" style="display:none;"></div>
-      <div class="compression-stats" id="compressionStats" style="display:none;"></div>
-
-      <div class="tips">
-        <h3>📷 Photo Tips for Best Results:</h3>
-        <ul>
-          <li><strong>Multiple angles:</strong> Front, back, and any damage or labels</li>
-          <li><strong>Good lighting:</strong> Natural light works best</li>
-          <li><strong>Include details:</strong> Brand labels, model numbers, condition issues</li>
-          <li><strong>Whole item:</strong> Show the complete item in at least one photo</li>
-          <li><strong>Clear focus:</strong> Avoid blurry or dark images</li>
-        </ul>
-      </div>
-
-      <div class="action-buttons">
-        <button class="btn btn-primary" id="analyzeBtn" disabled>🔍 Analyze Item with AI</button>
-      </div>
-    </div>
-
-    <!-- Step 2 -->
-    <div class="analysis-results" id="analysisSection">
-      <div class="analysis-header">
-        <div class="analysis-icon">🤖</div>
-        <div class="analysis-title">
-          <h2>AI Analysis Results</h2>
-          <p>Review and edit the detected information</p>
+      <!-- Step 2 -->
+      <div class="analysis-results" id="analysisSection">
+        <div class="analysis-header">
+          <div class="analysis-icon">🤖</div>
+          <div class="analysis-title">
+            <h2>AI Analysis Results</h2>
+            <p>Review and edit the detected information</p>
+          </div>
+          <div class="confidence-indicator" id="confidenceIndicator">High Confidence</div>
         </div>
-        <div class="confidence-indicator" id="confidenceIndicator">High Confidence</div>
+
+        <div class="edit-form" id="editForm"></div>
+
+        <div class="action-buttons">
+          <button class="btn btn-secondary" onclick="goToStep('scan')">← Back to Photos</button>
+          <button class="btn btn-primary" id="continueToPhotosBtn">Continue to Listing Photos →</button>
+        </div>
       </div>
 
-      <div class="edit-form" id="editForm"></div>
-
-      <div class="action-buttons">
-        <button class="btn btn-secondary" onclick="goToStep('scan')">← Back to Photos</button>
-        <button class="btn btn-primary" id="continueToPhotosBtn">Continue to Listing Photos →</button>
+      <div class="loading" id="loadingState" style="display:none;">
+        <div class="spinner"></div>
+        <p id="loadingText">Analyzing your photos with AI...</p>
       </div>
     </div>
 
-    <div class="loading" id="loadingState" style="display:none;">
-      <div class="spinner"></div>
-      <p id="loadingText">Analyzing your photos with AI...</p>
-    </div>
-  </div>
+    <!-- Firebase -->
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-storage-compat.js"></script>
 
-  <!-- Firebase -->
-  <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-firestore-compat.js"></script>
+ <script>
+// ===== Config =====
+const API_BASE_URL = 'https://app-beprv7ll2q-uc.a.run.app';
+const firebaseConfig = {
+  apiKey: "AIzaSyDymYwo7NUAu7lhoPfS9KLQmckvVgky7PU",
+  authDomain: "treasurehunter-sdk.firebaseapp.com",
+  projectId: "treasurehunter-sdk",
+  storageBucket: "treasurehunter-sdk.firebasestorage.app",
+  messagingSenderId: "328804663359",
+  appId: "1:328804663359:web:eb124f150c4853c123788a",
+  measurementId: "G-YNJ58GLX3T"
+};
 
-  <script>
-    // ===== Config =====
-    const API_BASE_URL = 'https://app-beprv7ll2q-uc.a.run.app';
-    const firebaseConfig = {
-      apiKey: "AIzaSyDymYwo7NUAu7lhoPfS9KLQmckvVgky7PU",
-      authDomain: "treasurehunter-sdk.firebaseapp.com",
-      projectId: "treasurehunter-sdk",
-      storageBucket: "treasurehunter-sdk.firebasestorage.app",
-      messagingSenderId: "328804663359",
-      appId: "1:328804663359:web:eb124f150c4853c123788a",
-      measurementId: "G-YNJ58GLX3T"
-    };
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db = firebase.firestore();
+const storage = firebase.storage(); // Add this line
 
-    firebase.initializeApp(firebaseConfig);
-    const auth = firebase.auth();
-    const db   = firebase.firestore();
+// ===== State =====
+let currentUser = null;
+let userData = null;
+let selectedFiles = [];
+let compressedFiles = [];
+let base64Images = [];
+let selectedQuality = 'balanced';
+let currentScanId = null;
+let analysisData = null;
+let editedData = null;
 
-    // ===== State =====
-    let currentUser = null;
-    let userData    = null;
-    let selectedFiles = [];
-    let compressedFiles = [];
-    let base64Images = [];
-    let selectedQuality = 'balanced';
-    let currentScanId = null;
-    let analysisData = null;
-    let editedData = null;
+// ===== UI refs =====
+const uploadArea = document.getElementById('uploadArea');
+const fileInput = document.getElementById('fileInput');
+const imagesPreview = document.getElementById('imagesPreview');
+const compressionStats = document.getElementById('compressionStats');
+const analyzeBtn = document.getElementById('analyzeBtn');
+const loadingState = document.getElementById('loadingState');
+const loadingText = document.getElementById('loadingText');
+const errorMessage = document.getElementById('errorMessage');
+const successMessage = document.getElementById('successMessage');
+const scanSection = document.getElementById('scanSection');
+const analysisSection = document.getElementById('analysisSection');
 
-    // ===== UI refs =====
-    const uploadArea        = document.getElementById('uploadArea');
-    const fileInput         = document.getElementById('fileInput');
-    const imagesPreview     = document.getElementById('imagesPreview');
-    const compressionStats  = document.getElementById('compressionStats');
-    const analyzeBtn        = document.getElementById('analyzeBtn');
-    const loadingState      = document.getElementById('loadingState');
-    const loadingText       = document.getElementById('loadingText');
-    const errorMessage      = document.getElementById('errorMessage');
-    const successMessage    = document.getElementById('successMessage');
-    const scanSection       = document.getElementById('scanSection');
-    const analysisSection   = document.getElementById('analysisSection');
+console.log('✅ Critical scan editor fixes loaded');
+document.addEventListener('DOMContentLoaded', () => {
+  console.log('Scan Editor loaded');
+  console.log('API URL:', API_BASE_URL);
+});
 
-    console.log('✅ Critical scan editor fixes loaded');
-    document.addEventListener('DOMContentLoaded', () => {
-      console.log('Scan Editor loaded');
-      console.log('API URL:', API_BASE_URL);
-    });
+// ===== Auth =====
+auth.onAuthStateChanged(async (user) => {
+  if (!user) return (window.location.href = '/signin.html');
+  currentUser = user;
+  console.log('User authenticated:', { uid: user.uid, email: user.email, displayName: user.displayName });
 
-    // ===== Auth =====
-    auth.onAuthStateChanged(async (user) => {
-      if (!user) return (window.location.href = '/signin.html');
-      currentUser = user;
-      console.log('User authenticated:', { uid: user.uid, email: user.email, displayName: user.displayName });
+  await loadUserData();
 
-      await loadUserData();
+  const urlParams = new URLSearchParams(window.location.search);
+  const scanId = urlParams.get('scanId');
+  if (scanId) await loadExistingScan(scanId);
+});
 
-      const urlParams = new URLSearchParams(window.location.search);
-      const scanId = urlParams.get('scanId');
-      if (scanId) await loadExistingScan(scanId);
-    });
-
-    async function loadUserData() {
-      try {
-        const firebaseUID = currentUser.uid;
-        console.log('Loading user data with UID:', firebaseUID);
-        const doc = await db.collection('users').doc(firebaseUID).get();
-        if (doc.exists) {
-          userData = doc.data();
-          console.log('✅ User data loaded successfully');
-        } else {
-          userData = {
-            uid: currentUser.uid,
-            email: currentUser.email,
-            profile: currentUser.displayName || currentUser.email?.split('@')[0] || 'User',
-            ebay: { isConnected:false, sellerAccount:"" },
-            stats: { totalScans:0, totalEarnings:0, pinsCreated:0, lastConfidenceScore:5, lastScanDate:null },
-            metadata: {
-              createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-              lastActiveAt: firebase.firestore.FieldValue.serverTimestamp(),
-              lastLoginAt: firebase.firestore.FieldValue.serverTimestamp(),
-              updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-            },
-            verification: { emailVerified: currentUser.emailVerified || false, communityRating: 0 }
-          };
-          await db.collection('users').doc(firebaseUID).set(userData);
-          console.log('✅ Created new user document with Firebase Auth UID:', firebaseUID);
-        }
-      } catch (e) {
-        console.error('❌ Error loading user data:', e);
-        userData = { email: currentUser.email, uid: currentUser.uid, stats:{ totalScans:0 }, metadata:{ createdAt:new Date() } };
-      }
-    }
-
-    // ===== Quality selector =====
-    const qualityPresets = {
-      fast:     { maxSizeMB:0.2, maxWidthOrHeight:800,  quality:0.7 },
-      balanced: { maxSizeMB:0.8, maxWidthOrHeight:1200, quality:0.9 },
-      high:     { maxSizeMB:0.8, maxWidthOrHeight:1600, quality:0.85 }
-    };
-    document.querySelectorAll('.quality-option').forEach(option=>{
-      option.addEventListener('click',()=>{
-        document.querySelectorAll('.quality-option').forEach(o=>o.classList.remove('selected'));
-        option.classList.add('selected');
-        selectedQuality = option.dataset.quality;
-        if (selectedFiles.length>0) handleFiles(selectedFiles);
-      });
-    });
-
-    // ===== Upload handlers =====
-    uploadArea.addEventListener('click',()=>fileInput.click());
-    uploadArea.addEventListener('dragover',(e)=>{e.preventDefault();uploadArea.classList.add('dragover');});
-    uploadArea.addEventListener('dragleave',()=>uploadArea.classList.remove('dragover'));
-    uploadArea.addEventListener('drop',(e)=>{
-      e.preventDefault(); uploadArea.classList.remove('dragover');
-      const files = Array.from(e.dataTransfer.files).filter(f=>f.type.startsWith('image/'));
-      if (files.length>0) handleFiles(files.slice(0,3));
-    });
-    fileInput.addEventListener('change',(e)=>{
-      const files = Array.from(e.target.files);
-      if (files.length>0) handleFiles(files.slice(0,3));
-    });
-
-    async function handleFiles(files){
-      selectedFiles = Array.from(files).slice(0,3);
-      compressedFiles = []; base64Images = [];
-      imagesPreview.innerHTML=''; imagesPreview.style.display='grid';
-      compressionStats.style.display='block';
-
-      let totalOriginal=0, totalCompressed=0;
-      compressionStats.innerHTML='<div style="text-align:center;">📸 Compressing images...</div>';
-      const preset = qualityPresets[selectedQuality];
-
-      for (let i=0;i<selectedFiles.length;i++){
-        const file = selectedFiles[i]; totalOriginal += file.size;
-        const itemDiv = document.createElement('div');
-        itemDiv.className='image-preview-item';
-        itemDiv.innerHTML='<div style="height:150px;display:flex;align-items:center;justify-content:center;color:#666;">Processing...</div>';
-        imagesPreview.appendChild(itemDiv);
-
-        try{
-          const options={maxSizeMB:preset.maxSizeMB,maxWidthOrHeight:preset.maxWidthOrHeight,useWebWorker:true,fileType:'image/jpeg',quality:preset.quality};
-          const compressed = await imageCompression(file,options);
-          compressedFiles.push(compressed); totalCompressed += compressed.size;
-
-          const base64 = await fileToBase64(compressed); base64Images.push(base64);
-          const reader = new FileReader();
-          reader.onload = (e)=>{
-            itemDiv.innerHTML = `
-              <img src="${e.target.result}" alt="Preview ${i+1}">
-              <button class="remove-btn" data-index="${i}">×</button>
-              <div class="info">${formatFileSize(compressed.size)}</div>`;
-            itemDiv.querySelector('.remove-btn').addEventListener('click',(ev)=>{
-              ev.stopPropagation(); removeImage(parseInt(ev.target.dataset.index));
-            });
-          };
-          reader.readAsDataURL(compressed);
-        }catch(err){
-          console.error('Compression error:',err);
-          compressedFiles.push(file); totalCompressed += file.size;
-          const base64 = await fileToBase64(file); base64Images.push(base64);
-        }
-      }
-
-      const reduction = totalOriginal>0 ? ((1-totalCompressed/totalOriginal)*100).toFixed(1) : 0;
-      compressionStats.innerHTML = `
-        <strong>✅ Compression Complete:</strong><br>
-        Original: ${formatFileSize(totalOriginal)} → Compressed: ${formatFileSize(totalCompressed)}<br>
-        <strong>${reduction}% reduction</strong> | Quality: ${selectedQuality} | ${selectedFiles.length} image${selectedFiles.length>1?'s':''}
-      `;
-      analyzeBtn.disabled=false;
-    }
-
-    // ===== Global (window.*) critical functions to avoid ReferenceError =====
-    window.saveScanToUser = async function saveScanToUser(data){
-      try{
-        const firebaseUID = currentUser.uid;
-        console.log('💾 Saving scan analysis (no images)');
-
-        const scanData = {
-          uid: firebaseUID,
-          email: currentUser.email,
-          analysis: data.analysis,
-          routes: data.routes,
-          scanMetadata: {
-            imageCount: base64Images.length,
-            quality: selectedQuality,
-            analyzedAt: new Date().toISOString(),
-            confidence: data.analysis?.confidence || 5
-          },
-          status: 'analyzed',
+async function loadUserData() {
+  try {
+    const firebaseUID = currentUser.uid;
+    console.log('Loading user data with UID:', firebaseUID);
+    const doc = await db.collection('users').doc(firebaseUID).get();
+    if (doc.exists) {
+      userData = doc.data();
+      console.log('✅ User data loaded successfully');
+    } else {
+      userData = {
+        uid: currentUser.uid,
+        email: currentUser.email,
+        profile: currentUser.displayName || currentUser.email?.split('@')[0] || 'User',
+        ebay: { isConnected: false, sellerAccount: "" },
+        stats: { totalScans: 0, totalEarnings: 0, pinsCreated: 0, lastConfidenceScore: 5, lastScanDate: null },
+        metadata: {
           createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+          lastActiveAt: firebase.firestore.FieldValue.serverTimestamp(),
+          lastLoginAt: firebase.firestore.FieldValue.serverTimestamp(),
           updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-        };
+        },
+        verification: { emailVerified: currentUser.emailVerified || false, communityRating: 0 }
+      };
+      await db.collection('users').doc(firebaseUID).set(userData);
+      console.log('✅ Created new user document with Firebase Auth UID:', firebaseUID);
+    }
+  } catch (e) {
+    console.error('❌ Error loading user data:', e);
+    userData = { email: currentUser.email, uid: currentUser.uid, stats: { totalScans: 0 }, metadata: { createdAt: new Date() } };
+  }
+}
 
-        if (currentScanId){
-          await db.collection('users').doc(firebaseUID).collection('scans').doc(currentScanId).set(scanData);
-        }else{
-          const docRef = await db.collection('users').doc(firebaseUID).collection('scans').add(scanData);
-          currentScanId = docRef.id;
-        }
+// ===== Quality selector =====
+const qualityPresets = {
+  fast: { maxSizeMB: 0.2, maxWidthOrHeight: 800, quality: 0.7 },
+  balanced: { maxSizeMB: 0.8, maxWidthOrHeight: 1200, quality: 0.9 },
+  high: { maxSizeMB: 0.8, maxWidthOrHeight: 1600, quality: 0.85 }
+};
 
-        await db.collection('scanned_items').add({
-          uid: firebaseUID, scanId: currentScanId, timestamp:new Date().toISOString(),
-          category: data.analysis?.category || 'Unknown', confidence: data.analysis?.confidence || 5, status:'analyzed'
+document.querySelectorAll('.quality-option').forEach(option => {
+  option.addEventListener('click', () => {
+    document.querySelectorAll('.quality-option').forEach(o => o.classList.remove('selected'));
+    option.classList.add('selected');
+    selectedQuality = option.dataset.quality;
+    if (selectedFiles.length > 0) handleFiles(selectedFiles);
+  });
+});
+
+// ===== Upload handlers =====
+uploadArea.addEventListener('click', () => fileInput.click());
+uploadArea.addEventListener('dragover', (e) => { e.preventDefault(); uploadArea.classList.add('dragover'); });
+uploadArea.addEventListener('dragleave', () => uploadArea.classList.remove('dragover'));
+uploadArea.addEventListener('drop', (e) => {
+  e.preventDefault();
+  uploadArea.classList.remove('dragover');
+  const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/'));
+  if (files.length > 0) handleFiles(files.slice(0, 3));
+});
+fileInput.addEventListener('change', (e) => {
+  const files = Array.from(e.target.files);
+  if (files.length > 0) handleFiles(files.slice(0, 3));
+});
+
+async function handleFiles(files) {
+  selectedFiles = Array.from(files).slice(0, 3);
+  compressedFiles = [];
+  base64Images = [];
+  imagesPreview.innerHTML = '';
+  imagesPreview.style.display = 'grid';
+  compressionStats.style.display = 'block';
+
+  let totalOriginal = 0, totalCompressed = 0;
+  compressionStats.innerHTML = '<div style="text-align:center;">📸 Compressing images...</div>';
+  const preset = qualityPresets[selectedQuality];
+
+  for (let i = 0; i < selectedFiles.length; i++) {
+    const file = selectedFiles[i];
+    totalOriginal += file.size;
+    const itemDiv = document.createElement('div');
+    itemDiv.className = 'image-preview-item';
+    itemDiv.innerHTML = '<div style="height:150px;display:flex;align-items:center;justify-content:center;color:#666;">Processing...</div>';
+    imagesPreview.appendChild(itemDiv);
+
+    try {
+      const options = { maxSizeMB: preset.maxSizeMB, maxWidthOrHeight: preset.maxWidthOrHeight, useWebWorker: true, fileType: 'image/jpeg', quality: preset.quality };
+      const compressed = await imageCompression(file, options);
+      compressedFiles.push(compressed);
+      totalCompressed += compressed.size;
+
+      const base64 = await fileToBase64(compressed);
+      base64Images.push(base64);
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        itemDiv.innerHTML = `
+          <img src="${e.target.result}" alt="Preview ${i + 1}">
+          <button class="remove-btn" data-index="${i}">×</button>
+          <div class="info">${formatFileSize(compressed.size)}</div>`;
+        itemDiv.querySelector('.remove-btn').addEventListener('click', (ev) => {
+          ev.stopPropagation();
+          removeImage(parseInt(ev.target.dataset.index));
         });
+      };
+      reader.readAsDataURL(compressed);
+    } catch (err) {
+      console.error('Compression error:', err);
+      compressedFiles.push(file);
+      totalCompressed += file.size;
+      const base64 = await fileToBase64(file);
+      base64Images.push(base64);
+    }
+  }
 
-        await updateUserStats();
-        console.log('✅ Scan analysis saved successfully');
-      }catch(error){
-        console.error('❌ Error saving scan:', error);
-        // Don’t rethrow — saving failure shouldn’t block UI
-      }
+  const reduction = totalOriginal > 0 ? ((1 - totalCompressed / totalOriginal) * 100).toFixed(1) : 0;
+  compressionStats.innerHTML = `
+    <strong>✅ Compression Complete:</strong><br>
+    Original: ${formatFileSize(totalOriginal)} → Compressed: ${formatFileSize(totalCompressed)}<br>
+    <strong>${reduction}% reduction</strong> | Quality: ${selectedQuality} | ${selectedFiles.length} image${selectedFiles.length > 1 ? 's' : ''}
+  `;
+  analyzeBtn.disabled = false;
+}
+
+// ===== Global functions =====
+ 
+window.processAndPopulateForm = async function processAndPopulateForm(data) {
+  console.log('🔄 Processing analysis data for form population:', data);
+  const analysis = data.analysis || {};
+  const routes = data.routes || {};
+  displayAnalysisResults(data);
+
+  setTimeout(() => {
+    populateFormFromAnalysis(analysis, routes);
+    if (routes.marketAnalysis) displayMarketAnalysis(routes.marketAnalysis);
+  }, 150);
+};
+
+// ===== Analyze click =====
+analyzeBtn.addEventListener('click', async () => {
+  if (base64Images.length === 0) return;
+  if (!userData) await loadUserData();
+
+  showLoading(true, 'Analyzing photos with AI...');
+  clearMessages();
+
+  try {
+    const jsonPayload = {
+      images: base64Images,
+      uid: currentUser?.uid || 'anonymous',
+      saveToFirestore: true,
+      location: (userData && userData.location) ? userData.location : 'brooklyn_ny',
+      imageCount: base64Images.length,
+      quality: selectedQuality,
+      timestamp: new Date().toISOString()
     };
 
-    window.processAndPopulateForm = async function processAndPopulateForm(data){
-      console.log('🔄 Processing analysis data for form population:', data);
-      const analysis = data.analysis || {};
-      const routes = data.routes || {};
-      displayAnalysisResults(data);
-
-      setTimeout(()=>{
-        populateFormFromAnalysis(analysis, routes);
-        if (routes.marketAnalysis) displayMarketAnalysis(routes.marketAnalysis);
-      }, 150);
-    };
-
-    // ===== Analyze click =====
-    analyzeBtn.addEventListener('click', async ()=>{
-      if (base64Images.length===0) return;
-      if (!userData) await loadUserData();
-
-      showLoading(true,'Analyzing photos with AI...'); clearMessages();
-
-      try {
-        const jsonPayload = {
-          images: base64Images,
-          uid: currentUser?.uid || 'anonymous',
-          saveToFirestore: true,
-          location: (userData && userData.location) ? userData.location : 'brooklyn_ny',
-          imageCount: base64Images.length,
-          quality: selectedQuality,
-          timestamp: new Date().toISOString()
-        };
-
-        console.log('📤 Sending analysis request:', { imageCount: jsonPayload.images?.length, uid: jsonPayload.uid, hasImages: Array.isArray(jsonPayload.images)&&jsonPayload.images.length>0 });
-
-        const resp = await fetch(`${API_BASE_URL}/api/analyze-json`, {
-          method:'POST', headers:{'Content-Type':'application/json','Accept':'application/json'}, body:JSON.stringify(jsonPayload)
-        });
-
-        console.log('📥 Response status:', resp.status);
-        if (!resp.ok){
-          const t = await resp.text(); console.error('❌ Response error:', t);
-          throw new Error(`Analysis failed (${resp.status}): ${t}`);
-        }
-
-        const data = await resp.json();
-        console.log('✅ Analysis response received:', data);
-        if (!data.success) throw new Error(data.error || 'Analysis failed');
-
-        analysisData = data;
-        currentScanId = data.scanId || currentScanId;
-
-        // IMPORTANT: make sure the function exists globally
-        await window.saveScanToUser(data);
-
-        await window.processAndPopulateForm(data);
-
-        showSuccess('✅ AI analysis complete! Form has been auto-populated with detected information.');
-        goToStep('edit');
-      } catch (error){
-        console.error('❌ Analysis error:', error);
-        showError(`Analysis failed: ${error.message}`);
-        goToStep('edit');
-        createEditForm({}); // empty form
-      } finally {
-        showLoading(false);
-      }
+    console.log('📤 Sending analysis request:', { 
+      imageCount: jsonPayload.images?.length, 
+      uid: jsonPayload.uid, 
+      hasImages: Array.isArray(jsonPayload.images) && jsonPayload.images.length > 0 
     });
 
-    // ===== Mapping helpers =====
-    function mapCategoryToSelect(category){
-      if (!category) return '';
-      const categoryLower = category.toLowerCase().trim();
-      const directMap = {
-        'electronics':'electronics','electronic':'electronics','consumer electronics':'electronics',
-        'furniture':'furniture','home furniture':'furniture',
-        'clothing':'clothing','apparel':'clothing',
-        'footwear':'footwear','shoes':'footwear',
-        'tools':'tools','books':'books','toys':'toys','automotive':'automotive',
-        'sporting goods':'sporting goods','sports':'sporting goods',
-        'home & garden':'home & garden','jewelry':'jewelry','collectibles':'collectibles'
-      };
-      if (directMap[categoryLower]) return directMap[categoryLower];
-      const partial = [
-        {keywords:['phone','laptop','computer','tablet','electronic','device'],value:'electronics'},
-        {keywords:['table','chair','desk','cabinet','furniture','shelf'],value:'furniture'},
-        {keywords:['shirt','jacket','pants','dress','cloth'],value:'clothing'},
-        {keywords:['shoe','boot','sneaker','sandal','footwear'],value:'footwear'},
-        {keywords:['drill','tool','hammer','wrench'],value:'tools'},
-        {keywords:['book','novel','textbook'],value:'books'},
-        {keywords:['toy','game','doll','action figure'],value:'toys'},
-        {keywords:['car','auto','vehicle','motor'],value:'automotive'},
-        {keywords:['sport','fitness','exercise','athletic'],value:'sporting goods'},
-        {keywords:['watch','ring','necklace','jewelry'],value:'jewelry'},
-        {keywords:['vintage','antique','collectible','rare'],value:'collectibles'}
-      ];
-      for (const m of partial){ if (m.keywords.some(k=>categoryLower.includes(k))) return m.value; }
-      return 'electronics';
+    const resp = await fetch(`${API_BASE_URL}/api/analyze-json`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      body: JSON.stringify(jsonPayload)
+    });
+
+    console.log('📥 Response status:', resp.status);
+    if (!resp.ok) {
+      const t = await resp.text();
+      console.error('❌ Response error:', t);
+      throw new Error(`Analysis failed (${resp.status}): ${t}`);
     }
-    function mapConditionToSelect(condition){
-      if (!condition) return 'good';
-      let rating = condition;
-      if (typeof condition==='object'){ rating = condition.rating || condition.numeric_rating || 'good'; }
-      if (typeof rating==='string'){
-        const r = rating.toLowerCase().trim();
-        const map = {'new':'new','like new':'like_new','excellent':'excellent','very good':'very_good','good':'good','fair':'acceptable','poor':'acceptable','damaged':'for_parts','broken':'for_parts','for parts':'for_parts'};
-        return map[r] || 'good';
+
+    const data = await resp.json();
+    console.log('✅ Analysis response received:', data);
+    if (!data.success) throw new Error(data.error || 'Analysis failed');
+
+    analysisData = data;
+
+    // Await the creation of the scan record
+    const scanRef = await db.collection('users').doc(currentUser.uid).collection('scans').add({
+      analysis: data.analysis,
+      routes: data.routes,
+      scanMetadata: {
+        imageCount: base64Images.length,
+        quality: selectedQuality,
+        analyzedAt: new Date().toISOString(),
+        confidence: data.analysis?.confidence || 5
+      },
+      status: 'analyzed',
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    currentScanId = scanRef.id;
+    console.log('✅ Created new scan record with ID:', currentScanId);
+
+    // Call the fixed updateUserStats function immediately after creating the scan record
+    await updateUserStats();
+
+    // Now proceed with populating the form
+    await window.processAndPopulateForm(data);
+
+    showSuccess('✅ AI analysis complete! Form has been auto-populated with detected information.');
+    goToStep('edit');
+
+  } catch (error) {
+    console.error('❌ Analysis error:', error);
+    showError(`Analysis failed: ${error.message}`);
+    goToStep('edit');
+    createEditForm({});
+  } finally {
+    showLoading(false);
+  }
+});
+
+
+// ===== Mapping helpers =====
+function mapCategoryToSelect(category) {
+    if (!category) return { value: '', isFallback: true };
+    const categoryLower = category.toLowerCase().trim();
+
+    // Prioritize specific keywords from AI analysis for a more accurate mapping
+    const specificKeywords = {
+        'home & garden': ['rack', 'shelving', 'over-toilet', 'shelf', 'storage', 'bathroom'],
+        'furniture': ['chair', 'table', 'desk', 'cabinet', 'sofa', 'furniture'],
+        'electronics': ['phone', 'laptop', 'computer', 'tablet', 'electronic', 'device'],
+        'clothing': ['shirt', 'dress', 'pants', 'jacket', 'coverall', 'jumpsuit'],
+        'footwear': ['shoe', 'boot', 'sneaker', 'sandal'],
+        'tools': ['drill', 'tool', 'hammer', 'wrench'],
+        'books': ['book', 'novel', 'textbook'],
+        'toys': ['toy', 'game', 'doll', 'action figure'],
+        'automotive': ['car', 'auto', 'vehicle', 'motor'],
+        'sporting goods': ['sports', 'fitness', 'exercise', 'athletic'],
+        'jewelry': ['watch', 'ring', 'necklace', 'jewelry'],
+        'collectibles': ['vintage', 'antique', 'collectible', 'rare']
+    };
+
+    for (const internalCat in specificKeywords) {
+        if (specificKeywords[internalCat].some(keyword => categoryLower.includes(keyword))) {
+            return { value: internalCat, isFallback: false };
+        }
+    }
+
+    // Check direct map
+    const directMap = {
+        // ... (your existing direct map logic) ...
+        'electronics': 'electronics', 'furniture': 'furniture', 'clothing': 'clothing', 
+        'footwear': 'footwear', 'tools': 'tools', 'books': 'books', 'toys': 'toys', 
+        'automotive': 'automotive', 'sporting goods': 'sporting goods', 
+        'home & garden': 'home & garden', 'jewelry': 'jewelry', 'collectibles': 'collectibles'
+    };
+    if (directMap[categoryLower]) {
+        return { value: directMap[categoryLower], isFallback: false };
+    }
+
+    // Final fallback to a safer, more general category with a flag
+    console.warn(`Category "${category}" not mapped, using general fallback.`);
+    return { value: 'home & garden', isFallback: true };
+}
+
+
+function mapConditionToSelect(condition) {
+  if (!condition) return 'good';
+  let rating = condition;
+  if (typeof condition === 'object') {
+    rating = condition.rating || condition.numeric_rating || 'good';
+  }
+  if (typeof rating === 'string') {
+    const r = rating.toLowerCase().trim();
+    const map = {
+      'new': 'new', 'like new': 'like_new', 'excellent': 'excellent', 'very good': 'very_good',
+      'good': 'good', 'fair': 'acceptable', 'poor': 'acceptable', 'damaged': 'for_parts',
+      'broken': 'for_parts', 'for parts': 'for_parts'
+    };
+    return map[r] || 'good';
+  }
+  if (typeof rating === 'number') {
+    if (rating >= 9) return 'excellent';
+    if (rating >= 8) return 'very_good';
+    if (rating >= 6) return 'good';
+    if (rating >= 4) return 'acceptable';
+    return 'for_parts';
+  }
+  return 'good';
+}
+
+function generateAutoDescription(analysis) {
+  const parts = [];
+  if (analysis.condition?.description) parts.push(analysis.condition.description);
+  if (analysis.materials?.length > 0) parts.push(`Materials: ${analysis.materials.join(', ')}`);
+  if (analysis.style && analysis.style !== 'Unknown') parts.push(`Style: ${analysis.style}`);
+  if (analysis.keyFeatures?.length > 0) {
+    parts.push('\nKey Features:');
+    analysis.keyFeatures.forEach(f => parts.push(`• ${f}`));
+  }
+  if (analysis.condition?.issues?.length > 0) {
+    parts.push('\nPlease note:');
+    analysis.condition.issues.forEach(i => parts.push(`• ${i}`));
+  }
+  if (analysis.identifiers?.visible_text?.trim()) {
+    parts.push(`\nVisible markings: ${analysis.identifiers.visible_text}`);
+  }
+  parts.push('\nItem sold as-is. Please review all photos carefully before purchasing.');
+  return parts.join('\n').trim();
+}
+
+// ===== Results + form =====
+function displayAnalysisResults(data) {
+  console.log('📊 Displaying analysis results:', data);
+  const analysis = data.analysis || {};
+  const confidence = analysis.confidence_rating || analysis.confidence || 5;
+  const confidenceIndicator = document.getElementById('confidenceIndicator');
+  if (confidenceIndicator) {
+    let klass = 'confidence-medium', text = 'Medium Confidence';
+    if (confidence >= 8) {
+      klass = 'confidence-high';
+      text = 'High Confidence';
+    } else if (confidence <= 4) {
+      klass = 'confidence-low';
+      text = 'Low Confidence';
+    }
+    confidenceIndicator.className = `confidence-indicator ${klass}`;
+    confidenceIndicator.textContent = `${text} (${confidence}/10)`;
+  }
+  createEditForm(analysis);
+  if (data.routes?.marketAnalysis) displayMarketAnalysis(data.routes.marketAnalysis);
+}
+
+function displayMarketAnalysis(marketAnalysis) {
+  let container = document.getElementById('marketAnalysisContainer');
+  if (!container) {
+    container = document.createElement('div');
+    container.id = 'marketAnalysisContainer';
+    container.style.gridColumn = '1 / -1';
+    document.getElementById('editForm')?.appendChild(container);
+  }
+  const ev = marketAnalysis.estimatedValue;
+  if (!ev) return;
+  container.innerHTML = `
+    <div style="background:#f8f9fa;border:1px solid #e9ecef;border-radius:8px;padding:16px;margin:16px 0;">
+      <h4 style="margin:0 0 12px;color:#333;">💰 Market Analysis</h4>
+      <div style="display:grid;gap:8px;">
+        <div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid #e9ecef;"><strong>Suggested Price:</strong><span style="color:#28a745;font-weight:700;">$${ev.suggested || 'N/A'}</span></div>
+        <div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid #e9ecef;"><strong>Confidence:</strong><span>${ev.confidence || 'Medium'}</span></div>
+        <div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid #e9ecef;"><strong>Data Source:</strong><span>${ev.source || 'Manual estimate'}</span></div>
+        ${ev.netProfit !== undefined ? `<div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid #e9ecef;"><strong>Est. Net Profit:</strong><span style="color:${ev.netProfit > 0 ? '#28a745' : '#dc3545'};font-weight:700;">$${ev.netProfit.toFixed(2)}</span></div>` : ''}
+        ${ev.searchQuery ? `<div style="display:flex;justify-content:space-between;padding:4px 0;"><strong>eBay Search:</strong><span style="font-style:italic;">"${ev.searchQuery}"</span></div>` : ''}
+      </div>
+    </div>`;
+}
+
+function createEditForm(analysis) {
+  console.log('📝 Creating edit form with analysis:', analysis);
+  const editForm = document.getElementById('editForm');
+  if (!editForm) {
+    console.error('❌ Edit form container not found');
+    return;
+  }
+  editForm.innerHTML = `
+    <div>
+      <div class="form-group">
+        <label for="category">Category *</label>
+        <select id="category" required>
+          <option value="">Select category...</option>
+          <option value="electronics">Electronics</option>
+          <option value="furniture">Furniture</option>
+          <option value="clothing">Clothing</option>
+          <option value="footwear">Footwear</option>
+          <option value="tools">Tools</option>
+          <option value="books">Books</option>
+          <option value="toys">Toys</option>
+          <option value="automotive">Automotive</option>
+          <option value="sporting goods">Sporting Goods</option>
+          <option value="home & garden">Home & Garden</option>
+          <option value="jewelry">Jewelry</option>
+          <option value="collectibles">Collectibles</option>
+        </select>
+        ${generateCategorySuggestions(analysis.category)}
+      </div>
+      <div class="form-group">
+        <label for="brand">Brand</label>
+        <input type="text" id="brand" placeholder="e.g., Nike, Apple, IKEA">
+        ${generateBrandSuggestions(analysis.category, analysis.brand)}
+      </div>
+      <div class="form-group">
+        <label for="model">Model/Product Name</label>
+        <input type="text" id="model" placeholder="Specific product name or model">
+      </div>
+    </div>
+
+    <div>
+      <div class="form-group">
+        <label for="condition">Condition *</label>
+        <select id="condition" required>
+          <option value="">Select condition...</option>
+          <option value="new">New</option>
+          <option value="like_new">Like New</option>
+          <option value="excellent">Excellent</option>
+          <option value="very_good">Very Good</option>
+          <option value="good">Good</option>
+          <option value="acceptable">Acceptable</option>
+          <option value="for_parts">For Parts/Not Working</option>
+        </select>
+      </div>
+      <div class="form-group" id="sizeGroup" style="display:none;">
+        <label for="size">Size</label>
+        <input type="text" id="size" placeholder="e.g., Medium, 10, 32x34">
+      </div>
+      <div class="form-group">
+        <label for="price">Starting Price ($)</label>
+        <input type="number" id="price" min="0.99" step="0.01" placeholder="9.99">
+      </div>
+    </div>
+
+    <div style="grid-column:1/-1;">
+      <div class="form-group">
+        <label for="description">Description</label>
+        <textarea id="description" placeholder="Describe the item's condition, features, and any flaws..."></textarea>
+      </div>
+    </div>
+  `;
+  document.getElementById('category')?.addEventListener('change', handleCategoryChange);
+  console.log('✅ Edit form created successfully');
+}
+
+function populateFormFromAnalysis(analysis, routes) {
+  console.log('🎯 Auto-populating form fields...');
+  try {
+    if (analysis.category) {
+      const categorySelect = document.getElementById('category');
+      if (categorySelect) {
+        // CRITICAL FIX: Call mapCategoryToSelect and get the fallback flag
+        const { value: categoryValue, isFallback } = mapCategoryToSelect(analysis.category);
+        categorySelect.value = categoryValue;
+        handleCategoryChange();
+
+        // Check the isFallback flag to display the warning
+        if (isFallback) {
+          const categoryWarning = document.getElementById('categoryWarning');
+          if (!categoryWarning) {
+            const warningDiv = document.createElement('div');
+            warningDiv.id = 'categoryWarning';
+            warningDiv.className = 'error'; // Use an existing style for a red box
+            warningDiv.innerHTML = '⚠️ This category was auto-selected. Please verify it is correct.';
+            categorySelect.parentNode.insertBefore(warningDiv, categorySelect.nextSibling);
+          }
+        }
       }
-      if (typeof rating==='number'){
-        if (rating>=9) return 'excellent';
-        if (rating>=8) return 'very_good';
-        if (rating>=6) return 'good';
-        if (rating>=4) return 'acceptable';
-        return 'for_parts';
+    }
+    
+    // The rest of the function remains the same
+    if (analysis.brand && !['Unknown', 'Generic'].includes(analysis.brand)) {
+      const el = document.getElementById('brand');
+      if (el) el.value = analysis.brand;
+    }
+    if (analysis.model && !['Unknown', 'See photos'].includes(analysis.model)) {
+      const el = document.getElementById('model');
+      if (el) el.value = analysis.model;
+    }
+    if (analysis.condition) {
+      const el = document.getElementById('condition');
+      if (el) el.value = mapConditionToSelect(analysis.condition);
+    }
+    if (routes?.marketAnalysis?.estimatedValue?.suggested) {
+      const el = document.getElementById('price');
+      if (el) el.value = routes.marketAnalysis.estimatedValue.suggested;
+    } else if (analysis.resale?.estimated_value) {
+      const el = document.getElementById('price');
+      if (el) el.value = analysis.resale.estimated_value;
+    } else if (analysis.resale?.priceRange?.low) {
+      const el = document.getElementById('price');
+      if (el) el.value = analysis.resale.priceRange.low;
+    }
+    const desc = document.getElementById('description');
+    if (desc) desc.value = generateAutoDescription(analysis);
+    console.log('✅ Form auto-population complete');
+  } catch (e) {
+    console.error('❌ Error auto-populating form:', e);
+  }
+}
+
+
+function handleCategoryChange() {
+  const category = document.getElementById('category').value;
+  const sizeGroup = document.getElementById('sizeGroup');
+  if (['clothing', 'footwear', 'jewelry'].includes(category)) {
+    sizeGroup.style.display = 'block';
+    const sizeInput = document.getElementById('size');
+    if (category === 'footwear') sizeInput.placeholder = 'e.g., 9, 10.5, 12';
+    else if (category === 'clothing') sizeInput.placeholder = 'e.g., Small, Medium, Large, XL';
+    else if (category === 'jewelry') sizeInput.placeholder = 'e.g., 7, 8.5, One Size';
+  } else {
+    sizeGroup.style.display = 'none';
+  }
+}
+
+// ===== Suggestion functions =====
+function getCategorySuggestions(category) {
+  const map = {
+    'electronics': ['Consumer Electronics', 'Cell Phones & Accessories', 'Computers/Tablets & Networking'],
+    'furniture': ['Home & Garden', 'Antiques', 'Home Furniture'],
+    'clothing': ['Clothing, Shoes & Accessories', "Women's Clothing", "Men's Clothing"],
+    'footwear': ['Athletic Shoes', 'Casual Shoes', 'Boots'],
+    'tools': ['Hand Tools', 'Power Tools', 'Tool Sets'],
+    'automotive': ['Parts & Accessories', 'Car Care & Detailing', 'Motorcycle Parts']
+  };
+  return map[category?.toLowerCase()] || [];
+}
+
+function generateCategorySuggestions(detectedCategory) {
+  if (!detectedCategory) return '';
+  const suggestions = getCategorySuggestions(detectedCategory);
+  if (suggestions.length === 0) return '';
+  return `
+    <div class="smart-suggestions">
+      <h4>💡 AI detected similar categories:</h4>
+      <div class="suggestion-tags">
+        ${suggestions.map(cat => `<span class="suggestion-tag" onclick="selectCategory('${cat}')">${cat}</span>`).join('')}
+      </div>
+    </div>`;
+}
+
+function getBrandSuggestions(category) {
+  const map = {
+    'electronics': ['Apple', 'Samsung', 'Sony', 'Microsoft', 'Nintendo', 'HP', 'Dell', 'Canon'],
+    'furniture': ['IKEA', 'West Elm', 'Pottery Barn', 'CB2', 'Restoration Hardware', 'Ashley'],
+    'clothing': ['Nike', 'Adidas', "Levi's", 'Gap', 'H&M', 'Zara', 'Uniqlo', 'Ralph Lauren'],
+    'footwear': ['Nike', 'Adidas', 'Jordan', 'Converse', 'Vans', 'New Balance', 'Puma', 'Reebok'],
+    'tools': ['DeWalt', 'Milwaukee', 'Makita', 'Ryobi', 'Craftsman', 'Black & Decker', 'Bosch'],
+    'automotive': ['Bosch', 'AC Delco', 'Motorcraft', 'OEM', 'Denso', 'NGK', 'Fram']
+  };
+  return map[category?.toLowerCase()] || [];
+}
+
+function generateBrandSuggestions(category) {
+  const suggestions = getBrandSuggestions(category);
+  if (suggestions.length === 0) return '';
+  return `
+    <div class="smart-suggestions">
+      <h4>💡 Popular brands in ${category}:</h4>
+      <div class="suggestion-tags">
+        ${suggestions.slice(0, 6).map(brand => `<span class="suggestion-tag" onclick="selectBrand('${brand}')">${brand}</span>`).join('')}
+      </div>
+    </div>`;
+}
+
+function selectCategory(cat) {
+  document.getElementById('category').value = cat.toLowerCase();
+  handleCategoryChange();
+}
+
+function selectBrand(brand) {
+  document.getElementById('brand').value = brand;
+}
+
+// ===== Validation function =====
+function validateAndCleanListingData(listingData) {
+  console.log('🧹 Cleaning and validating listing data:', listingData);
+
+  // Clean the condition field specifically
+  if (listingData.condition) {
+    // Handle object conditions (from analysis)
+    if (typeof listingData.condition === 'object') {
+      listingData.condition = listingData.condition.rating || listingData.condition.condition || 'good';
+    }
+    
+    // Normalize to lowercase string
+    listingData.condition = String(listingData.condition).toLowerCase().trim();
+    
+    // Map frontend values to backend-expected values
+    const conditionMap = {
+      'like new': 'like_new',      // Map space-separated to underscore
+      'very good': 'very_good',    // Map space-separated to underscore
+      'for parts': 'for_parts'     // Map space-separated to underscore
+    };
+    
+    // Apply mapping if needed
+    if (conditionMap[listingData.condition]) {
+      listingData.condition = conditionMap[listingData.condition];
+    }
+    
+    // Validate it's an allowed value
+    const allowedConditions = ['new', 'like_new', 'excellent', 'very_good', 'good', 'acceptable', 'for_parts'];
+    if (!allowedConditions.includes(listingData.condition)) {
+      console.warn('⚠️ Invalid condition, defaulting to "good":', listingData.condition);
+      listingData.condition = 'good';
+    }
+  } else {
+    console.warn('⚠️ No condition specified, defaulting to "good"');
+    listingData.condition = 'good';
+  }
+
+  // Ensure title is a string and within limits
+  if (listingData.title) {
+    listingData.title = String(listingData.title).substring(0, 80);
+  } else {
+    console.warn('⚠️ No title specified, generating default');
+    listingData.title = 'Item for Sale';
+  }
+
+  // Ensure description is a string
+  if (listingData.description) {
+    listingData.description = String(listingData.description);
+  } else {
+    console.warn('⚠️ No description specified, generating default');
+    listingData.description = 'Please see photos for item condition and details.';
+  }
+
+  // Ensure category is valid
+  if (listingData.category) {
+    listingData.category = String(listingData.category).toLowerCase().trim();
+  } else {
+    console.warn('⚠️ No category specified, defaulting to "electronics"');
+    listingData.category = 'electronics';
+  }
+
+  // Ensure pricing values are numbers and valid
+  if (listingData.pricing) {
+    listingData.pricing.buyItNowPrice = Math.max(0.99, parseFloat(listingData.pricing.buyItNowPrice) || 0.99);
+    listingData.pricing.startingPrice = Math.max(0.99, parseFloat(listingData.pricing.startingPrice) || 0.99);
+    listingData.pricing.minimumOffer = Math.max(0.99, parseFloat(listingData.pricing.minimumOffer) || 0.99);
+    
+    // Ensure minimumOffer is less than buyItNowPrice
+    if (listingData.pricing.minimumOffer >= listingData.pricing.buyItNowPrice) {
+      listingData.pricing.minimumOffer = Math.max(0.99, listingData.pricing.buyItNowPrice * 0.8);
+    }
+  } else {
+    console.warn('⚠️ No pricing specified, setting defaults');
+    listingData.pricing = {
+      buyItNowPrice: 9.99,
+      startingPrice: 9.99,
+      minimumOffer: 7.99
+    };
+  }
+
+  // Ensure photos array exists and has valid data
+  if (!listingData.photos || !Array.isArray(listingData.photos)) {
+    console.error('⚠️ No photos array found');
+    listingData.photos = [];
+  } else {
+    // Clean photos array - ensure they're base64 strings
+    listingData.photos = listingData.photos.map(photo => {
+      if (typeof photo === 'string') {
+        // Remove data URL prefix if it exists, we'll add it back consistently
+        return photo.replace(/^data:image\/[a-z]+;base64,/, '');
       }
-      return 'good';
-    }
+      return '';
+    }).filter(photo => photo.length > 0);
+  }
 
-    function generateAutoDescription(analysis){
-      const parts=[];
-      if (analysis.condition?.description) parts.push(analysis.condition.description);
-      if (analysis.materials?.length>0) parts.push(`Materials: ${analysis.materials.join(', ')}`);
-      if (analysis.style && analysis.style!=='Unknown') parts.push(`Style: ${analysis.style}`);
-      if (analysis.keyFeatures?.length>0){ parts.push('\nKey Features:'); analysis.keyFeatures.forEach(f=>parts.push(`• ${f}`)); }
-      if (analysis.condition?.issues?.length>0){ parts.push('\nPlease note:'); analysis.condition.issues.forEach(i=>parts.push(`• ${i}`)); }
-      if (analysis.identifiers?.visible_text?.trim()) parts.push(`\nVisible markings: ${analysis.identifiers.visible_text}`);
-      parts.push('\nItem sold as-is. Please review all photos carefully before purchasing.');
-      return parts.join('\n').trim();
-    }
+  // Add itemSpecifics if missing
+  if (!listingData.itemSpecifics) {
+    listingData.itemSpecifics = {};
+  }
 
-    // ===== Results + form =====
-    function displayAnalysisResults(data){
-      console.log('📊 Displaying analysis results:', data);
-      const analysis = data.analysis || {};
-      const confidence = analysis.confidence_rating || analysis.confidence || 5;
-      const confidenceIndicator = document.getElementById('confidenceIndicator');
-      if (confidenceIndicator){
-        let klass='confidence-medium', text='Medium Confidence';
-        if (confidence>=8){ klass='confidence-high'; text='High Confidence'; }
-        else if (confidence<=4){ klass='confidence-low'; text='Low Confidence'; }
-        confidenceIndicator.className=`confidence-indicator ${klass}`;
-        confidenceIndicator.textContent = `${text} (${confidence}/10)`;
-      }
-      createEditForm(analysis);
-      if (data.routes?.marketAnalysis) displayMarketAnalysis(data.routes.marketAnalysis);
-    }
+  console.log('✅ Cleaned listing data:', {
+    condition: listingData.condition,
+    conditionType: typeof listingData.condition,
+    title: listingData.title,
+    titleLength: listingData.title?.length,
+    category: listingData.category,
+    price: listingData.pricing?.buyItNowPrice,
+    photoCount: listingData.photos?.length,
+    hasRequiredFields: !!(listingData.title && listingData.description && listingData.condition && listingData.category)
+  });
 
-    function displayMarketAnalysis(marketAnalysis){
-      let container = document.getElementById('marketAnalysisContainer');
-      if (!container){
-        container = document.createElement('div');
-        container.id = 'marketAnalysisContainer';
-        container.style.gridColumn = '1 / -1';
-        document.getElementById('editForm')?.appendChild(container);
-      }
-      const ev = marketAnalysis.estimatedValue;
-      if (!ev) return;
-      container.innerHTML = `
-        <div style="background:#f8f9fa;border:1px solid #e9ecef;border-radius:8px;padding:16px;margin:16px 0;">
-          <h4 style="margin:0 0 12px;color:#333;">💰 Market Analysis</h4>
-          <div style="display:grid;gap:8px;">
-            <div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid #e9ecef;"><strong>Suggested Price:</strong><span style="color:#28a745;font-weight:700;">$${ev.suggested || 'N/A'}</span></div>
-            <div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid #e9ecef;"><strong>Confidence:</strong><span>${ev.confidence || 'Medium'}</span></div>
-            <div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid #e9ecef;"><strong>Data Source:</strong><span>${ev.source || 'Manual estimate'}</span></div>
-            ${ev.netProfit!==undefined?`<div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid #e9ecef;"><strong>Est. Net Profit:</strong><span style="color:${ev.netProfit>0?'#28a745':'#dc3545'};font-weight:700;">$${ev.netProfit.toFixed(2)}</span></div>`:''}
-            ${ev.searchQuery?`<div style="display:flex;justify-content:space-between;padding:4px 0;"><strong>eBay Search:</strong><span style="font-style:italic;">"${ev.searchQuery}"</span></div>`:''}
-          </div>
-        </div>`;
-    }
+  return listingData;
+}
 
-    function createEditForm(analysis){
-      console.log('📝 Creating edit form with analysis:', analysis);
-      const editForm = document.getElementById('editForm');
-      if (!editForm){ console.error('❌ Edit form container not found'); return; }
-      editForm.innerHTML = `
-        <div>
-          <div class="form-group">
-            <label for="category">Category *</label>
-            <select id="category" required>
-              <option value="">Select category...</option>
-              <option value="electronics">Electronics</option>
-              <option value="furniture">Furniture</option>
-              <option value="clothing">Clothing</option>
-              <option value="footwear">Footwear</option>
-              <option value="tools">Tools</option>
-              <option value="books">Books</option>
-              <option value="toys">Toys</option>
-              <option value="automotive">Automotive</option>
-              <option value="sporting goods">Sporting Goods</option>
-              <option value="home & garden">Home & Garden</option>
-              <option value="jewelry">Jewelry</option>
-              <option value="collectibles">Collectibles</option>
-            </select>
-            ${generateCategorySuggestions(analysis.category)}
-          </div>
-          <div class="form-group">
-            <label for="brand">Brand</label>
-            <input type="text" id="brand" placeholder="e.g., Nike, Apple, IKEA">
-            ${generateBrandSuggestions(analysis.category, analysis.brand)}
-          </div>
-          <div class="form-group">
-            <label for="model">Model/Product Name</label>
-            <input type="text" id="model" placeholder="Specific product name or model">
-          </div>
-        </div>
-
-        <div>
-          <div class="form-group">
-            <label for="condition">Condition *</label>
-            <select id="condition" required>
-              <option value="">Select condition...</option>
-              <option value="new">New</option>
-              <option value="like_new">Like New</option>
-              <option value="excellent">Excellent</option>
-              <option value="very_good">Very Good</option>
-              <option value="good">Good</option>
-              <option value="acceptable">Acceptable</option>
-              <option value="for_parts">For Parts/Not Working</option>
-            </select>
-          </div>
-          <div class="form-group" id="sizeGroup" style="display:none;">
-            <label for="size">Size</label>
-            <input type="text" id="size" placeholder="e.g., Medium, 10, 32x34">
-          </div>
-          <div class="form-group">
-            <label for="price">Starting Price ($)</label>
-            <input type="number" id="price" min="0.99" step="0.01" placeholder="9.99">
-          </div>
-        </div>
-
-        <div style="grid-column:1/-1;">
-          <div class="form-group">
-            <label for="description">Description</label>
-            <textarea id="description" placeholder="Describe the item's condition, features, and any flaws..."></textarea>
-          </div>
-        </div>
-      `;
-      document.getElementById('category')?.addEventListener('change', handleCategoryChange);
-      console.log('✅ Edit form created successfully');
-    }
-
-    function populateFormFromAnalysis(analysis, routes){
-      console.log('🎯 Auto-populating form fields...');
-      try{
-        if (analysis.category){
-          const categorySelect = document.getElementById('category');
-          if (categorySelect){ const val = mapCategoryToSelect(analysis.category); categorySelect.value = val; handleCategoryChange(); }
-        }
-        if (analysis.brand && !['Unknown','Generic'].includes(analysis.brand)){
-          const el = document.getElementById('brand'); if (el) el.value = analysis.brand;
-        }
-        if (analysis.model && !['Unknown','See photos'].includes(analysis.model)){
-          const el = document.getElementById('model'); if (el) el.value = analysis.model;
-        }
-        if (analysis.condition){
-          const el = document.getElementById('condition'); if (el) el.value = mapConditionToSelect(analysis.condition);
-        }
-        if (routes?.marketAnalysis?.estimatedValue?.suggested){
-          const el = document.getElementById('price'); if (el) el.value = routes.marketAnalysis.estimatedValue.suggested;
-        } else if (analysis.resale?.estimated_value){
-          const el = document.getElementById('price'); if (el) el.value = analysis.resale.estimated_value;
-        } else if (analysis.resale?.priceRange?.low){
-          const el = document.getElementById('price'); if (el) el.value = analysis.resale.priceRange.low;
-        }
-        const desc = document.getElementById('description');
-        if (desc) desc.value = generateAutoDescription(analysis);
-        console.log('✅ Form auto-population complete');
-      }catch(e){ console.error('❌ Error auto-populating form:', e); }
-    }
-
-    function handleCategoryChange(){
-      const category = document.getElementById('category').value;
-      const sizeGroup = document.getElementById('sizeGroup');
-      if (['clothing','footwear','jewelry'].includes(category)){
-        sizeGroup.style.display='block';
-        const sizeInput = document.getElementById('size');
-        if (category==='footwear') sizeInput.placeholder='e.g., 9, 10.5, 12';
-        else if (category==='clothing') sizeInput.placeholder='e.g., Small, Medium, Large, XL';
-        else if (category==='jewelry') sizeInput.placeholder='e.g., 7, 8.5, One Size';
-      } else sizeGroup.style.display='none';
-    }
-
-    // suggestions
-    function getCategorySuggestions(category){
-      const map = {
-        'electronics':['Consumer Electronics','Cell Phones & Accessories','Computers/Tablets & Networking'],
-        'furniture':['Home & Garden','Antiques','Home Furniture'],
-        'clothing':['Clothing, Shoes & Accessories',"Women's Clothing","Men's Clothing"],
-        'footwear':['Athletic Shoes','Casual Shoes','Boots'],
-        'tools':['Hand Tools','Power Tools','Tool Sets'],
-        'automotive':['Parts & Accessories','Car Care & Detailing','Motorcycle Parts']
-      };
-      return map[category?.toLowerCase()] || [];
-    }
-    function generateCategorySuggestions(detectedCategory){
-      if (!detectedCategory) return '';
-      const suggestions = getCategorySuggestions(detectedCategory);
-      if (suggestions.length===0) return '';
-      return `
-        <div class="smart-suggestions">
-          <h4>💡 AI detected similar categories:</h4>
-          <div class="suggestion-tags">
-            ${suggestions.map(cat=>`<span class="suggestion-tag" onclick="selectCategory('${cat}')">${cat}</span>`).join('')}
-          </div>
-        </div>`;
-    }
-    function getBrandSuggestions(category){
-      const map = {
-        'electronics':['Apple','Samsung','Sony','Microsoft','Nintendo','HP','Dell','Canon'],
-        'furniture':['IKEA','West Elm','Pottery Barn','CB2','Restoration Hardware','Ashley'],
-        'clothing':['Nike','Adidas','Levi\'s','Gap','H&M','Zara','Uniqlo','Ralph Lauren'],
-        'footwear':['Nike','Adidas','Jordan','Converse','Vans','New Balance','Puma','Reebok'],
-        'tools':['DeWalt','Milwaukee','Makita','Ryobi','Craftsman','Black & Decker','Bosch'],
-        'automotive':['Bosch','AC Delco','Motorcraft','OEM','Denso','NGK','Fram']
-      };
-      return map[category?.toLowerCase()] || [];
-    }
-    function generateBrandSuggestions(category){
-      const suggestions = getBrandSuggestions(category);
-      if (suggestions.length===0) return '';
-      return `
-        <div class="smart-suggestions">
-          <h4>💡 Popular brands in ${category}:</h4>
-          <div class="suggestion-tags">
-            ${suggestions.slice(0,6).map(brand=>`<span class="suggestion-tag" onclick="selectBrand('${brand}')">${brand}</span>`).join('')}
-          </div>
-        </div>`;
-    }
-    function selectCategory(cat){ document.getElementById('category').value = cat.toLowerCase(); handleCategoryChange(); }
-    function selectBrand(brand){ document.getElementById('brand').value = brand; }
-
-    // ===== Continue button =====
-    document.getElementById('continueToPhotosBtn').addEventListener('click', async ()=>{
+// ===== Continue button handler =====
+document.getElementById('continueToPhotosBtn').addEventListener('click', async () => {
   editedData = {
     category: document.getElementById('category').value,
     brand: document.getElementById('brand').value,
@@ -744,13 +933,13 @@
     price: parseFloat(document.getElementById('price').value) || 0,
     description: document.getElementById('description').value
   };
-  
-  if (!editedData.category || !editedData.condition){
+
+  if (!editedData.category || !editedData.condition) {
     showError('Please fill in all required fields (Category and Condition)');
     return;
   }
 
-  // ✅ NEW: Check eBay connection and offer real listing
+  // Check eBay connection and offer real listing
   if (userData?.ebay?.isConnected) {
     await showListingOptions();
   } else {
@@ -759,6 +948,7 @@
   }
 });
 
+// ===== Listing options modal =====
 async function showListingOptions() {
   const modal = document.createElement('div');
   modal.style.cssText = `
@@ -766,14 +956,14 @@ async function showListingOptions() {
     background: rgba(0,0,0,0.5); z-index: 1000; 
     display: flex; align-items: center; justify-content: center;
   `;
-  
+
   modal.innerHTML = `
     <div style="background: white; padding: 30px; border-radius: 15px; max-width: 500px; margin: 20px;">
       <h3 style="margin-bottom: 20px;">🚀 Ready to Create Your Listing?</h3>
       
       <div style="margin-bottom: 20px;">
         <strong>Item:</strong> ${editedData.brand} ${editedData.model}<br>
-        <strong>Starting Price:</strong> $${editedData.price}<br>
+        <strong>Starting Price:</strong> ${editedData.price}<br>
         <strong>eBay Account:</strong> ✅ Connected as ${userData.ebay.sellerAccount}
       </div>
       
@@ -789,9 +979,9 @@ async function showListingOptions() {
       <button onclick="closeModal()" style="position: absolute; top: 10px; right: 15px; background: none; border: none; font-size: 20px; cursor: pointer;">×</button>
     </div>
   `;
-  
+
   document.body.appendChild(modal);
-  
+
   // Add modal functions to window
   window.closeModal = () => document.body.removeChild(modal);
   window.saveDraftOnly = async () => {
@@ -804,69 +994,213 @@ async function showListingOptions() {
     await attemptEbayListing();
   };
 }
+ 
+ // Helper functions
+        
+function generateListingTitle(editedData, analysisData) {
+  const analysis = analysisData?.analysis || {};
+  const edited = editedData || {};
 
+  const brand = edited.brand || analysis.brand;
+  const model = edited.model || analysis.model;
+  const analysisCategory = analysis.category || 'Item for Sale';
+  const editedCategory = edited.category || '';
+  const condition = edited.condition || analysis.condition?.rating;
+
+  const parts = [];
+
+  // Prioritize Brand if it exists and isn't generic
+  if (brand && brand !== 'Unknown' && brand !== 'Generic') {
+    parts.push(brand);
+  }
+  
+  // Add Model if it exists and isn't a placeholder
+  if (model && model !== 'Unknown' && model !== 'See photos') {
+    parts.push(model);
+  }
+
+  // Use the AI's detailed category description unless the user has edited it
+  const finalCategoryTitle = (editedCategory && editedCategory !== 'Unknown') ? editedCategory : analysisCategory;
+  if (finalCategoryTitle) {
+    parts.push(finalCategoryTitle);
+  }
+
+  // Add Condition hint
+  if (condition === 'new') {
+    parts.push('- New');
+  } else if (condition === 'like_new' || condition === 'excellent') {
+    parts.push('- Excellent Condition');
+  } else if (condition === 'very_good' || condition === 'good') {
+    parts.push('- Good Condition');
+  } else if (condition === 'acceptable') {
+    parts.push('- Used');
+  } else if (condition === 'for_parts') {
+    parts.push('- For Parts or Repair');
+  }
+
+  // Join parts and trim to eBay's title limit
+  return parts.join(' ').replace(/\s{2,}/g, ' ').substring(0, 80).trim();
+}
+
+    
+
+
+// ===== eBay listing attempt =====
+ 
 async function attemptEbayListing() {
   try {
     showLoading(true, 'Creating eBay listing...');
-    
-    // Prepare listing data for eBay
+
+    // This is the correct logic to ensure a scanId exists before proceeding.
+    // It prevents the "empty path" error on Firestore writes.
+    if (!currentScanId) {
+      console.log('No scan ID available, creating a new scan record...');
+      const scanRef = await db.collection('users').doc(currentUser.uid).collection('scans').add({
+        status: 'creating_listing',
+        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+      currentScanId = scanRef.id;
+      console.log('Created new scan with ID:', currentScanId);
+    }
+
+    // Validate required data
+    if (!editedData.category || !editedData.condition) {
+      throw new Error('Missing required fields: category and condition');
+    }
+
+    if (!compressedFiles || compressedFiles.length === 0) {
+      throw new Error('At least one photo is required for eBay listing');
+    }
+
+    if (!editedData.price || editedData.price < 0.99) {
+      throw new Error('Price must be at least $0.99 for eBay listing');
+    }
+
+    showLoading(true, 'Uploading photos to storage...');
+    const photoUrls = await uploadImagesToFirebaseStorage();
+    if (photoUrls.length === 0) {
+      throw new Error('Image upload failed. Cannot create listing.');
+    }
+    console.log('✅ Photos uploaded to Firebase Storage:', photoUrls);
+
+    // Prepare listing data
     const listingData = {
-      title: generateListingTitle(),
-      description: editedData.description,
-      category: mapCategoryToEbay(editedData.category),
-      condition: mapConditionToEbay(editedData.condition),
+      scanId: currentScanId,
+      title: generateListingTitle(editedData, analysisData),
+      description: editedData.description || generateAutoDescription(analysisData?.analysis || {}),
+      category: editedData.category,
+      condition: editedData.condition,
+      images: photoUrls,
       pricing: {
+        startingPrice: Math.max(0.99, editedData.price * 0.8),
         buyItNowPrice: editedData.price,
         acceptOffers: true,
-        minimumOffer: Math.round(editedData.price * 0.8)
+        minimumOffer: Math.max(0.99, Math.round(editedData.price * 0.8))
       },
-      images: base64Images, // Your compressed images
+      shipping: {
+        type: 'calculated',
+        cost: calculateShippingCost(editedData.category)
+      },
+      duration: '10',
+      returnPolicy: 'no_returns',
       itemSpecifics: generateItemSpecifics()
     };
-    
-    // Call your backend eBay listing endpoint
+
+    // Clean and validate the data
+    const validatedListingData = validateAndCleanListingData(listingData);
+
+    console.log('📋 Final listing data to send:', {
+      scanId: validatedListingData.scanId,
+      title: validatedListingData.title,
+      condition: validatedListingData.condition,
+      conditionType: typeof validatedListingData.condition,
+      category: validatedListingData.category,
+      photoCount: validatedListingData.images?.length,
+      price: validatedListingData.pricing?.buyItNowPrice
+    });
+
+    // Call backend eBay listing endpoint
     const response = await fetch(`${API_BASE_URL}/api/ebay/create-listing`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${await currentUser.getIdToken()}`
       },
-      body: JSON.stringify({
-        userId: currentUser.uid,
-        listingData: listingData,
-        scanId: currentScanId
-      })
+      body: JSON.stringify(validatedListingData)
     });
-    
+
     const result = await response.json();
-    
+
+    if (result.needsLocationSetup) {
+      showError('Please set up your shipping location first');
+      setTimeout(() => {
+        const returnUrl = encodeURIComponent(window.location.pathname + window.location.search);
+        window.location.href = `/shipping-locations.html?from=listing&returnTo=${returnUrl}`;
+      }, 2000);
+      return;
+    }
+
+    if (!response.ok) {
+      throw new Error(result.error || `Server error: ${response.status}`);
+    }
+
     if (result.success) {
-      // Update scan with eBay listing info
+      console.log('✅ eBay API response:', result);
+      const ebayListingData = {
+        sku: currentScanId,
+         inventoryCreated: result.inventoryCreated || false,
+        offerCreated: result.offerCreated || false,
+        needsPolicies: result.needsPolicies || false,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+      };
+
+      if (result.listingId) {
+        ebayListingData.listingId = result.listingId;
+      }
+      if (result.url) {
+        ebayListingData.url = result.url;
+      }
+
+          // CRITICAL FIX: Update the user stats after a successful listing.
+      // This is the final step to ensure the totalScans count is correct.
+      await updateUserStats();
+
+      // Consolidate the two identical Firestore updates into one.
+      const status = result.needsPolicies ? 'ready_to_publish' : 'listed';
       await db.collection('users').doc(currentUser.uid).collection('scans').doc(currentScanId).update({
         editedData,
-        status: 'listed',
-        ebayListing: {
-          listingId: result.listingId,
-          url: result.url,
-          createdAt: firebase.firestore.FieldValue.serverTimestamp()
-        },
+        status,
+        ebayListing: ebayListingData,
         updatedAt: firebase.firestore.FieldValue.serverTimestamp()
       });
-      
-      showSuccess(`🎉 eBay listing created successfully! <a href="${result.url}" target="_blank">View Listing</a>`);
-      
-      // Update UI to show listing status
-      showListingSuccess(result);
-      
+      console.log('Scan updated successfully with eBay listing data');
+
+      // Show appropriate success message based on status.
+      if (result.needsPolicies) {
+        showSuccess(`🎯 eBay inventory created successfully! Your item (SKU: ${result.sku}) is ready to publish. Please set up your eBay seller policies first, then publish the offer.`);
+        showPolicySetupInstructions(result);
+      } else if (result.url) {
+        showSuccess(`🎉 eBay listing created successfully! <a href="${result.url}" target="_blank" style="color: #2e7d32; text-decoration: underline;">View Listing</a>`);
+        showListingSuccess(result);
+      } else {
+        showSuccess(`✅ eBay inventory and offer created! Your item is ready but needs to be published manually on eBay.`);
+      }
     } else {
       throw new Error(result.error || 'Listing creation failed');
     }
-    
   } catch (error) {
     console.error('eBay listing error:', error);
-    showError(`Failed to create eBay listing: ${error.message}`);
-    
-    // Offer to save as draft instead
+    // Handle specific error types and offer to save as draft.
+    if (error.message.includes('authentication') || error.message.includes('token')) {
+      showError('eBay authentication error. Please reconnect your eBay account.');
+    } else if (error.message.includes('policy') || error.message.includes('policies')) {
+      showError('eBay seller policies required. Please set up your payment, shipping, and return policies on eBay.com before creating listings.');
+    } else if (error.message.includes('requiresReauth')) {
+      showError('eBay authentication expired. <a href="/ebay-connect.html" style="color: #c62828;">Reconnect your account</a>');
+    } else {
+      showError('Failed to create listing: ' + error.message);
+    }
+
     setTimeout(() => {
       if (confirm('Would you like to save this as a draft instead?')) {
         saveDraftListing();
@@ -877,48 +1211,210 @@ async function attemptEbayListing() {
   }
 }
 
-function generateListingTitle() {
-  const parts = [];
-  if (editedData.brand && editedData.brand !== 'Unknown') parts.push(editedData.brand);
-  if (editedData.model && editedData.model !== 'Unknown') parts.push(editedData.model);
-  parts.push(editedData.category);
-  if (editedData.condition === 'new') parts.push('- New');
-  else if (editedData.condition === 'excellent') parts.push('- Excellent Condition');
-  
-  return parts.join(' ').substring(0, 80); // eBay title limit
+// NEW: Function to show policy setup instructions
+function showPolicySetupInstructions(result) {
+  const modal = document.createElement('div');
+  modal.style.cssText = `
+    position: fixed; top: 0; left: 0; right: 0; bottom: 0; 
+    background: rgba(0,0,0,0.5); z-index: 1000; 
+    display: flex; align-items: center; justify-content: center;
+  `;
+
+  modal.innerHTML = `
+    <div style="background: white; padding: 30px; border-radius: 15px; max-width: 600px; margin: 20px;">
+      <h3 style="margin-bottom: 20px; color: #ff9800;">🏗️ Inventory Created - Policies Required</h3>
+      
+      <div style="margin-bottom: 20px; padding: 15px; background: #fff3e0; border-radius: 8px;">
+        <strong>Your eBay inventory item has been created:</strong><br>
+        <strong>SKU:</strong> ${result.sku}<br>
+        <strong>Offer ID:</strong> ${result.offerId}
+      </div>
+      
+      <div style="margin-bottom: 20px;">
+        <h4 style="color: #333; margin-bottom: 10px;">Next Steps:</h4>
+        <ol style="padding-left: 20px; line-height: 1.6;">
+          <li>Go to <a href="https://www.ebay.com/sh/set" target="_blank" style="color: #1976d2;">eBay Seller Hub</a></li>
+          <li>Set up your Business Policies:
+            <ul style="margin: 10px 0; padding-left: 20px;">
+              <li>Payment Policy</li>
+              <li>Shipping Policy</li>
+              <li>Return Policy</li>
+            </ul>
+          </li>
+          <li>Return to this app and try listing again</li>
+        </ol>
+      </div>
+      
+      <div style="display: flex; gap: 15px; justify-content: center;">
+        <a href="https://www.ebay.com/sh/set" target="_blank" style="
+          padding: 12px 24px; border: none; border-radius: 8px; font-weight: 600;
+          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+          color: white; text-decoration: none; display: inline-block;
+        ">
+          🏗️ Set Up Policies
+        </a>
+        <button onclick="this.parentElement.parentElement.parentElement.remove()" style="
+          padding: 12px 24px; border: 2px solid #e0e0e0; border-radius: 8px; 
+          font-weight: 600; background: #f5f5f5; color: #333; cursor: pointer;
+        ">
+          Got It
+        </button>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(modal);
 }
 
-function mapCategoryToEbay(category) {
-  const categoryMap = {
-    'electronics': '58058',
-    'furniture': '3197',
-    'clothing': '11450',
-    'footwear': '15709',
-    'tools': '631',
-    // Add more mappings
-  };
-  return categoryMap[category] || '11233'; // Default category
+
+// ===== Helper functions =====
+function generateTitle(brand, model, category) {
+    const parts = [];
+    const condition = listingData.condition;
+
+    // Use the AI's detailed category description as the primary title
+    if (category && category !== 'Unknown') {
+        parts.push(category);
+    }
+
+    // Add brand if it's not "Unknown" or a generic term
+    if (brand && brand !== 'Unknown' && brand !== 'Generic' && !category.includes(brand)) {
+        parts.unshift(brand); // Add brand to the beginning for prominence
+    }
+
+    // Add model if available and not already in the title
+    if (model && model !== 'Unknown' && !category.includes(model)) {
+        parts.push(model);
+    }
+    
+    // Add condition hint at the end
+    if (condition === 'new') {
+    parts.push('- New');
+} else if (condition === 'for_parts') {
+    parts.push('- For Parts or Repair');
+} else if (condition === 'excellent' || condition === 'very_good' || condition === 'good' || condition === 'acceptable' || condition === 'like_new') {
+    parts.push('- Used');
 }
 
-function mapConditionToEbay(condition) {
-  const conditionMap = {
-    'new': '1000',
-    'like_new': '1500',
-    'excellent': '3000',
-    'very_good': '3000',
-    'good': '3000',
-    'acceptable': '3000',
-    'for_parts': '7000'
-  };
-  return conditionMap[condition] || '3000';
+    const newTitle = parts.join(' ').replace(/\s{2,}/g, ' '); // Remove double spaces
+    return newTitle.substring(0, 80); // Ensure it respects eBay's 80-character limit
 }
+
 
 function generateItemSpecifics() {
   const specifics = {};
-  if (editedData.brand) specifics.Brand = editedData.brand;
-  if (editedData.model) specifics.Model = editedData.model;
-  if (editedData.size) specifics.Size = editedData.size;
+
+  // Always provide a brand
+  if (editedData.brand && editedData.brand !== 'Unknown') {
+    specifics.Brand = editedData.brand;
+  } else {
+    specifics.Brand = 'Generic';
+  }
+
+  // Add model if available
+  if (editedData.model && editedData.model !== 'Unknown') {
+    specifics.Model = editedData.model;
+  }
+
+  // Add size for clothing/footwear
+  if (editedData.size) {
+    specifics.Size = editedData.size;
+  }
+
+  // Add category-specific defaults
+  specifics.Type = 'Other';
+  specifics['Country/Region of Manufacture'] = 'United States';
+
+  // Add condition description
+  if (editedData.condition) {
+    specifics.Condition = formatConditionForEbay(editedData.condition);
+  }
+
   return specifics;
+}
+
+function formatConditionForEbay(condition) {
+  const conditionMap = {
+    'new': 'New',
+    'like_new': 'New other (see details)',
+    'excellent': 'Used',
+    'very_good': 'Used',
+    'good': 'Used',
+    'acceptable': 'Used',
+    'for_parts': 'For parts or not working'
+  };
+  return conditionMap[condition] || 'Used';
+}
+
+function calculateShippingCost(category) {
+  const shippingRates = {
+    'electronics': 12,
+    'clothing': 6,
+    'furniture': 25,
+    'tools': 15,
+    'automotive': 20,
+    'sporting goods': 18,
+    'books': 4,
+    'toys': 8,
+    'jewelry': 5,
+    'collectibles': 10
+  };
+
+  return shippingRates[category?.toLowerCase()] || 8;
+}
+
+function showListingSuccess(result) {
+  const modal = document.createElement('div');
+  modal.style.cssText = `
+    position: fixed; top: 0; left: 0; right: 0; bottom: 0; 
+    background: rgba(0,0,0,0.5); z-index: 1000; 
+    display: flex; align-items: center; justify-content: center;
+  `;
+
+  modal.innerHTML = `
+    <div style="background: white; padding: 30px; border-radius: 15px; max-width: 500px; margin: 20px; text-align: center;">
+      <h3 style="margin-bottom: 20px; color: #2e7d32;">🎉 Listing Created Successfully!</h3>
+      
+      <div style="margin-bottom: 20px; padding: 15px; background: #e8f5e9; border-radius: 8px;">
+        <strong>eBay Listing ID:</strong> ${result.listingId}<br>
+        <strong>SKU:</strong> ${result.sku}
+      </div>
+      
+      <div style="display: flex; gap: 15px; justify-content: center;">
+        <a href="${result.url}" target="_blank" style="
+          flex: 1; padding: 15px 30px; border: none; border-radius: 10px; 
+          font-size: 16px; font-weight: 600; cursor: pointer; transition: all 0.2s;
+          text-decoration: none; text-align: center; display: flex;
+          align-items: center; justify-content: center; gap: 8px;
+          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;
+        ">
+          🛒 View on eBay
+        </a>
+        <button onclick="window.location.href='/dashboard.html'" style="
+          flex: 1; padding: 15px 30px; border: none; border-radius: 10px;
+          font-size: 16px; font-weight: 600; cursor: pointer; transition: all 0.2s;
+          background: #f5f5f5; color: #333; border: 2px solid #e0e0e0;
+        ">
+          📊 Go to Dashboard
+        </button>
+      </div>
+      
+      <button onclick="this.parentElement.parentElement.remove()" style="
+        position: absolute; top: 10px; right: 15px; background: none; 
+        border: none; font-size: 24px; cursor: pointer; color: #666;
+      ">×</button>
+    </div>
+  `;
+
+  document.body.appendChild(modal);
+
+  // Auto-close after 15 seconds
+  setTimeout(() => {
+    if (document.body.contains(modal)) {
+      document.body.removeChild(modal);
+      window.location.href = '/dashboard.html';
+    }
+  }, 15000);
 }
 
 function showEbayConnectionPrompt() {
@@ -927,163 +1423,275 @@ function showEbayConnectionPrompt() {
     background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 10px; 
     padding: 20px; margin: 20px 0; border-left: 4px solid #fdcb6e;
   `;
-  
+
   prompt.innerHTML = `
     <h4 style="margin-bottom: 15px;">🛒 Connect eBay to Create Real Listings</h4>
     <p style="margin-bottom: 15px;">
       Your item has been saved as a draft. Connect your eBay account to create live listings directly!
     </p>
     <div style="display: flex; gap: 15px;">
-      <button onclick="window.location.href='/ebay-connect.html'" class="btn btn-primary">
+      <button onclick="window.location.href='/ebay-connect.html'" style="
+        padding: 12px 24px; border: none; border-radius: 8px; font-weight: 600;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+        color: white; cursor: pointer; transition: all 0.2s;
+      ">
         🔗 Connect eBay Account
       </button>
-      <button onclick="this.parentElement.parentElement.remove()" class="btn btn-secondary">
+      <button onclick="this.parentElement.parentElement.remove()" style="
+        padding: 12px 24px; border: 2px solid #e0e0e0; border-radius: 8px; 
+        font-weight: 600; background: #f5f5f5; color: #333; cursor: pointer;
+      ">
         Maybe Later
       </button>
     </div>
   `;
-  
+
   document.getElementById('analysisSection').appendChild(prompt);
 }
 
+function validateFirestoreDocumentPath(path) {
+  if (!path || path.trim() === '' || path.includes('undefined') || path.includes('null')) {
+    throw new Error(`Invalid Firestore document path: ${path}`);
+  }
+  return path;
+}
 
-    async function saveDraftListing(){
-      if (!currentScanId) return;
-      try{
-        await db.collection('users').doc(currentUser.uid).collection('scans').doc(currentScanId).update({
-          editedData, status:'editing', updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-        });
-        console.log('Draft listing saved');
-      }catch(e){ console.error('Error saving draft:', e); }
+// ===== Draft saving =====
+async function saveDraftListing() {
+  if (!currentScanId) return;
+  try {
+    await db.collection('users').doc(currentUser.uid).collection('scans').doc(currentScanId).update({
+      editedData,
+      status: 'editing',
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    console.log('Draft listing saved');
+  } catch (e) {
+    console.error('Error saving draft:', e);
+  }
+}
+
+// ===== Misc utils ===== 
+async function updateUserStats() {
+  try {
+    const firebaseUID = currentUser.uid;
+
+    // Separate update for the totalScans field to ensure an atomic increment
+    await db.collection('users').doc(firebaseUID).update({
+      'stats.totalScans': firebase.firestore.FieldValue.increment(1),
+      'stats.lastScanDate': firebase.firestore.FieldValue.serverTimestamp(),
+      'stats.lastConfidenceScore': analysisData?.analysis?.confidence || 5,
+      'metadata.lastActiveAt': firebase.firestore.FieldValue.serverTimestamp(),
+      'metadata.updatedAt': firebase.firestore.FieldValue.serverTimestamp(),
+    });
+    console.log('✅ User stats updated successfully');
+  } catch (e) {
+    console.error('❌ Error updating user stats:', e);
+  }
+}
+
+
+
+function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result.split(',')[1]);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+function formatFileSize(bytes) {
+  if (bytes === 0) return '0 Bytes';
+  const k = 1024, sizes = ['Bytes', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+}
+
+    // ADD THE NEW FUNCTION HERE - claude update
+function ensureScanId() {
+  if (!currentScanId || currentScanId.trim() === '') {
+    console.error('Invalid scan ID detected:', currentScanId);
+    return false;
+  }
+  return true;
+}
+
+// ADDED: Function to upload compressed images to Firebase Storage
+async function uploadImagesToFirebaseStorage() {
+  const imageUrls = [];
+  if (!currentUser) {
+    console.error('User not authenticated, cannot upload images.');
+    return [];
+  }
+
+  showLoading(true, 'Uploading photos to storage...');
+
+  for (let i = 0; i < compressedFiles.length; i++) {
+    const file = compressedFiles[i];
+    const imageRef = storage.ref().child(`listings/${currentUser.uid}/${Date.now()}-${i}.jpeg`);
+
+    try {
+      const snapshot = await imageRef.put(file);
+      const downloadURL = await snapshot.ref.getDownloadURL();
+      imageUrls.push(downloadURL);
+      console.log(`✅ Image ${i + 1} uploaded successfully: ${downloadURL}`);
+    } catch (error) {
+      console.error(`❌ Error uploading image ${i + 1}:`, error);
+      showError('Failed to upload one or more photos. Please try again.');
+      return []; // Return empty array on failure
     }
+  }
+  return imageUrls;
+}
 
-    // ===== Misc utils =====
-    async function updateUserStats(){
-      try{
-        const firebaseUID = currentUser.uid;
-        await db.collection('users').doc(firebaseUID).set({
-          stats:{
-            totalScans: firebase.firestore.FieldValue.increment(1),
-            lastScanDate: firebase.firestore.FieldValue.serverTimestamp(),
-            lastConfidenceScore: analysisData?.analysis?.confidence || 5,
-            totalEarnings: userData?.stats?.totalEarnings || 0,
-            pinsCreated: userData?.stats?.pinsCreated || 0
-          },
-          metadata:{
-            lastActiveAt: firebase.firestore.FieldValue.serverTimestamp(),
-            updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-            createdAt: userData?.metadata?.createdAt || firebase.firestore.FieldValue.serverTimestamp(),
-            lastLoginAt: userData?.metadata?.lastLoginAt || firebase.firestore.FieldValue.serverTimestamp()
-          }
-        },{ merge:true });
-        console.log('✅ User stats updated successfully');
-      }catch(e){ console.error('❌ Error updating user stats:', e); }
+function removeImage(index) {
+  selectedFiles = selectedFiles.filter((_, i) => i !== index);
+  compressedFiles = compressedFiles.filter((_, i) => i !== index);
+  base64Images = base64Images.filter((_, i) => i !== index);
+  if (selectedFiles.length === 0) {
+    imagesPreview.style.display = 'none';
+    compressionStats.style.display = 'none';
+    analyzeBtn.disabled = true;
+  } else {
+    handleFiles(selectedFiles);
+  }
+}
+
+function showLoading(show, text = 'Loading...') {
+  loadingState.style.display = show ? 'block' : 'none';
+  if (text) loadingText.textContent = text;
+  scanSection.style.display = show ? 'none' : 'block';
+  analysisSection.style.display = show ? 'none' : analysisSection.style.display;
+}
+
+function showError(message) {
+  errorMessage.innerHTML = message;
+  errorMessage.style.display = 'block';
+  successMessage.style.display = 'none';
+  errorMessage.scrollIntoView({ behavior: 'smooth' });
+}
+
+function showSuccess(message) {
+  successMessage.innerHTML = message;
+  successMessage.style.display = 'block';
+  errorMessage.style.display = 'none';
+}
+
+function clearMessages() {
+  errorMessage.style.display = 'none';
+  successMessage.style.display = 'none';
+}
+
+function goToStep(step) {
+  document.querySelectorAll('.workflow-step').forEach(el => el.classList.remove('active', 'completed'));
+  scanSection.style.display = 'none';
+  analysisSection.style.display = 'none';
+  switch (step) {
+    case 'scan':
+      document.getElementById('stepScan').classList.add('active');
+      scanSection.style.display = 'block';
+      break;
+    case 'edit':
+      document.getElementById('stepScan').classList.add('completed');
+      document.getElementById('stepEdit').classList.add('active');
+      analysisSection.style.display = 'block';
+      break;
+  }
+}
+
+// ===== Load existing scan =====
+async function loadExistingScan(scanId) {
+  try {
+    showLoading(true, 'Loading existing scan...');
+    const scanDoc = await db.collection('users').doc(currentUser.uid).collection('scans').doc(scanId).get();
+    if (!scanDoc.exists) {
+      showError('Scan not found');
+      return;
     }
+    const scanData = scanDoc.data();
+    currentScanId = scanId;
+    analysisData = { analysis: scanData.analysis, success: true };
 
-    function fileToBase64(file){
-      return new Promise((resolve,reject)=>{
-        const reader = new FileReader();
-        reader.onload = ()=>resolve(reader.result.split(',')[1]);
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
+    if (scanData.images?.length > 0) {
+      base64Images = scanData.images;
+      displayLoadedImages(scanData.images);
+    }
+    if (scanData.analysis) {
+      displayAnalysisResults({ analysis: scanData.analysis });
+      goToStep('edit');
+      if (scanData.editedData) loadEditedData(scanData.editedData);
+    }
+    showSuccess('Existing scan loaded successfully');
+  } catch (e) {
+    console.error('Error loading existing scan:', e);
+    showError('Failed to load scan: ' + e.message);
+  } finally {
+    showLoading(false);
+  }
+}
+
+function displayLoadedImages(images) {
+  imagesPreview.innerHTML = '';
+  imagesPreview.style.display = 'grid';
+  images.forEach((b64, idx) => {
+    const div = document.createElement('div');
+    div.className = 'image-preview-item';
+    div.innerHTML = `<img src="data:image/jpeg;base64,${b64}" alt="Loaded image ${idx + 1}">
+      <button class="remove-btn" data-index="${idx}">×</button><div class="info">Loaded</div>`;
+    div.querySelector('.remove-btn').addEventListener('click', (e) => {
+      e.stopPropagation();
+      removeImage(parseInt(e.target.dataset.index));
+    });
+    imagesPreview.appendChild(div);
+  });
+  compressionStats.innerHTML = `<strong>✅ Images Loaded:</strong><br>${images.length} image${images.length > 1 ? 's' : ''} from previous scan`;
+  compressionStats.style.display = 'block';
+  analyzeBtn.disabled = false;
+  analyzeBtn.textContent = '🔄 Re-analyze Item';
+}
+
+function loadEditedData(d) {
+  setTimeout(() => {
+    if (document.getElementById('category')) {
+      Object.keys(d).forEach(k => {
+        const el = document.getElementById(k);
+        if (el) el.value = d[k] || '';
       });
+      handleCategoryChange();
     }
-    function formatFileSize(bytes){
-      if (bytes===0) return '0 Bytes';
-      const k=1024, sizes=['Bytes','KB','MB','GB']; const i=Math.floor(Math.log(bytes)/Math.log(k));
-      return parseFloat((bytes/Math.pow(k,i)).toFixed(2))+' '+sizes[i];
-    }
-    function removeImage(index){
-      selectedFiles = selectedFiles.filter((_,i)=>i!==index);
-      compressedFiles = compressedFiles.filter((_,i)=>i!==index);
-      base64Images = base64Images.filter((_,i)=>i!==index);
-      if (selectedFiles.length===0){
-        imagesPreview.style.display='none'; compressionStats.style.display='none'; analyzeBtn.disabled=true;
-      } else { handleFiles(selectedFiles); }
-    }
-    function showLoading(show,text='Loading...'){
-      loadingState.style.display = show ? 'block' : 'none';
-      if (text) loadingText.textContent = text;
-      scanSection.style.display = show ? 'none' : 'block';
-      analysisSection.style.display = show ? 'none' : analysisSection.style.display;
-    }
-    function showError(message){
-      errorMessage.textContent = message; errorMessage.style.display='block'; successMessage.style.display='none';
-      errorMessage.scrollIntoView({behavior:'smooth'});
-    }
-    function showSuccess(message){
-      successMessage.textContent = message; successMessage.style.display='block'; errorMessage.style.display='none';
-    }
-    function clearMessages(){ errorMessage.style.display='none'; successMessage.style.display='none'; }
-    function goToStep(step){
-      document.querySelectorAll('.workflow-step').forEach(el=>el.classList.remove('active','completed'));
-      scanSection.style.display='none'; analysisSection.style.display='none';
-      switch(step){
-        case 'scan':  document.getElementById('stepScan').classList.add('active'); scanSection.style.display='block'; break;
-        case 'edit':  document.getElementById('stepScan').classList.add('completed'); document.getElementById('stepEdit').classList.add('active'); analysisSection.style.display='block'; break;
-      }
-    }
+  }, 100);
+}
 
-    // ===== Load existing scan (unchanged) =====
-    async function loadExistingScan(scanId){
-      try{
-        showLoading(true,'Loading existing scan...');
-        const scanDoc = await db.collection('users').doc(currentUser.uid).collection('scans').doc(scanId).get();
-        if (!scanDoc.exists){ showError('Scan not found'); return; }
-        const scanData = scanDoc.data();
-        currentScanId = scanId; analysisData = { analysis: scanData.analysis, success: true };
+// ===== Auto-save every 30s =====
+setInterval(() => {
+  if (currentScanId && analysisSection.style.display !== 'none') {
+    const formData = {
+      category: document.getElementById('category')?.value || '',
+      brand: document.getElementById('brand')?.value || '',
+      model: document.getElementById('model')?.value || '',
+      condition: document.getElementById('condition')?.value || '',
+      size: document.getElementById('size')?.value || '',
+      price: parseFloat(document.getElementById('price')?.value) || 0,
+      description: document.getElementById('description')?.value || ''
+    };
+    if (formData.category || formData.brand || formData.description) saveDraftQuietly(formData);
+  }
+}, 30000);
 
-        if (scanData.images?.length>0){ base64Images = scanData.images; displayLoadedImages(scanData.images); }
-        if (scanData.analysis){ displayAnalysisResults({ analysis: scanData.analysis }); goToStep('edit'); if (scanData.editedData) loadEditedData(scanData.editedData); }
-        showSuccess('Existing scan loaded successfully');
-      }catch(e){
-        console.error('Error loading existing scan:', e); showError('Failed to load scan: '+e.message);
-      }finally{ showLoading(false); }
-    }
-    function displayLoadedImages(images){
-      imagesPreview.innerHTML=''; imagesPreview.style.display='grid';
-      images.forEach((b64,idx)=>{
-        const div=document.createElement('div'); div.className='image-preview-item';
-        div.innerHTML=`<img src="data:image/jpeg;base64,${b64}" alt="Loaded image ${idx+1}">
-          <button class="remove-btn" data-index="${idx}">×</button><div class="info">Loaded</div>`;
-        div.querySelector('.remove-btn').addEventListener('click',(e)=>{e.stopPropagation(); removeImage(parseInt(e.target.dataset.index));});
-        imagesPreview.appendChild(div);
-      });
-      compressionStats.innerHTML = `<strong>✅ Images Loaded:</strong><br>${images.length} image${images.length>1?'s':''} from previous scan`;
-      compressionStats.style.display='block'; analyzeBtn.disabled=false; analyzeBtn.textContent='🔄 Re-analyze Item';
-    }
-    function loadEditedData(d){
-      setTimeout(()=>{
-        if (document.getElementById('category')){
-          Object.keys(d).forEach(k=>{ const el=document.getElementById(k); if (el) el.value = d[k] || ''; });
-          handleCategoryChange();
-        }
-      },100);
-    }
+async function saveDraftQuietly(formData) {
+  try {
+    await db.collection('users').doc(currentUser.uid).collection('scans').doc(currentScanId).update({
+      editedData: formData,
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    console.log('Draft auto-saved');
+  } catch (e) {
+    console.error('Auto-save failed:', e);
+  }
+}
+</script> 
+<script src="frontend-category-fix.js"></script>
 
-    // ===== Auto-save every 30s =====
-    setInterval(()=>{
-      if (currentScanId && analysisSection.style.display!=='none'){
-        const formData = {
-          category: document.getElementById('category')?.value || '',
-          brand:    document.getElementById('brand')?.value || '',
-          model:    document.getElementById('model')?.value || '',
-          condition:document.getElementById('condition')?.value || '',
-          size:     document.getElementById('size')?.value || '',
-          price:    parseFloat(document.getElementById('price')?.value) || 0,
-          description: document.getElementById('description')?.value || ''
-        };
-        if (formData.category || formData.brand || formData.description) saveDraftQuietly(formData);
-      }
-    },30000);
-    async function saveDraftQuietly(formData){
-      try{
-        await db.collection('users').doc(currentUser.uid).collection('scans').doc(currentScanId).update({
-          editedData: formData, updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-        });
-        console.log('Draft auto-saved');
-      }catch(e){ console.error('Auto-save failed:', e); }
-    }
-  </script>
-</body>
-</html>
+  </body>
+  </html>
