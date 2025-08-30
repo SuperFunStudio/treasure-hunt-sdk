@@ -59,3 +59,8 @@ serviceAccountKey.json
 
 # Ignore sensitive files
 firebase-service-account.json
+
+# Ignore local test files
+test-ebay-oauth.js
+get-ebay-token.mjs
+functions/fix-ebay-policy.js
