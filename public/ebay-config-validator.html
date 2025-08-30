@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>eBay Configuration Validator</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        
+        .validator-container {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 30px;
+            margin: 20px 0;
+        }
+        
+        .check-item {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 8px;
+            border-left: 4px solid;
+        }
+        
+        .check-pass {
+            background: #d4edda;
+            border-color: #28a745;
+            color: #155724;
+        }
+        
+        .check-fail {
+            background: #f8d7da;
+            border-color: #dc3545;
+            color: #721c24;
+        }
+        
+        .check-warning {
+            background: #fff3cd;
+            border-color: #ffc107;
+            color: #856404;
+        }
+        
+        .check-icon {
+            font-size: 24px;
+            flex-shrink: 0;
+        }
+        
+        .check-content {
+            flex: 1;
+        }
+        
+        .check-title {
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+        
+        .check-description {
+            font-size: 14px;
+            opacity: 0.8;
+        }
+        
+        .config-input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-family: monospace;
+            font-size: 14px;
+            margin: 10px 0;
+        }
+        
+        .test-button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px 0;
+        }
+        
+        .test-button:hover {
+            background: #0056b3;
+        }
+        
+        .test-button:disabled {
+            background: #6c757d;
+            cursor: not-allowed;
+        }
+        
+        .instructions {
+            background: #e7f3ff;
+            border: 1px solid #b8daff;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        
+        .code-block {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 4px;
+            padding: 12px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            margin: 10px 0;
+            overflow-x: auto;
+        }
+        
+        .runame-example {
+            background: #fff9c4;
+            border: 2px solid #f0c419;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 15px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔧 eBay OAuth Configuration Validator</h1>
+    
+    <div class="instructions">
+        <h3>📋 How to Use This Tool</h3>
+        <p>This tool helps you validate your eBay OAuth configuration and diagnose common issues.</p>
+        <ol>
+            <li><strong>Enter your eBay configuration</strong> in the fields below</li>
+            <li><strong>Click "Validate Configuration"</strong> to check for issues</li>
+            <li><strong>Follow the recommendations</strong> to fix any problems</li>
+        </ol>
+    </div>
+
+    <div class="validator-container">
+        <h2>Configuration Input</h2>
+        
+        <label for="clientId"><strong>eBay Client ID:</strong></label>
+        <input type="text" id="clientId" class="config-input" placeholder="SUPERFUN-S-PRD-53649ae1c-641d3320" value="">
+        
+        <label for="clientSecret"><strong>eBay Client Secret:</strong></label>
+        <input type="password" id="clientSecret" class="config-input" placeholder="PRD-53649ae1c1d7a-fb60-4cfa-b205-77fc" value="">
+        
+        <label for="ruName"><strong>eBay RuName (NOT a URL!):</strong></label>
+        <input type="text" id="ruName" class="config-input" placeholder="SUPERFUN_STUDIO-SUPERFUN-S-PRD--gmotfjns" value="">
+        
+        <div class="runame-example">
+            <h4>🚨 Important: RuName vs URL</h4>
+            <p><strong>✅ Correct RuName:</strong> <code>SUPERFUN_STUDIO-SUPERFUN-S-PRD--gmotfjns</code></p>
+            <p><strong>❌ Wrong (URL):</strong> <code>https://treasurehunter-sdk.web.app/ebay-callback.html</code></p>
+            <p><strong>Where to find it:</strong> eBay Developer Console → User Tokens → RuName column</p>
+        </div>
+        
+        <label for="environment"><strong>Environment:</strong></label>
+        <select id="environment" class="config-input">
+            <option value="production">Production</option>
+            <option value="sandbox">Sandbox</option>
+        </select>
+        
+        <label for="acceptUrl"><strong>Your Accept URL (configured in RuName):</strong></label>
+        <input type="text" id="acceptUrl" class="config-input" placeholder="https://treasurehunter-sdk.web.app/ebay-callback.html" value="">
+        
+        <button class="test-button" onclick="validateConfiguration()">🔍 Validate Configuration</button>
+    </div>
+
+    <div class="validator-container">
+        <h2>Validation Results</h2>
+        <div id="validationResults">
+            <p>Enter your configuration above and click "Validate Configuration" to see results.</p>
+        </div>
+    </div>
+
+    <div class="validator-container">
+        <h2>🛠️ Step-by-Step Fix Guide</h2>
+        
+        <h3>Step 1: Get Your RuName</h3>
+        <ol>
+            <li>Go to <a href="https://developer.ebay.com/" target="_blank">eBay Developer Console</a></li>
+            <li>Navigate to: <strong>Your Account → Application Keys</strong></li>
+            <li>Click <strong>"User Tokens"</strong> next to your Client ID</li>
+            <li>Find the <strong>"RuName (eBay Redirect URL name)"</strong> column</li>
+            <li>Copy the RuName value (looks like: <code>SUPERFUN_STUDIO-SUPERFUN-S-PRD--gmotfjns</code>)</li>
+        </ol>
+
+        <h3>Step 2: Configure Your RuName URLs</h3>
+        <ol>
+            <li>In the same eBay Developer Console, click on your RuName to edit it</li>
+            <li>Set these URLs:
+                <div class="code-block">
+Your auth accepted URL: https://treasurehunter-sdk.web.app/ebay-callback.html
+Your auth declined URL: https://treasurehunter-sdk.web.app/ebay-callback.html?error=declined
+Your privacy policy URL: https://thriftspot.app/privacy
+                </div>
+            </li>
+            <li>Make sure <strong>"OAuth Enabled"</strong> is checked ✅</li>
+            <li>Save the configuration</li>
+        </ol>
+
+        <h3>Step 3: Update Environment Variables</h3>
+        <div class="code-block">
+EBAY_CLIENT_ID=your_client_id_here
+EBAY_CLIENT_SECRET=your_client_secret_here
+EBAY_REDIRECT_RU_NAME=your_runame_here
+EBAY_ENVIRONMENT=production
+        </div>
+
+        <h3>Step 4: Test OAuth Flow</h3>
+        <button class="test-button" onclick="testOAuthFlow()">🧪 Test OAuth Flow</button>
+        <div id="oauthTestResults"></div>
+    </div>
+
+    <script>
+        function validateConfiguration() {
+            const config = {
+                clientId: document.getElementById('clientId').value.trim(),
+                clientSecret: document.getElementById('clientSecret').value.trim(),
+                ruName: document.getElementById('ruName').value.trim(),
+                environment: document.getElementById('environment').value,
+                acceptUrl: document.getElementById('acceptUrl').value.trim()
+            };
+
+            const results = [];
+            
+            // Check Client ID
+            if (!config.clientId) {
+                results.push({
+                    type: 'fail',
+                    title: 'Missing Client ID',
+                    description: 'eBay Client ID is required'
+                });
+            } else if (!config.clientId.includes('-')) {
+                results.push({
+                    type: 'warning',
+                    title: 'Client ID Format',
+                    description: 'Client ID should contain hyphens (e.g., SUPERFUN-S-PRD-53649ae1c-641d3320)'
+                });
+            } else {
+                results.push({
+                    type: 'pass',
+                    title: 'Client ID Present',
+                    description: 'eBay Client ID looks correct'
+                });
+            }
+
+            // Check Client Secret
+            if (!config.clientSecret) {
+                results.push({
+                    type: 'fail',
+                    title: 'Missing Client Secret',
+                    description: 'eBay Client Secret is required'
+                });
+            } else if (config.clientSecret.length < 20) {
+                results.push({
+                    type: 'warning',
+                    title: 'Client Secret Length',
+                    description: 'Client Secret seems too short'
+                });
+            } else {
+                results.push({
+                    type: 'pass',
+                    title: 'Client Secret Present',
+                    description: 'eBay Client Secret is provided'
+                });
+            }
+
+            // Check RuName (CRITICAL)
+            if (!config.ruName) {
+                results.push({
+                    type: 'fail',
+                    title: 'Missing RuName',
+                    description: 'eBay RuName is required and is likely the cause of your "invalid_request" error'
+                });
+            } else if (config.ruName.startsWith('http')) {
+                results.push({
+                    type: 'fail',
+                    title: 'RuName is a URL (WRONG!)',
+                    description: 'RuName should NOT be a URL. It should be a special eBay identifier like "SUPERFUN_STUDIO-SUPERFUN-S-PRD--gmotfjns"'
+                });
+            } else if (config.ruName.includes('-') && config.ruName.includes('_')) {
+                results.push({
+                    type: 'pass',
+                    title: 'RuName Format Correct',
+                    description: 'RuName format looks like a valid eBay RuName'
+                });
+            } else {
+                results.push({
+                    type: 'warning',
+                    title: 'RuName Format Unclear',
+                    description: 'RuName format doesn\'t match expected pattern. Verify this is from eBay Developer Console.'
+                });
+            }
+
+            // Check Accept URL
+            if (!config.acceptUrl) {
+                results.push({
+                    type: 'warning',
+                    title: 'Missing Accept URL',
+                    description: 'Accept URL should be configured in your eBay RuName'
+                });
+            } else if (!config.acceptUrl.startsWith('https://')) {
+                results.push({
+                    type: 'warning',
+                    title: 'Accept URL not HTTPS',
+                    description: 'eBay requires HTTPS URLs'
+                });
+            } else if (!config.acceptUrl.includes('ebay-callback')) {
+                results.push({
+                    type: 'warning',
+                    title: 'Accept URL Pattern',
+                    description: 'Accept URL should point to your callback page'
+                });
+            } else {
+                results.push({
+                    type: 'pass',
+                    title: 'Accept URL Looks Good',
+                    description: 'Accept URL appears to be correctly formatted'
+                });
+            }
+
+            // Environment check
+            if (config.environment === 'sandbox') {
+                results.push({
+                    type: 'warning',
+                    title: 'Using Sandbox Environment',
+                    description: 'Make sure your RuName is also for sandbox'
+                });
+            } else {
+                results.push({
+                    type: 'pass',
+                    title: 'Production Environment',
+                    description: 'Using production environment'
+                });
+            }
+
+            // Overall assessment
+            const failCount = results.filter(r => r.type === 'fail').length;
+            const warnCount = results.filter(r => r.type === 'warning').length;
+
+            if (failCount === 0 && warnCount === 0) {
+                results.unshift({
+                    type: 'pass',
+                    title: '🎉 Configuration Looks Good!',
+                    description: 'All checks passed. Your eBay OAuth should work now.'
+                });
+            } else if (failCount > 0) {
+                results.unshift({
+                    type: 'fail',
+                    title: `❌ ${failCount} Critical Issue(s) Found`,
+                    description: 'Fix these issues to resolve your OAuth problems'
+                });
+            } else {
+                results.unshift({
+                    type: 'warning',
+                    title: `⚠️ ${warnCount} Warning(s)`,
+                    description: 'Configuration might work but could be improved'
+                });
+            }
+
+            displayResults(results);
+        }
+
+        function displayResults(results) {
+            const container = document.getElementById('validationResults');
+            container.innerHTML = '';
+
+            results.forEach(result => {
+                const div = document.createElement('div');
+                div.className = `check-item check-${result.type}`;
+                
+                const icon = result.type === 'pass' ? '✅' : 
+                           result.type === 'fail' ? '❌' : '⚠️';
+                
+                div.innerHTML = `
+                    <div class="check-icon">${icon}</div>
+                    <div class="check-content">
+                        <div class="check-title">${result.title}</div>
+                        <div class="check-description">${result.description}</div>
+                    </div>
+                `;
+                
+                container.appendChild(div);
+            });
+        }
+
+        function testOAuthFlow() {
+            const config = {
+                clientId: document.getElementById('clientId').value.trim(),
+                ruName: document.getElementById('ruName').value.trim(),
+                environment: document.getElementById('environment').value
+            };
+
+            if (!config.clientId || !config.ruName) {
+                alert('Please fill in Client ID and RuName first');
+                return;
+            }
+
+            const authUrl = config.environment === 'sandbox'
+                ? 'https://auth.sandbox.ebay.com/oauth2/authorize'
+                : 'https://auth.ebay.com/oauth2/authorize';
+
+            const scopes = [
+                'https://api.ebay.com/oauth/api_scope/sell.inventory.readonly',
+                'https://api.ebay.com/oauth/api_scope/sell.inventory',
+                'https://api.ebay.com/oauth/api_scope/sell.account.readonly',
+                'https://api.ebay.com/oauth/api_scope/sell.account',
+                'https://api.ebay.com/oauth/api_scope/commerce.identity.readonly'
+            ].join(' ');
+
+            const testUrl = new URL(authUrl);
+            testUrl.searchParams.set('client_id', config.clientId);
+            testUrl.searchParams.set('response_type', 'code');
+            testUrl.searchParams.set('redirect_uri', config.ruName);
+            testUrl.searchParams.set('scope', scopes);
+            testUrl.searchParams.set('state', 'test_' + Date.now());
+
+            const resultsDiv = document.getElementById('oauthTestResults');
+            resultsDiv.innerHTML = `
+                <div class="instructions">
+                    <h4>🧪 OAuth Test URL Generated</h4>
+                    <p>Click the link below to test your OAuth configuration:</p>
+                    <div class="code-block">
+                        <a href="${testUrl.toString()}" target="_blank">${testUrl.toString()}</a>
+                    </div>
+                    <p><strong>Expected behavior:</strong></p>
+                    <ul>
+                        <li>✅ eBay login page should appear (not an error page)</li>
+                        <li>✅ After login, you should see the consent page</li>
+                        <li>✅ After consent, you should be redirected to your callback URL</li>
+                        <li>❌ If you see "invalid_request" error, your RuName is wrong</li>
+                    </ul>
+                </div>
+            `;
+        }
+
+        // Pre-populate with known values
+        document.getElementById('clientId').value = 'SUPERFUN-S-PRD-53649ae1c-641d3320';
+        document.getElementById('acceptUrl').value = 'https://treasurehunter-sdk.web.app/ebay-callback.html';
+    </script>
+</body>
+</html>

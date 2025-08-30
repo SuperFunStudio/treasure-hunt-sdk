@@ -260,42 +260,41 @@ class EbayTokenManager {
     }
   }
 
-  /**
-   * Create eBay API client with auto-refreshing tokens
-   */
-  async createEbayClient(userId) {
-    const tokenInfo = await this.getValidAccessToken(userId);
-    
-    return {
-      accessToken: tokenInfo.accessToken,
-      environment: this.environment,
-      
-      // Helper method to make authenticated requests
-      async apiCall(method, endpoint, body = null) {
-        const baseUrl = this.environment === 'sandbox' 
-          ? 'https://api.sandbox.ebay.com'
-          : 'https://api.ebay.com';
+    /**
+     * Create eBay API client with auto-refreshing tokens
+     */
+    async createEbayClient(userId) {
+        const tokenInfo = await this.getValidAccessToken(userId);
+        
+        return {
+        accessToken: tokenInfo.accessToken,
+        environment: this.environment,
+        
+        // Helper method to make authenticated requests
+        async apiCall(method, endpoint, body = null) {
+            const baseUrl = this.environment === 'sandbox' 
+            ? 'https://api.sandbox.ebay.com'
+            : 'https://api.ebay.com';
 
-        const response = await fetch(`${baseUrl}${endpoint}`, {
-          method,
-          headers: {
-            'Authorization': `Bearer ${tokenInfo.accessToken}`,
-            'Content-Type': 'application/json',
-            'Accept': 'application/json',
-            'X-EBAY-C-MARKETPLACE-ID': 'EBAY_US'
-          },
-          body: body ? JSON.stringify(body) : null
-        });
+            const response = await fetch(`${baseUrl}${endpoint}`, {
+        method,
+        headers: {
+          'Authorization': `Bearer ${tokenInfo.accessToken}`,
+          'Content-Type': 'application/json',
+          'X-EBAY-C-MARKETPLACE-ID': 'EBAY_US'
+        },
+        body: body ? JSON.stringify(body) : null
+      });
 
-        if (!response.ok) {
-          const errorText = await response.text();
-          throw new Error(`eBay API error: ${response.status} - ${errorText}`);
+            if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`eBay API error: ${response.status} - ${errorText}`);
+            }
+
+            return response.status === 204 ? {} : await response.json();
         }
-
-        return response.status === 204 ? {} : await response.json();
-      }
-    };
-  }
-}
+        };
+    }
+    }
 
 module.exports = { EbayTokenManager };

@@ -13,25 +13,31 @@
   
     // Map numeric condition IDs to text enums
     getConditionEnum(numericId) {
-      const conditionMap = {
-        '1000': 'NEW',
-        '1500': 'NEW_OTHER', 
-        '1750': 'NEW_WITH_DEFECTS',
-        '2000': 'CERTIFIED_REFURBISHED',
-        '2500': 'SELLER_REFURBISHED',
-        '2750': 'LIKE_NEW',
-        '2990': 'PRE_OWNED_EXCELLENT',
-        '3000': 'USED_EXCELLENT',
-        '3010': 'PRE_OWNED_FAIR', 
-        '4000': 'USED_VERY_GOOD',
-        '5000': 'USED_GOOD',
-        '6000': 'USED_ACCEPTABLE',
-        '7000': 'FOR_PARTS_OR_NOT_WORKING'
-      };
-      
-      return conditionMap[numericId] || 'NEW_OTHER';
-    }
-  
+  const id = String(numericId);
+
+  // Broad, Inventory-compatible mapping
+  const map = {
+    '1000': 'NEW',                      // New
+    '1500': 'NEW_OTHER',                // New (other)
+    '1750': 'NEW_WITH_DEFECTS',         // New with defects
+    '2000': 'CERTIFIED_REFURBISHED',    // Certified refurbished
+    '2500': 'SELLER_REFURBISHED',       // Seller refurbished
+    '2750': 'LIKE_NEW',                 // Like New
+
+    // All the various "used" granular IDs collapse to USED for Inventory API
+    '2990': 'USED', // “pre-owned excellent” (collapse)
+    '3000': 'USED', // Used
+    '3010': 'USED', // “pre-owned fair” (collapse)
+    '4000': 'USED', // Used (very good)
+    '5000': 'USED', // Used (good)
+    '6000': 'USED', // Used (acceptable)
+
+    '7000': 'FOR_PARTS_OR_NOT_WORKING'  // For parts or not working
+  };
+
+  return map[id] || 'USED';
+}
+
     // Get valid conditions for any category
     async getValidConditions(categoryId) {
       if (this.conditionCache.has(categoryId)) {

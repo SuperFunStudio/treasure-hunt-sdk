@@ -539,4 +539,9 @@ function calculateRoutes(itemData, marketAnalysis, userPreferences) {
 }
 
 // ✅ FIXED: Proper CommonJS export
-module.exports = { routeDisposition };
+module.exports = { 
+  routeDisposition,
+  getEbayAccessToken,
+  getConditionMultiplier,
+  calculateShippingCost
+};

@@ -1,0 +1,646 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Firebase Rules Diagnostic Test</title>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .test-result {
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 6px;
+            border-left: 4px solid;
+        }
+        .success {
+            background: #e8f5e8;
+            border-color: #4caf50;
+            color: #2e7d32;
+        }
+        .error {
+            background: #ffeaea;
+            border-color: #f44336;
+            color: #c62828;
+        }
+        .warning {
+            background: #fff8e1;
+            border-color: #ff9800;
+            color: #ef6c00;
+        }
+        .info {
+            background: #e3f2fd;
+            border-color: #2196f3;
+            color: #1565c0;
+        }
+        button {
+            background: #1976d2;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            margin: 5px;
+            font-size: 14px;
+        }
+        button:hover {
+            background: #1565c0;
+        }
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        .code-block {
+            background: #f5f5f5;
+            padding: 15px;
+            border-radius: 6px;
+            margin: 10px 0;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            overflow-x: auto;
+        }
+        .auth-status {
+            padding: 10px;
+            border-radius: 6px;
+            margin: 10px 0;
+            font-weight: bold;
+        }
+        .authenticated {
+            background: #e8f5e8;
+            color: #2e7d32;
+        }
+        .not-authenticated {
+            background: #ffeaea;
+            color: #c62828;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        @media (max-width: 768px) {
+            .grid {
+                grid-template-columns: 1fr;
+            }
+        }
+        .test-group {
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            padding: 15px;
+            margin: 10px 0;
+        }
+        .test-group h3 {
+            margin-top: 0;
+            color: #333;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔍 Firebase Rules Diagnostic Test</h1>
+    <p>This tool will test your Firestore security rules to identify permission issues with scan saving.</p>
+
+    <!-- Firebase Configuration -->
+    <div class="container">
+        <h2>📋 Step 1: Firebase Configuration</h2>
+        <p>Enter your Firebase configuration to connect to your project:</p>
+        
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 15px 0;">
+            <input type="text" id="apiKey" placeholder="API Key" style="padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+            <input type="text" id="authDomain" placeholder="Auth Domain (e.g., your-project.firebaseapp.com)" style="padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+            <input type="text" id="projectId" placeholder="Project ID" style="padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+            <input type="text" id="storageBucket" placeholder="Storage Bucket" style="padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+        </div>
+        
+        <button onclick="initializeFirebase()">Initialize Firebase</button>
+        <div id="firebaseStatus" class="test-result info" style="display: none;">
+            Firebase not initialized
+        </div>
+    </div>
+
+    <!-- Authentication Status -->
+    <div class="container">
+        <h2>🔐 Step 2: Authentication Status</h2>
+        <div id="authStatus" class="auth-status not-authenticated">
+            Not Authenticated
+        </div>
+        
+        <button onclick="signInAnonymously()">Sign In Anonymously</button>
+        <button onclick="signOut()">Sign Out</button>
+        
+        <div id="userInfo" style="margin-top: 15px;"></div>
+    </div>
+
+    <!-- Rules Testing -->
+    <div class="container">
+        <h2>🧪 Step 3: Rules Testing</h2>
+        <button onclick="runAllTests()" id="runTestsBtn" disabled>Run All Diagnostic Tests</button>
+        <button onclick="clearResults()">Clear Results</button>
+        
+        <div class="grid">
+            <div class="test-group">
+                <h3>Collection Access Tests</h3>
+                <button onclick="testCollectionRead('users')" disabled class="test-btn">Test Users Read</button>
+                <button onclick="testCollectionRead('scanned_items')" disabled class="test-btn">Test Scanned Items Read</button>
+                <button onclick="testCollectionRead('pins')" disabled class="test-btn">Test Pins Read</button>
+            </div>
+            
+            <div class="test-group">
+                <h3>Document Write Tests</h3>
+                <button onclick="testScanWrite()" disabled class="test-btn">Test Scan Write</button>
+                <button onclick="testUserDocWrite()" disabled class="test-btn">Test User Doc Write</button>
+                <button onclick="testPinWrite()" disabled class="test-btn">Test Pin Write</button>
+            </div>
+        </div>
+        
+        <div class="test-group">
+            <h3>Specific Path Tests</h3>
+            <button onclick="testSubcollectionWrite()" disabled class="test-btn">Test User Subcollection Write</button>
+            <button onclick="testMismatchedUID()" disabled class="test-btn">Test Mismatched UID (Should Fail)</button>
+            <button onclick="testMissingUID()" disabled class="test-btn">Test Missing UID (Should Fail)</button>
+        </div>
+        
+        <div id="testResults"></div>
+    </div>
+
+    <!-- Raw Error Analysis -->
+    <div class="container">
+        <h2>🔍 Step 4: Raw Error Analysis</h2>
+        <p>Test the exact operation that's failing in your app:</p>
+        
+        <textarea id="customScanData" rows="8" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;" placeholder='Enter your scan data JSON here, e.g.:
+{
+  "category": "Doona infant car seat and stroller combo with base",
+  "brand": "Doona", 
+  "model": "Unknown",
+  "condition": {
+    "rating": "good",
+    "description": "Used but in good condition"
+  }
+}'></textarea>
+        
+        <div style="margin: 15px 0;">
+            <button onclick="testCustomScanSave()" disabled class="test-btn">Test Custom Scan Save</button>
+            <button onclick="simulateAppError()">Simulate Your App's Error</button>
+        </div>
+        
+        <div id="customTestResults"></div>
+    </div>
+
+    <!-- Recommendations -->
+    <div class="container">
+        <h2>💡 Step 5: Recommendations</h2>
+        <div id="recommendations">
+            <p>Run the diagnostic tests above to get specific recommendations for fixing your rules.</p>
+        </div>
+    </div>
+
+    <script>
+        let db = null;
+        let auth = null;
+        let currentUser = null;
+
+        // Initialize Firebase
+        function initializeFirebase() {
+            const apiKey = document.getElementById('apiKey').value;
+            const authDomain = document.getElementById('authDomain').value;
+            const projectId = document.getElementById('projectId').value;
+            const storageBucket = document.getElementById('storageBucket').value;
+
+            if (!apiKey || !authDomain || !projectId) {
+                showResult('firebaseStatus', 'Please fill in at least API Key, Auth Domain, and Project ID', 'error');
+                return;
+            }
+
+            try {
+                const firebaseConfig = {
+                    apiKey: apiKey,
+                    authDomain: authDomain,
+                    projectId: projectId,
+                    storageBucket: storageBucket || `${projectId}.appspot.com`
+                };
+
+                const app = firebase.initializeApp(firebaseConfig);
+                db = firebase.firestore(app);
+                auth = firebase.auth(app);
+
+                // Listen for auth state changes
+                auth.onAuthStateChanged((user) => {
+                    currentUser = user;
+                    updateAuthStatus(user);
+                    enableTestButtons(!!user);
+                });
+
+                showResult('firebaseStatus', 'Firebase initialized successfully!', 'success');
+                
+            } catch (error) {
+                showResult('firebaseStatus', `Firebase initialization failed: ${error.message}`, 'error');
+            }
+        }
+
+        // Authentication functions
+        function signInAnonymously() {
+            if (!auth) {
+                alert('Please initialize Firebase first');
+                return;
+            }
+            
+            auth.signInAnonymously().catch((error) => {
+                showResult('userInfo', `Sign in failed: ${error.message}`, 'error');
+            });
+        }
+
+        function signOut() {
+            if (auth) {
+                auth.signOut();
+            }
+        }
+
+        function updateAuthStatus(user) {
+            const authStatus = document.getElementById('authStatus');
+            const userInfo = document.getElementById('userInfo');
+            
+            if (user) {
+                authStatus.className = 'auth-status authenticated';
+                authStatus.textContent = 'Authenticated ✓';
+                userInfo.innerHTML = `
+                    <div class="code-block">
+                        <strong>User ID:</strong> ${user.uid}<br>
+                        <strong>Provider:</strong> ${user.providerData.length ? user.providerData[0].providerId : 'anonymous'}<br>
+                        <strong>Email:</strong> ${user.email || 'None (anonymous)'}
+                    </div>
+                `;
+            } else {
+                authStatus.className = 'auth-status not-authenticated';
+                authStatus.textContent = 'Not Authenticated ✗';
+                userInfo.innerHTML = '';
+            }
+        }
+
+        function enableTestButtons(enabled) {
+            const testButtons = document.querySelectorAll('.test-btn, #runTestsBtn');
+            testButtons.forEach(btn => {
+                btn.disabled = !enabled;
+            });
+        }
+
+        // Test functions
+        async function testCollectionRead(collectionName) {
+            if (!db || !currentUser) return;
+            
+            try {
+                const snapshot = await db.collection(collectionName).limit(1).get();
+                addTestResult(`✅ Read access to ${collectionName} collection: SUCCESS`, 'success');
+            } catch (error) {
+                addTestResult(`❌ Read access to ${collectionName} collection: FAILED - ${error.message}`, 'error');
+            }
+        }
+
+        async function testScanWrite() {
+            if (!db || !currentUser) return;
+            
+            const scanData = {
+                uid: currentUser.uid,
+                category: 'test-item',
+                brand: 'Test Brand',
+                condition: { rating: 'good' },
+                timestamp: firebase.firestore.FieldValue.serverTimestamp()
+            };
+
+            try {
+                // Test writing to scanned_items collection
+                const docRef = await db.collection('scanned_items').add(scanData);
+                addTestResult(`✅ Write to scanned_items collection: SUCCESS (ID: ${docRef.id})`, 'success');
+                
+                // Clean up
+                await docRef.delete();
+                
+            } catch (error) {
+                addTestResult(`❌ Write to scanned_items collection: FAILED - ${error.message}`, 'error');
+                
+                // Provide specific guidance based on error
+                if (error.code === 'permission-denied') {
+                    addTestResult(`🔍 Permission denied suggests your rules are blocking this write. Check if:
+                    1. request.auth.uid == request.resource.data.uid
+                    2. The uid field is properly set in the document`, 'warning');
+                }
+            }
+        }
+
+        async function testUserDocWrite() {
+            if (!db || !currentUser) return;
+            
+            const userData = {
+                lastScan: firebase.firestore.FieldValue.serverTimestamp(),
+                totalScans: 1
+            };
+
+            try {
+                await db.collection('users').doc(currentUser.uid).set(userData, { merge: true });
+                addTestResult(`✅ Write to users/${currentUser.uid}: SUCCESS`, 'success');
+            } catch (error) {
+                addTestResult(`❌ Write to users/${currentUser.uid}: FAILED - ${error.message}`, 'error');
+            }
+        }
+
+        async function testSubcollectionWrite() {
+            if (!db || !currentUser) return;
+            
+            const scanData = {
+                category: 'test-subcollection-item',
+                timestamp: firebase.firestore.FieldValue.serverTimestamp()
+            };
+
+            try {
+                // Test writing to user's scans subcollection
+                const docRef = await db.collection('users').doc(currentUser.uid).collection('scans').add(scanData);
+                addTestResult(`✅ Write to users/${currentUser.uid}/scans: SUCCESS (ID: ${docRef.id})`, 'success');
+                
+                // Clean up
+                await docRef.delete();
+                
+            } catch (error) {
+                addTestResult(`❌ Write to users/${currentUser.uid}/scans: FAILED - ${error.message}`, 'error');
+            }
+        }
+
+        async function testPinWrite() {
+            if (!db || !currentUser) return;
+            
+            const pinData = {
+                uid: currentUser.uid,
+                location: { lat: 40.7128, lng: -74.0060 },
+                engagement: { isActive: true },
+                timestamp: firebase.firestore.FieldValue.serverTimestamp()
+            };
+
+            try {
+                const docRef = await db.collection('pins').add(pinData);
+                addTestResult(`✅ Write to pins collection: SUCCESS (ID: ${docRef.id})`, 'success');
+                
+                // Clean up
+                await docRef.delete();
+                
+            } catch (error) {
+                addTestResult(`❌ Write to pins collection: FAILED - ${error.message}`, 'error');
+            }
+        }
+
+        async function testMismatchedUID() {
+            if (!db || !currentUser) return;
+            
+            const scanData = {
+                uid: 'different-user-id', // Intentionally wrong UID
+                category: 'test-item',
+                timestamp: firebase.firestore.FieldValue.serverTimestamp()
+            };
+
+            try {
+                await db.collection('scanned_items').add(scanData);
+                addTestResult(`⚠️ Write with mismatched UID: UNEXPECTEDLY SUCCEEDED (This is a security issue!)`, 'warning');
+            } catch (error) {
+                addTestResult(`✅ Write with mismatched UID: CORRECTLY FAILED - ${error.message}`, 'success');
+            }
+        }
+
+        async function testMissingUID() {
+            if (!db || !currentUser) return;
+            
+            const scanData = {
+                // No uid field
+                category: 'test-item',
+                timestamp: firebase.firestore.FieldValue.serverTimestamp()
+            };
+
+            try {
+                await db.collection('scanned_items').add(scanData);
+                addTestResult(`⚠️ Write without UID field: UNEXPECTEDLY SUCCEEDED (Check your rules!)`, 'warning');
+            } catch (error) {
+                addTestResult(`✅ Write without UID field: CORRECTLY FAILED - ${error.message}`, 'success');
+            }
+        }
+
+        async function testCustomScanSave() {
+            if (!db || !currentUser) return;
+            
+            const customDataText = document.getElementById('customScanData').value;
+            
+            if (!customDataText.trim()) {
+                showCustomResult('Please enter some scan data to test', 'warning');
+                return;
+            }
+
+            try {
+                const customData = JSON.parse(customDataText);
+                
+                // Add required fields
+                const scanData = {
+                    ...customData,
+                    uid: currentUser.uid,
+                    timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+                    scanId: `scan_${Date.now()}`
+                };
+
+                // Test multiple paths that your app might use
+                const testPaths = [
+                    { path: 'scanned_items', label: 'Main scanned_items collection' },
+                    { path: `users/${currentUser.uid}/scans`, label: 'User subcollection' }
+                ];
+
+                for (const testPath of testPaths) {
+                    try {
+                        let docRef;
+                        if (testPath.path.includes('/')) {
+                            // Subcollection
+                            const [collection, docId, subcollection] = testPath.path.split('/');
+                            docRef = await db.collection(collection).doc(docId).collection(subcollection).add(scanData);
+                        } else {
+                            // Top-level collection
+                            docRef = await db.collection(testPath.path).add(scanData);
+                        }
+                        
+                        showCustomResult(`✅ ${testPath.label}: SUCCESS (ID: ${docRef.id})`, 'success');
+                        
+                        // Clean up
+                        await docRef.delete();
+                        
+                    } catch (error) {
+                        showCustomResult(`❌ ${testPath.label}: FAILED - ${error.message}`, 'error');
+                        
+                        if (error.code === 'permission-denied') {
+                            showCustomResult(`🔍 This path is blocked by your security rules. The issue might be:
+                            1. Missing uid field check in rules
+                            2. User not authenticated properly
+                            3. Rules require specific field structure`, 'warning');
+                        }
+                    }
+                }
+
+            } catch (parseError) {
+                showCustomResult(`❌ Invalid JSON: ${parseError.message}`, 'error');
+            }
+        }
+
+        function simulateAppError() {
+            const errorSimulation = `
+Based on your console error, here's what's likely happening:
+
+1. **Your app is trying to save to**: /scanned_items/{scanId}
+2. **With data that may be missing**: uid field
+3. **While user auth state might be**: ${currentUser ? 'Authenticated' : 'Not authenticated'}
+
+**Most Likely Issues:**
+${!currentUser ? '• User is not authenticated when save operation occurs' : ''}
+• The scan data doesn't include the required uid field
+• The uid field doesn't match the authenticated user's ID
+• Your rules require request.auth.uid == request.resource.data.uid
+
+**To Fix:**
+1. Ensure user is authenticated before saving
+2. Add uid: currentUser.uid to your scan data
+3. Use the correct collection path based on your rules
+            `;
+            
+            showCustomResult(errorSimulation, 'info');
+        }
+
+        async function runAllTests() {
+            clearResults();
+            addTestResult('🚀 Starting comprehensive rules diagnostic...', 'info');
+            
+            // Wait a bit between tests to avoid rate limiting
+            const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+            
+            await testCollectionRead('users');
+            await delay(100);
+            await testCollectionRead('scanned_items');
+            await delay(100);
+            await testCollectionRead('pins');
+            await delay(100);
+            
+            await testUserDocWrite();
+            await delay(100);
+            await testScanWrite();
+            await delay(100);
+            await testSubcollectionWrite();
+            await delay(100);
+            await testPinWrite();
+            await delay(100);
+            
+            await testMismatchedUID();
+            await delay(100);
+            await testMissingUID();
+            
+            addTestResult('🏁 All tests completed!', 'info');
+            generateRecommendations();
+        }
+
+        function generateRecommendations() {
+            const recommendations = document.getElementById('recommendations');
+            const results = document.querySelectorAll('#testResults .test-result');
+            
+            let hasErrors = false;
+            let hasPermissionDenied = false;
+            
+            results.forEach(result => {
+                if (result.classList.contains('error')) {
+                    hasErrors = true;
+                    if (result.textContent.includes('permission-denied') || result.textContent.includes('PERMISSION_DENIED')) {
+                        hasPermissionDenied = true;
+                    }
+                }
+            });
+
+            let recommendationText = '<h3>📋 Diagnostic Results & Recommendations:</h3>';
+            
+            if (!hasErrors) {
+                recommendationText += `
+                    <div class="test-result success">
+                        ✅ <strong>Good news!</strong> All tests passed. Your rules seem to be working correctly.
+                        The issue might be in your app code rather than the Firestore rules.
+                        
+                        <strong>Check your app for:</strong>
+                        <ul>
+                            <li>Making sure user is authenticated before saving</li>
+                            <li>Including the uid field in your scan data</li>
+                            <li>Using the correct collection path</li>
+                        </ul>
+                    </div>
+                `;
+            } else if (hasPermissionDenied) {
+                recommendationText += `
+                    <div class="test-result error">
+                        ❌ <strong>Permission Denied Errors Found</strong>
+                        
+                        <strong>Most likely fixes:</strong>
+                        <ol>
+                            <li><strong>Add uid field to your scan data:</strong>
+                                <div class="code-block">const scanData = {
+  ...yourScanData,
+  uid: currentUser.uid  // ADD THIS
+};</div>
+                            </li>
+                            <li><strong>Check your rules match your data structure</strong></li>
+                            <li><strong>Ensure user is authenticated before saving</strong></li>
+                        </ol>
+                    </div>
+                `;
+            } else {
+                recommendationText += `
+                    <div class="test-result warning">
+                        ⚠️ <strong>Mixed Results</strong>
+                        
+                        Some tests failed. Review the specific error messages above for details.
+                        Common issues include authentication timing and missing required fields.
+                    </div>
+                `;
+            }
+            
+            recommendations.innerHTML = recommendationText;
+        }
+
+        // Utility functions
+        function addTestResult(message, type) {
+            const resultsDiv = document.getElementById('testResults');
+            const resultDiv = document.createElement('div');
+            resultDiv.className = `test-result ${type}`;
+            resultDiv.innerHTML = message.replace(/\n/g, '<br>');
+            resultsDiv.appendChild(resultDiv);
+        }
+
+        function showCustomResult(message, type) {
+            const resultsDiv = document.getElementById('customTestResults');
+            const resultDiv = document.createElement('div');
+            resultDiv.className = `test-result ${type}`;
+            resultDiv.innerHTML = message.replace(/\n/g, '<br>');
+            resultsDiv.appendChild(resultDiv);
+        }
+
+        function showResult(elementId, message, type) {
+            const element = document.getElementById(elementId);
+            element.className = `test-result ${type}`;
+            element.textContent = message;
+            element.style.display = 'block';
+        }
+
+        function clearResults() {
+            document.getElementById('testResults').innerHTML = '';
+            document.getElementById('customTestResults').innerHTML = '';
+        }
+    </script>
+</body>
+</html>
