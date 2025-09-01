@@ -12,6 +12,7 @@ const cors = require('cors');
 const { EbayApiClient } = require('./api/ebay-api-client.js');
 const { EbayPolicyService } = require('./capture-sdk/utils/ebay-policy-service.js');
 const { EbayTokenManager } = require('./capture-sdk/utils/ebay-token-manager.js');
+const { EbayOauthService } = require('./capture-sdk/utils/ebay-oauth-service.js');
 
 // FIXED: Import and initialize the category mapper
 const { 
@@ -41,6 +42,7 @@ setGlobalOptions({ region: 'us-central1' });
 const ebayApiClient = new EbayApiClient();
 const ebayPolicyService = new EbayPolicyService();
 const ebayTokenManager = new EbayTokenManager();
+const ebayOauthService = new EbayOauthService();
 
 // --- Main Express App ---
 const app = express();
@@ -112,62 +114,8 @@ app.post('/api/ebay/create-listing', async (req, res) => {
 });
 
 // --- OAuth Endpoints (refactored to use services) ---
-app.post('/api/ebay/auth-url', async (req, res) => {
-  try {
-    const config = ebayApiClient.getEbayConfig();
-    const scopes = ebayApiClient.buildScopeFromRequest();
-    
-    const state = `user_${req.body.userId}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    await db.collection('ebay_oauth_states').doc(state).set({ userId: req.body.userId });
-
-    const authUrl = new URL(config.getAuthUrl());
-    authUrl.searchParams.set('client_id', config.clientId);
-    authUrl.searchParams.set('response_type', 'code');
-    authUrl.searchParams.set('redirect_uri', config.redirectRuName);
-    authUrl.searchParams.set('scope', scopes);
-    authUrl.searchParams.set('state', state);
-
-    res.json({ success: true, authUrl: authUrl.toString() });
-  } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-
-app.post('/api/ebay/callback', async (req, res) => {
-  try {
-    const { code, state, userId } = req.body;
-    const stateDoc = await db.collection('ebay_oauth_states').doc(state).get();
-    if (!stateDoc.exists || stateDoc.data().userId !== userId) {
-      throw new Error('Invalid state parameter');
-    }
-
-    const config = ebayApiClient.getEbayConfig();
-    const tokenResponse = await fetch(config.getTokenUrl(), {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-        'Authorization': `Basic ${config.getBasicAuth()}`
-      },
-      body: new URLSearchParams({
-        grant_type: 'authorization_code',
-        code,
-        redirect_uri: config.redirectRuName
-      })
-    });
-
-    if (!tokenResponse.ok) {
-      throw new Error('Token exchange failed');
-    }
-    
-    const tokenData = await tokenResponse.json();
-    await ebayTokenManager.storeTokens(userId, tokenData);
-    await db.collection('ebay_oauth_states').doc(state).delete();
-    
-    res.json({ success: true });
-  } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
+app.post('/api/ebay/auth-url', ebayOauthService.generateAuthUrl.bind(ebayOauthService));
+app.post('/api/ebay/callback', ebayOauthService.handleCallback.bind(ebayOauthService));
 
 // --- Final export as a single cloud function ---
 exports.app = onRequest(app);
@@ -175,6 +123,6 @@ exports.app = onRequest(app);
 // --- Startup Logging ---
 console.log('🚀 Functions initialized with refactored services');
 console.log('📊 Configuration status:');
-console.log('  - eBay Client ID:', !!process.env.EBAY_CLIENT_ID ? '✅' : '❌');
-console.log('  - eBay Client Secret:', !!process.env.EBAY_CLIENT_SECRET ? '✅' : '❌');
-console.log('  - eBay RuName:', !!process.env.EBAY_REDIRECT_RU_NAME ? '✅' : '❌');
+console.log('  - eBay Client ID:', !!process.env.EBAY_CLIENT_ID ? '✅' : '❌');
+console.log('  - eBay Client Secret:', !!process.env.EBAY_CLIENT_SECRET ? '✅' : '❌');
+console.log('  - eBay RuName:', !!process.env.EBAY_REDIRECT_RU_NAME ? '✅' : '❌');

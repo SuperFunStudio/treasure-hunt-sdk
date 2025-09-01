@@ -52,13 +52,11 @@ class EbayApiClient {
   }
 
   async apiCall(userId, method, endpoint, body = null) {
-    const { EbayTokenManager } = require('../utils/ebay-token-manager.js');
     const tokenManager = new EbayTokenManager();
     const tokenInfo = await tokenManager.getValidAccessToken(userId);
     const accessToken = tokenInfo.accessToken;
 
     const config = this.getEbayConfig();
-    const fetch = (await import('node-fetch')).default;
     const response = await fetch(`${config.getApiUrl()}${endpoint}`, {
       method,
       headers: {
