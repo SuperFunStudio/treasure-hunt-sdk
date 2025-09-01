@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Route Inspector & Fix Generator</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #2c3e50, #34495e);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+        }
+        
+        .alert {
+            background: linear-gradient(135deg, #e74c3c, #c0392b);
+            color: white;
+            padding: 20px;
+            margin: 20px;
+            border-radius: 10px;
+            font-weight: 600;
+        }
+        
+        .main-content {
+            padding: 30px;
+        }
+        
+        .section {
+            background: white;
+            border-radius: 10px;
+            margin-bottom: 25px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.08);
+            overflow: hidden;
+        }
+        
+        .section-header {
+            background: linear-gradient(135deg, #e67e22, #d35400);
+            color: white;
+            padding: 20px;
+            font-size: 1.3rem;
+            font-weight: 600;
+        }
+        
+        .section-content {
+            padding: 25px;
+        }
+        
+        .button {
+            background: linear-gradient(135deg, #e67e22, #d35400);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 8px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-right: 15px;
+            margin-bottom: 10px;
+        }
+        
+        .button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(230, 126, 34, 0.4);
+        }
+        
+        .button.success {
+            background: linear-gradient(135deg, #27ae60, #229954);
+        }
+        
+        .button.success:hover {
+            box-shadow: 0 5px 15px rgba(39, 174, 96, 0.4);
+        }
+        
+        .routes-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        
+        .route-item {
+            background: #f8f9fa;
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            padding: 15px;
+            font-family: 'Courier New', monospace;
+        }
+        
+        .route-item.missing {
+            border-color: #e74c3c;
+            background: #fdf2f2;
+        }
+        
+        .route-method {
+            background: #3498db;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            margin-right: 10px;
+        }
+        
+        .route-method.post {
+            background: #27ae60;
+        }
+        
+        .route-method.put {
+            background: #f39c12;
+        }
+        
+        .route-method.delete {
+            background: #e74c3c;
+        }
+        
+        .code-block {
+            background: #2c3e50;
+            color: #ecf0f1;
+            font-family: 'Courier New', monospace;
+            padding: 20px;
+            border-radius: 8px;
+            overflow-x: auto;
+            margin: 15px 0;
+            line-height: 1.6;
+        }
+        
+        .copy-button {
+            background: #95a5a6;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            float: right;
+            margin-bottom: 10px;
+        }
+        
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+        
+        .status-indicator.missing {
+            background: #e74c3c;
+        }
+        
+        .status-indicator.unknown {
+            background: #f39c12;
+        }
+        
+        .fix-section {
+            background: linear-gradient(135deg, #27ae60, #229954);
+            color: white;
+            border-radius: 10px;
+            padding: 25px;
+            margin: 20px 0;
+        }
+        
+        .fix-steps {
+            list-style: none;
+            padding: 0;
+        }
+        
+        .fix-steps li {
+            padding: 10px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+            padding-left: 30px;
+            position: relative;
+        }
+        
+        .fix-steps li::before {
+            content: counter(step-counter);
+            counter-increment: step-counter;
+            position: absolute;
+            left: 0;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+        
+        .fix-steps {
+            counter-reset: step-counter;
+        }
+        
+        .log-output {
+            background: #2c3e50;
+            color: #ecf0f1;
+            font-family: 'Courier New', monospace;
+            padding: 20px;
+            border-radius: 8px;
+            max-height: 300px;
+            overflow-y: auto;
+            margin-top: 20px;
+            line-height: 1.6;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔍 Route Inspector</h1>
+            <p>Analyzing your missing routes and generating fixes</p>
+        </div>
+        
+        <div class="alert">
+            <strong>⚠️ ISSUE IDENTIFIED:</strong> All API routes are returning 404 errors. This indicates your Express.js routing configuration was broken during the refactoring.
+        </div>
+        
+        <div class="main-content">
+            <!-- Current Route Status -->
+            <div class="section">
+                <div class="section-header">📍 Missing Routes Analysis</div>
+                <div class="section-content">
+                    <p>Based on your diagnostic results, these routes are missing from your app:</p>
+                    
+                    <div class="routes-grid">
+                        <div class="route-item missing">
+                            <span class="status-indicator missing"></span>
+                            <span class="route-method post">POST</span>
+                            <code>/api/analyze-json</code>
+                        </div>
+                        <div class="route-item missing">
+                            <span class="status-indicator missing"></span>
+                            <span class="route-method">GET</span>
+                            <code>/dashboard</code>
+                        </div>
+                        <div class="route-item missing">
+                            <span class="status-indicator missing"></span>
+                            <span class="route-method">GET</span>
+                            <code>/scan-editor.html</code>
+                        </div>
+                        <div class="route-item missing">
+                            <span class="status-indicator missing"></span>
+                            <span class="route-method">GET</span>
+                            <code>/health</code>
+                        </div>
+                        <div class="route-item missing">
+                            <span class="status-indicator missing"></span>
+                            <span class="route-method">GET</span>
+                            <code>/api/ebay-auth</code>
+                        </div>
+                        <div class="route-item missing">
+                            <span class="status-indicator missing"></span>
+                            <span class="route-method">GET</span>
+                            <code>/api/ebay-account-info</code>
+                        </div>
+                        <div class="route-item missing">
+                            <span class="status-indicator missing"></span>
+                            <span class="route-method">GET</span>
+                            <code>/api/test-database</code>
+                        </div>
+                        <div class="route-item missing">
+                            <span class="status-indicator missing"></span>
+                            <span class="route-method">GET</span>
+                            <code>/api/debug</code>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Quick Fix Generator -->
+            <div class="section">
+                <div class="section-header">🔧 Route Configuration Fix</div>
+                <div class="section-content">
+                    <p>Here's the Express.js routing code you need to add to your main app file:</p>
+                    
+                    <button class="copy-button" onclick="copyToClipboard('routeCode')">Copy Code</button>
+                    <div class="code-block" id="routeCode">const express = require('express');
+const app = express();
+
+// Middleware
+app.use(express.json());
+app.use(express.static('public')); // For serving HTML files
+
+// API Routes
+app.post('/api/analyze-json', async (req, res) => {
+    try {
+        // Your analyze JSON logic here
+        const { imageCount, uid, hasImageData } = req.body;
+        
+        // Placeholder response - replace with your actual logic
+        res.json({ 
+            success: true, 
+            message: 'Analysis endpoint working',
+            received: { imageCount, uid, hasImageData }
+        });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+app.get('/api/ebay-auth', async (req, res) => {
+    try {
+        // Your eBay auth logic here
+        res.json({ success: true, message: 'eBay auth endpoint working' });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+app.get('/api/ebay-account-info', async (req, res) => {
+    try {
+        // Your eBay account info logic here
+        res.json({ success: true, message: 'eBay account info endpoint working' });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+app.get('/api/test-database', async (req, res) => {
+    try {
+        // Your database test logic here
+        res.json({ success: true, message: 'Database test endpoint working' });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+app.get('/api/debug', async (req, res) => {
+    try {
+        res.json({ 
+            success: true, 
+            message: 'Debug endpoint working',
+            environment: process.env.NODE_ENV,
+            timestamp: new Date().toISOString(),
+            config: {
+                hasEbayClientId: !!process.env.EBAY_CLIENT_ID,
+                hasEbaySecret: !!process.env.EBAY_CLIENT_SECRET,
+                hasRuName: !!process.env.EBAY_RU_NAME
+            }
+        });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+app.get('/health', (req, res) => {
+    res.json({ 
+        status: 'healthy', 
+        timestamp: new Date().toISOString(),
+        uptime: process.uptime()
+    });
+});
+
+// Static file routes
+app.get('/dashboard', (req, res) => {
+    res.sendFile(__dirname + '/public/dashboard.html');
+});
+
+app.get('/scan-editor.html', (req, res) => {
+    res.sendFile(__dirname + '/public/scan-editor.html');
+});
+
+// Default route
+app.get('/', (req, res) => {
+    res.json({ 
+        message: 'Treasure Hunter SDK API', 
+        version: '1.0.0',
+        endpoints: [
+            'POST /api/analyze-json',
+            'GET /api/ebay-auth',
+            'GET /api/ebay-account-info', 
+            'GET /api/test-database',
+            'GET /api/debug',
+            'GET /health',
+            'GET /dashboard',
+            'GET /scan-editor.html'
+        ]
+    });
+});
+
+// Export for Firebase Functions
+exports.app = functions.https.onRequest(app);</div>
+                </div>
+            </div>
+            
+            <!-- Step-by-step Fix Instructions -->
+            <div class="fix-section">
+                <h2>🚀 Step-by-Step Fix Instructions</h2>
+                <ol class="fix-steps">
+                    <li>Locate your main Firebase Functions file (likely <code>index.js</code> or <code>functions/index.js</code>)</li>
+                    <li>Replace or add the route definitions using the code above</li>
+                    <li>Ensure your existing business logic is integrated into each route handler</li>
+                    <li>Verify that your HTML files are in a <code>public</code> folder or adjust the paths accordingly</li>
+                    <li>Test locally using <code>firebase emulators:start</code></li>
+                    <li>Deploy using <code>firebase deploy --only functions</code></li>
+                    <li>Run the diagnostic tool again to verify all routes are working</li>
+                </ol>
+            </div>
+            
+            <!-- File Structure Recommendation -->
+            <div class="section">
+                <div class="section-header">📁 Recommended File Structure</div>
+                <div class="section-content">
+                    <button class="copy-button" onclick="copyToClipboard('fileStructure')">Copy Structure</button>
+                    <div class="code-block" id="fileStructure">functions/
+├── index.js (main file with routes)
+├── package.json
+├── services/
+│   ├── ebayService.js
+│   ├── databaseService.js
+│   └── analysisService.js
+├── public/
+│   ├── dashboard.html
+│   ├── scan-editor.html
+│   └── assets/
+└── node_modules/</div>
+                </div>
+            </div>
+            
+            <!-- Test Button -->
+            <div class="section">
+                <div class="section-header">✅ Quick Test</div>
+                <div class="section-content">
+                    <p>After implementing the fix, use these buttons to quickly test key endpoints:</p>
+                    <button class="button success" onclick="testEndpoint('/')">Test Root Endpoint</button>
+                    <button class="button success" onclick="testEndpoint('/health')">Test Health Check</button>
+                    <button class="button success" onclick="testEndpoint('/api/debug')">Test Debug Info</button>
+                    <button class="button" onclick="runFullTest()">Run Full Diagnostic Again</button>
+                </div>
+            </div>
+            
+            <div class="log-output" id="testLog">
+                Ready to test your fixes...<br>
+                Implement the route configuration above, then use the test buttons.
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function copyToClipboard(elementId) {
+            const element = document.getElementById(elementId);
+            const text = element.textContent;
+            
+            navigator.clipboard.writeText(text).then(() => {
+                const button = event.target;
+                const originalText = button.textContent;
+                button.textContent = 'Copied!';
+                button.style.background = '#27ae60';
+                
+                setTimeout(() => {
+                    button.textContent = originalText;
+                    button.style.background = '#95a5a6';
+                }, 2000);
+            });
+        }
+        
+        function log(message, type = 'info') {
+            const logOutput = document.getElementById('testLog');
+            const timestamp = new Date().toLocaleTimeString();
+            const colorMap = {
+                'info': '#3498db',
+                'success': '#27ae60',
+                'error': '#e74c3c',
+                'warning': '#f39c12'
+            };
+            logOutput.innerHTML += `<span style="color: ${colorMap[type] || '#ecf0f1'};">[${timestamp}] ${message}</span><br>`;
+            logOutput.scrollTop = logOutput.scrollHeight;
+        }
+        
+        async function testEndpoint(endpoint) {
+            const baseUrl = 'https://us-central1-treasurehunter-sdk.cloudfunctions.net/app';
+            const fullUrl = baseUrl + endpoint;
+            
+            log(`Testing ${endpoint}...`, 'info');
+            
+            try {
+                const response = await fetch(fullUrl);
+                const text = await response.text();
+                
+                if (response.ok) {
+                    log(`✅ ${endpoint} - SUCCESS (${response.status})`, 'success');
+                    log(`Response: ${text.substring(0, 100)}...`, 'info');
+                } else {
+                    log(`❌ ${endpoint} - FAILED (${response.status})`, 'error');
+                    log(`Error: ${text}`, 'error');
+                }
+            } catch (error) {
+                log(`❌ ${endpoint} - ERROR: ${error.message}`, 'error');
+            }
+        }
+        
+        function runFullTest() {
+            log('Opening full diagnostic tool in new tab...', 'info');
+            window.open('data:text/html;base64,' + btoa(document.querySelector('[data-artifact-id="deployment_diagnostics"]').innerHTML), '_blank');
+        }
+        
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            log('🔧 Route Inspector loaded', 'success');
+            log('Copy the route configuration code and implement it in your Firebase Functions', 'info');
+        });
+    </script>
+</body>
+</html>
