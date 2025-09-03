@@ -18,7 +18,7 @@ const {
   mapCategoryToEbayId, 
   validateCategoryMapping,
   getFallbackMapping 
-} = require('./ebay-category-mapper');
+} = require('./utils/ebay-category-mapper.js');
 
 // ========== 2. ENVIRONMENT SETUP ==========
 // Load environment variables (only in development)

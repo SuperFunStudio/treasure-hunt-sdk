@@ -23,7 +23,7 @@ const { router: analysisRoutes, injectDependencies: injectAnalysisDeps } = requi
 const { router: ebayRoutes, injectDependencies: injectEbayDeps } = require('./routes/ebay');
 
 // Import existing modules (keeping category mapper for now)
-const { initializeDatabase } = require('./ebay-category-mapper');
+const { initializeDatabase } = require('./utils/ebay-category-mapper');
 
 // ========== 2. FIREBASE INITIALIZATION ==========
 initializeDatabase(db, admin);
@@ -189,6 +189,25 @@ app.post('/api/echo-raw', (req, res) => {
   });
 
   req.on('error', (e) => res.status(500).json({ ok: false, error: String(e) }));
+});
+
+// ========== ROOT ROUTE ==========
+app.get('/', (req, res) => {
+  res.json({
+    service: 'Treasure Hunt SDK API',
+    version: '1.0.0',
+    status: 'running',
+    timestamp: new Date().toISOString(),
+    architecture: 'modular',
+    endpoints: [
+      'GET /health - Health check',
+      'GET /api/test - API test',
+      'GET /api/status - Detailed status',
+      'POST /api/analyze - Image analysis',
+      'POST /api/ebay/create-listing - Create eBay listing',
+      'GET /api/ebay/account-info - eBay account info'
+    ]
+  });
 });
 
 // ========== 10. ERROR HANDLERS ==========

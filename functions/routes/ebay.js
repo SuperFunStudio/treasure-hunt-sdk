@@ -12,8 +12,9 @@ const ebayService = require('../services/ebay/ebayService');
 const tokenManager = require('../services/ebay/tokenManager');
 const policyManager = require('../services/ebay/policyManager');
 
+
 // Import utilities
-const { mapConditionToEbayId, validateCategoryMapping, getFallbackMapping } = require('../ebay-category-mapper');
+const { mapCategoryToEbayId, validateCategoryMapping, getFallbackMapping } = require('../utils/ebay-category-mapper');
 const { 
   mapConditionToEbay, 
   isValidEbayCondition, 
@@ -24,6 +25,8 @@ const {
   buildListingXmlWithPolicies, 
   buildListingXmlInline 
 } = require('../utils/xml-builder');
+const { errorHandler, ValidationError } = require('../utils/error-handler');
+
 
 /**
  * Dependencies injected from main app
@@ -57,7 +60,7 @@ router.post('/api/ebay/create-listing', asyncHandler(async (req, res) => {
     }
 
     if (!rawListingData) {
-      return res.status(400).json({ success: false, error: 'Missing listing data' });
+  return res.status(400).json({ success: false, error: 'Title must be 1-80 characters' });
     }
 
     const userDoc = await db.collection('users').doc(userId).get();

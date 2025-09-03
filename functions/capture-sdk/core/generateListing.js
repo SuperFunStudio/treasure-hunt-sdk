@@ -50,25 +50,19 @@ function generateListing(itemData, route, options = {}) {
   
   function generateTitle(itemData) {
     const parts = [];
-    
-    if (itemData.brand && itemData.brand !== 'Unknown') {
-      parts.push(itemData.brand);
-    }
-    
-    if (itemData.model && itemData.model !== 'Unknown') {
-      parts.push(itemData.model);
-    }
-    
-    parts.push(itemData.category);
-    
-    if (itemData.condition.rating === 'poor') {
-      parts.push('For Parts/Repair');
-    } else if (itemData.condition.rating === 'good') {
-      parts.push('Excellent Condition');
-    }
-    
-    return parts.join(' - ').substring(0, 80); // eBay title limit
-  }
+     
+  
+  // Look for descriptive keywords in the analysis
+  if (itemData.identifiers?.style) parts.push(itemData.identifiers.style);
+  if (itemData.identifiers?.material) parts.push(itemData.identifiers.material);
+  if (itemData.brand && itemData.brand !== 'Unknown') parts.push(itemData.brand);
+  if (itemData.model && itemData.model !== 'Unknown') parts.push(itemData.model);
+  
+  // Add descriptive category instead of just "furniture"
+  parts.push(itemData.subcategory || itemData.category);
+  
+  return parts.join(' ').substring(0, 80);
+}
   
   function generateDescription(itemData, template) {
     const templates = {
