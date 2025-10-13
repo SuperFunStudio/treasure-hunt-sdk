@@ -1,6 +1,6 @@
 // capture-sdk/index.js - Updated SDK with Claude as default provider
 const { analyzeItem } = require('./core/analyzeItem.js');
-const { routeDisposition } = require('./core/routeDisposition.js');
+const { routeDisposition, getPreliminaryRoutes } = require('./core/routeDisposition.js');
 const { generateListing } = require('./core/generateListing.js');
 
 class CaptureSDK {
@@ -60,15 +60,28 @@ class CaptureSDK {
    */
   async getRoutes(itemData, userPreferences = {}, ebayConfigOverride = null) {
     const ebayConfig = ebayConfigOverride || this.ebayConfig;
-    
+
     console.log('📊 Getting routes with eBay integration:', {
       hasConfig: !!ebayConfig,
       hasClientId: !!ebayConfig?.clientId,
       category: itemData.category,
       brand: itemData.brand
     });
-    
+
     return await routeDisposition(itemData, userPreferences, ebayConfig);
+  }
+
+  /**
+   * NEW: Get preliminary routes instantly without eBay API calls
+   * Returns AI-based estimates in <1s for fast initial response
+   */
+  getPreliminaryRoutes(itemData, userPreferences = {}) {
+    console.log('⚡ Getting preliminary routes (instant):', {
+      category: itemData.category,
+      brand: itemData.brand
+    });
+
+    return getPreliminaryRoutes(itemData, userPreferences);
   }
 
   /**

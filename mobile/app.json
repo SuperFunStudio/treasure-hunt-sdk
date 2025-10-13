@@ -1,0 +1,7 @@
+{
+  "name": "TreasureHuntMobile",
+  "displayName": "Treasure Hunt",
+  "version": "1.0.0",
+  "bundleId": "com.treasurehunt.app",
+  "package": "com.treasurehunt.app"
+}

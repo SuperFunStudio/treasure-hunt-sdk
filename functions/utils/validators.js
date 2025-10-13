@@ -1,399 +1,410 @@
 // utils/validators.js
-// Input validation utilities
+// Basic listing data validation utilities
 
-const { 
-  VALIDATION_PATTERNS, 
-  ANALYSIS_CONFIG, 
-  EBAY_LISTING,
-  LOCATION_CONFIG 
-} = require('../config/constants');
+/**
+ * Validate basic listing data structure and required fields
+ */
+function validateListingData(listingData) {
+  const result = {
+    valid: true,
+    errors: [],
+    warnings: []
+  };
+
+  if (!listingData || typeof listingData !== 'object') {
+    result.valid = false;
+    result.errors.push('Listing data must be an object');
+    return result;
+  }
+
+  // Validate title
+  if (!listingData.title || typeof listingData.title !== 'string') {
+    result.valid = false;
+    result.errors.push('Title is required and must be a string');
+  } else if (listingData.title.length < 5) {
+    result.valid = false;
+    result.errors.push('Title must be at least 5 characters long');
+  } else if (listingData.title.length > 80) {
+    result.warnings.push('Title exceeds recommended 80 character limit for eBay');
+  }
+
+  // Validate description
+  if (!listingData.description || typeof listingData.description !== 'string') {
+    result.valid = false;
+    result.errors.push('Description is required and must be a string');
+  } else if (listingData.description.length < 10) {
+    result.valid = false;
+    result.errors.push('Description must be at least 10 characters long');
+  }
+
+  // Validate pricing
+  if (!listingData.pricing || typeof listingData.pricing !== 'object') {
+    result.valid = false;
+    result.errors.push('Pricing information is required');
+  } else {
+    if (!listingData.pricing.buyItNowPrice || 
+        typeof listingData.pricing.buyItNowPrice !== 'number' ||
+        listingData.pricing.buyItNowPrice <= 0) {
+      result.valid = false;
+      result.errors.push('Valid Buy It Now price is required');
+    } else if (listingData.pricing.buyItNowPrice < 0.99) {
+      result.warnings.push('Price below $0.99 may not be allowed on eBay');
+    } else if (listingData.pricing.buyItNowPrice > 100000) {
+      result.warnings.push('Very high price - verify accuracy');
+    }
+  }
+
+  // Validate condition
+  if (!listingData.condition) {
+    result.warnings.push('Condition not specified');
+  } else {
+    const validConditions = [
+      'new', 'like new', 'excellent', 'very good', 'good', 
+      'acceptable', 'fair', 'poor', 'for parts', 'refurbished'
+    ];
+    
+    const conditionString = typeof listingData.condition === 'object' 
+      ? (listingData.condition.rating || listingData.condition.condition)
+      : listingData.condition;
+
+    if (conditionString && 
+        !validConditions.includes(conditionString.toLowerCase().trim())) {
+      result.warnings.push(`Unusual condition: ${conditionString}`);
+    }
+  }
+
+  // Validate category
+  if (!listingData.category || listingData.category === 'unknown') {
+    result.warnings.push('Category not specified or unknown');
+  }
+
+  // Validate brand
+  if (!listingData.brand || listingData.brand === 'Unknown') {
+    result.warnings.push('Brand not specified - may affect searchability');
+  }
+
+  // Validate images
+  if (!listingData.images || !Array.isArray(listingData.images)) {
+    result.warnings.push('No images provided');
+  } else if (listingData.images.length === 0) {
+    result.warnings.push('No images provided');
+  } else if (listingData.images.length > 12) {
+    result.warnings.push('More than 12 images - eBay limit is 12');
+  }
+
+  // Validate quantity
+  if (listingData.quantity !== undefined) {
+    if (!Number.isInteger(listingData.quantity) || listingData.quantity < 1) {
+      result.valid = false;
+      result.errors.push('Quantity must be a positive integer');
+    } else if (listingData.quantity > 100) {
+      result.warnings.push('High quantity - verify availability');
+    }
+  }
+
+  // Validate handling time
+  if (listingData.handlingTime !== undefined) {
+    if (!Number.isInteger(listingData.handlingTime) || 
+        listingData.handlingTime < 1 || 
+        listingData.handlingTime > 30) {
+      result.warnings.push('Handling time should be between 1-30 days');
+    }
+  }
+
+  return result;
+}
 
 /**
  * Validate email format
  */
 function validateEmail(email) {
-  if (!email || typeof email !== 'string') {
-    return { valid: false, error: 'Email is required and must be a string' };
-  }
-  
-  if (!VALIDATION_PATTERNS.EMAIL.test(email)) {
-    return { valid: false, error: 'Invalid email format' };
-  }
-  
-  return { valid: true };
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return emailRegex.test(email);
 }
 
 /**
  * Validate phone number format
  */
-function validatePhoneNumber(phone) {
-  if (!phone || typeof phone !== 'string') {
-    return { valid: false, error: 'Phone number is required and must be a string' };
-  }
-  
-  if (!VALIDATION_PATTERNS.PHONE.test(phone)) {
-    return { valid: false, error: 'Invalid phone number format' };
-  }
-  
-  return { valid: true };
+function validatePhone(phone) {
+  const phoneRegex = /^\+?[\d\s\-\(\)]{10,}$/;
+  return phoneRegex.test(phone);
 }
 
 /**
- * Validate postal code by country
+ * Validate URL format
  */
-function validatePostalCode(postalCode, country = 'US') {
-  if (!postalCode || typeof postalCode !== 'string') {
-    return { valid: false, error: 'Postal code is required and must be a string' };
+function validateUrl(url) {
+  try {
+    new URL(url);
+    return true;
+  } catch {
+    return false;
   }
-  
-  const pattern = VALIDATION_PATTERNS.POSTAL_CODE[country.toUpperCase()];
-  if (!pattern) {
-    return { valid: true }; // Allow unknown countries to pass
+}
+
+/**
+ * Validate price format and range
+ */
+function validatePrice(price) {
+  const result = {
+    valid: true,
+    errors: [],
+    warnings: []
+  };
+
+  if (typeof price !== 'number' || isNaN(price)) {
+    result.valid = false;
+    result.errors.push('Price must be a valid number');
+    return result;
   }
-  
-  if (!pattern.test(postalCode)) {
-    return { valid: false, error: `Invalid postal code format for ${country}` };
+
+  if (price < 0) {
+    result.valid = false;
+    result.errors.push('Price cannot be negative');
+  } else if (price === 0) {
+    result.valid = false;
+    result.errors.push('Price must be greater than 0');
+  } else if (price < 0.99) {
+    result.warnings.push('Price below $0.99 may not be accepted by eBay');
+  } else if (price > 100000) {
+    result.warnings.push('Very high price - please verify accuracy');
   }
-  
-  return { valid: true };
+
+  // Check for too many decimal places
+  const decimalPlaces = (price.toString().split('.')[1] || '').length;
+  if (decimalPlaces > 2) {
+    result.warnings.push('Price should not have more than 2 decimal places');
+  }
+
+  return result;
+}
+
+/**
+ * Validate condition string or object
+ */
+function validateCondition(condition) {
+  const result = {
+    valid: true,
+    errors: [],
+    warnings: [],
+    normalized: null
+  };
+
+  if (!condition) {
+    result.warnings.push('No condition specified');
+    result.normalized = 'unknown';
+    return result;
+  }
+
+  let conditionString;
+  if (typeof condition === 'object') {
+    conditionString = condition.rating || condition.condition;
+    if (!conditionString) {
+      result.valid = false;
+      result.errors.push('Condition object must have rating or condition field');
+      return result;
+    }
+  } else {
+    conditionString = condition;
+  }
+
+  if (typeof conditionString !== 'string') {
+    result.valid = false;
+    result.errors.push('Condition must be a string');
+    return result;
+  }
+
+  const normalized = conditionString.toLowerCase().trim();
+  result.normalized = normalized;
+
+  const validConditions = [
+    'new', 'like new', 'excellent', 'very good', 'good',
+    'acceptable', 'fair', 'poor', 'for parts', 'not working',
+    'refurbished', 'used'
+  ];
+
+  if (!validConditions.some(valid => normalized.includes(valid))) {
+    result.warnings.push(`Unusual condition: ${conditionString}`);
+  }
+
+  return result;
 }
 
 /**
  * Validate shipping location data
  */
 function validateShippingLocation(location) {
-  const errors = [];
-  
+  const result = {
+    valid: true,
+    errors: [],
+    warnings: []
+  };
+
   if (!location || typeof location !== 'object') {
-    return { valid: false, errors: ['Location must be an object'] };
+    result.valid = false;
+    result.errors.push('Location must be an object');
+    return result;
   }
+
+  // Required fields
+  const requiredFields = ['name', 'address', 'city', 'state', 'postalCode', 'country'];
   
-  // Check required fields
-  LOCATION_CONFIG.REQUIRED_FIELDS.forEach(field => {
+  for (const field of requiredFields) {
     if (!location[field] || typeof location[field] !== 'string' || !location[field].trim()) {
-      errors.push(`${field} is required and must be a non-empty string`);
+      result.valid = false;
+      result.errors.push(`${field} is required`);
     }
-  });
-  
-  if (errors.length > 0) {
-    return { valid: false, errors };
   }
-  
-  // Validate specific fields
-  const emailValidation = validateEmail(location.email || '');
-  if (location.email && !emailValidation.valid) {
-    errors.push(emailValidation.error);
+
+  // Validate postal code format by country
+  if (location.country && location.postalCode) {
+    const isValidPostal = validatePostalCode(location.postalCode, location.country);
+    if (!isValidPostal) {
+      result.warnings.push('Postal code format may be invalid for selected country');
+    }
   }
-  
-  const phoneValidation = validatePhoneNumber(location.phone || '');
-  if (location.phone && !phoneValidation.valid) {
-    errors.push(phoneValidation.error);
+
+  // Validate phone if provided
+  if (location.phone && !validatePhone(location.phone)) {
+    result.warnings.push('Phone number format appears invalid');
   }
-  
-  const postalValidation = validatePostalCode(location.postalCode, location.country);
-  if (!postalValidation.valid) {
-    errors.push(postalValidation.error);
-  }
-  
-  return errors.length > 0 ? { valid: false, errors } : { valid: true };
+
+  return result;
 }
 
 /**
- * Validate eBay listing data
+ * Validate postal code format by country
  */
-function validateListingData(listingData) {
-  const errors = [];
-  
-  if (!listingData || typeof listingData !== 'object') {
-    return { valid: false, errors: ['Listing data must be an object'] };
+function validatePostalCode(postalCode, country) {
+  const patterns = {
+    'US': /^\d{5}(-\d{4})?$/,
+    'CA': /^[A-Za-z]\d[A-Za-z] ?\d[A-Za-z]\d$/,
+    'GB': /^[A-Z]{1,2}\d[A-Z\d]? ?\d[A-Z]{2}$/i,
+    'AU': /^\d{4}$/,
+    'DE': /^\d{5}$/,
+    'FR': /^\d{5}$/,
+    'IT': /^\d{5}$/,
+    'ES': /^\d{5}$/
+  };
+
+  const pattern = patterns[country.toUpperCase()];
+  if (!pattern) {
+    // For unknown countries, just check that it's not empty and has reasonable length
+    return postalCode && postalCode.length >= 3 && postalCode.length <= 10;
   }
-  
-  // Title validation
-  if (!listingData.title || typeof listingData.title !== 'string') {
-    errors.push('Title is required and must be a string');
-  } else if (listingData.title.length > EBAY_LISTING.MAX_TITLE_LENGTH) {
-    errors.push(`Title must be ${EBAY_LISTING.MAX_TITLE_LENGTH} characters or less`);
-  }
-  
-  // Description validation
-  if (!listingData.description || typeof listingData.description !== 'string') {
-    errors.push('Description is required and must be a string');
-  }
-  
-  // Price validation
-  if (!listingData.pricing || typeof listingData.pricing !== 'object') {
-    errors.push('Pricing information is required');
-  } else {
-    const price = listingData.pricing.buyItNowPrice;
-    if (typeof price !== 'number' || price <= 0) {
-      errors.push('Buy It Now price must be a positive number');
-    } else if (price > 99999) {
-      errors.push('Price cannot exceed $99,999');
-    }
-  }
-  
-  // Category validation
-  if (!listingData.category || typeof listingData.category !== 'string') {
-    errors.push('Category is required and must be a string');
-  }
-  
-  // Condition validation
-  if (!listingData.condition) {
-    errors.push('Condition is required');
-  }
-  
-  // Images validation
-  if (listingData.images) {
-    if (!Array.isArray(listingData.images)) {
-      errors.push('Images must be an array');
-    } else if (listingData.images.length > EBAY_LISTING.MAX_PICTURES) {
-      errors.push(`Cannot have more than ${EBAY_LISTING.MAX_PICTURES} images`);
-    } else {
-      listingData.images.forEach((img, index) => {
-        if (typeof img !== 'string' || !img.trim()) {
-          errors.push(`Image ${index + 1} must be a non-empty string URL`);
-        }
-      });
-    }
-  }
-  
-  // Quantity validation
-  if (listingData.quantity !== undefined) {
-    if (!Number.isInteger(listingData.quantity) || listingData.quantity < 1) {
-      errors.push('Quantity must be a positive integer');
-    } else if (listingData.quantity > 10000) {
-      errors.push('Quantity cannot exceed 10,000');
-    }
-  }
-  
-  // Handling time validation
-  if (listingData.handlingTime !== undefined) {
-    if (!Number.isInteger(listingData.handlingTime) || listingData.handlingTime < 1 || listingData.handlingTime > 30) {
-      errors.push('Handling time must be between 1 and 30 days');
-    }
-  }
-  
-  return errors.length > 0 ? { valid: false, errors } : { valid: true };
+
+  return pattern.test(postalCode.trim());
 }
 
 /**
- * Validate image upload data
+ * Sanitize string input
  */
-function validateImageUpload(files) {
-  const errors = [];
-  
-  if (!Array.isArray(files)) {
-    return { valid: false, errors: ['Files must be provided as an array'] };
-  }
-  
-  if (files.length === 0) {
-    return { valid: false, errors: ['At least one image is required'] };
-  }
-  
-  if (files.length > ANALYSIS_CONFIG.MAX_IMAGES) {
-    errors.push(`Cannot upload more than ${ANALYSIS_CONFIG.MAX_IMAGES} images`);
-  }
-  
-  files.forEach((file, index) => {
-    if (!file || !Buffer.isBuffer(file)) {
-      errors.push(`Image ${index + 1} must be a valid buffer`);
-      return;
-    }
-    
-    // Check file size (50MB limit)
-    if (file.length > 50 * 1024 * 1024) {
-      errors.push(`Image ${index + 1} exceeds 50MB limit`);
-    }
-    
-    // Basic file type validation (check for common image headers)
-    const header = file.slice(0, 4).toString('hex');
-    const isValidImage = (
-      header.startsWith('ffd8') ||  // JPEG
-      header.startsWith('8950') ||  // PNG
-      header.startsWith('4749') ||  // GIF
-      header.startsWith('5249')     // WebP
-    );
-    
-    if (!isValidImage) {
-      errors.push(`Image ${index + 1} does not appear to be a valid image format`);
-    }
-  });
-  
-  return errors.length > 0 ? { valid: false, errors } : { valid: true };
-}
-
-/**
- * Validate eBay category ID
- */
-function validateEbayCategoryId(categoryId) {
-  if (!categoryId) {
-    return { valid: false, error: 'Category ID is required' };
-  }
-  
-  const id = String(categoryId);
-  if (!/^\d+$/.test(id)) {
-    return { valid: false, error: 'Category ID must be numeric' };
-  }
-  
-  const numericId = parseInt(id, 10);
-  if (numericId < 1 || numericId > 999999) {
-    return { valid: false, error: 'Category ID must be between 1 and 999999' };
-  }
-  
-  return { valid: true };
-}
-
-/**
- * Validate eBay condition value
- */
-function validateEbayCondition(condition) {
-  if (!condition) {
-    return { valid: false, error: 'Condition is required' };
-  }
-  
-  // Handle object conditions
-  let conditionValue = condition;
-  if (typeof condition === 'object' && condition !== null) {
-    conditionValue = condition.rating || condition.condition;
-  }
-  
-  if (!conditionValue || typeof conditionValue !== 'string') {
-    return { valid: false, error: 'Condition must be a string or object with rating/condition property' };
-  }
-  
-  const validConditions = [
-    'new', 'like_new', 'like new', 'new_other', 'new other', 
-    'new_with_defects', 'new with defects', 'certified_refurbished',
-    'excellent_refurbished', 'very_good_refurbished', 'good_refurbished',
-    'seller_refurbished', 'refurbished', 'excellent', 'used_excellent',
-    'very_good', 'used_very_good', 'good', 'used_good', 'used',
-    'acceptable', 'used_acceptable', 'fair', 'poor', 'for_parts',
-    'for parts', 'broken', 'damaged', 'not_working', 'not working'
-  ];
-  
-  const normalizedCondition = conditionValue.toLowerCase().trim();
-  if (!validConditions.includes(normalizedCondition)) {
-    return { 
-      valid: false, 
-      error: `Invalid condition. Must be one of: ${validConditions.slice(0, 10).join(', ')}, etc.` 
-    };
-  }
-  
-  return { valid: true };
-}
-
-/**
- * Validate user preferences object
- */
-function validateUserPreferences(preferences) {
-  const errors = [];
-  
-  if (!preferences || typeof preferences !== 'object') {
-    return { valid: false, errors: ['Preferences must be an object'] };
-  }
-  
-  // Validate effort preference
-  if (preferences.preferredEffort !== undefined) {
-    const validEfforts = ['low', 'medium', 'high'];
-    if (!validEfforts.includes(preferences.preferredEffort)) {
-      errors.push(`preferredEffort must be one of: ${validEfforts.join(', ')}`);
-    }
-  }
-  
-  // Validate time preference
-  if (preferences.preferredTimeToMoney !== undefined) {
-    const validTimes = ['immediate', 'days', 'weeks', 'months'];
-    if (!validTimes.includes(preferences.preferredTimeToMoney)) {
-      errors.push(`preferredTimeToMoney must be one of: ${validTimes.join(', ')}`);
-    }
-  }
-  
-  // Validate minimum return
-  if (preferences.minimumReturn !== undefined) {
-    if (typeof preferences.minimumReturn !== 'number' || preferences.minimumReturn < 0) {
-      errors.push('minimumReturn must be a non-negative number');
-    }
-  }
-  
-  return errors.length > 0 ? { valid: false, errors } : { valid: true };
-}
-
-/**
- * Sanitize string input (remove potential XSS)
- */
-function sanitizeString(input, maxLength = 1000) {
+function sanitizeString(input, maxLength = null) {
   if (typeof input !== 'string') {
     return '';
   }
-  
-  return input
-    .trim()
-    .slice(0, maxLength)
-    .replace(/[<>]/g, '') // Remove basic HTML
-    .replace(/javascript:/gi, '') // Remove javascript: protocol
-    .replace(/on\w+=/gi, ''); // Remove event handlers
+
+  let sanitized = input
+    .replace(/[<>]/g, '') // Remove potential HTML brackets
+    .replace(/\s+/g, ' ') // Normalize whitespace
+    .trim();
+
+  if (maxLength && sanitized.length > maxLength) {
+    sanitized = sanitized.substring(0, maxLength).trim();
+  }
+
+  return sanitized;
 }
 
 /**
- * Validate and sanitize listing title
+ * Validate and sanitize listing data
  */
-function validateAndSanitizeTitle(title) {
-  if (!title || typeof title !== 'string') {
-    return { valid: false, error: 'Title is required and must be a string' };
-  }
-  
-  const sanitized = sanitizeString(title, EBAY_LISTING.MAX_TITLE_LENGTH);
-  
-  if (sanitized.length < 5) {
-    return { valid: false, error: 'Title must be at least 5 characters long' };
-  }
-  
-  return { valid: true, sanitized };
-}
+function validateAndSanitizeListingData(listingData) {
+  const sanitized = { ...listingData };
+  const validation = validateListingData(listingData);
 
-/**
- * Comprehensive validation helper
- */
-function validateAll(data, validations) {
-  const results = {};
-  const allErrors = [];
-  
-  for (const [field, validator] of Object.entries(validations)) {
-    try {
-      const result = validator(data[field]);
-      results[field] = result;
-      
-      if (!result.valid) {
-        if (result.errors) {
-          allErrors.push(...result.errors.map(e => `${field}: ${e}`));
-        } else if (result.error) {
-          allErrors.push(`${field}: ${result.error}`);
-        }
-      }
-    } catch (error) {
-      allErrors.push(`${field}: Validation error - ${error.message}`);
-      results[field] = { valid: false, error: error.message };
-    }
+  // Sanitize text fields
+  if (sanitized.title) {
+    sanitized.title = sanitizeString(sanitized.title, 80);
   }
-  
+
+  if (sanitized.description) {
+    sanitized.description = sanitizeString(sanitized.description, 5000);
+  }
+
+  if (sanitized.brand) {
+    sanitized.brand = sanitizeString(sanitized.brand, 50);
+  }
+
+  if (sanitized.model) {
+    sanitized.model = sanitizeString(sanitized.model, 50);
+  }
+
+  // Ensure numeric fields are properly formatted
+  if (sanitized.pricing && sanitized.pricing.buyItNowPrice) {
+    sanitized.pricing.buyItNowPrice = Math.round(sanitized.pricing.buyItNowPrice * 100) / 100;
+  }
+
+  if (sanitized.quantity) {
+    sanitized.quantity = Math.max(1, Math.floor(sanitized.quantity));
+  }
+
+  if (sanitized.handlingTime) {
+    sanitized.handlingTime = Math.max(1, Math.min(30, Math.floor(sanitized.handlingTime)));
+  }
+
   return {
-    valid: allErrors.length === 0,
-    errors: allErrors,
-    results
+    sanitized,
+    validation
   };
 }
 
+/**
+ * Batch validate multiple items
+ */
+function batchValidateListings(listings) {
+  const results = {
+    valid: [],
+    invalid: [],
+    warnings: [],
+    summary: {
+      total: listings.length,
+      validCount: 0,
+      invalidCount: 0,
+      warningCount: 0
+    }
+  };
+
+  listings.forEach((listing, index) => {
+    const validation = validateListingData(listing);
+    
+    if (validation.valid) {
+      results.valid.push({ index, listing, validation });
+      results.summary.validCount++;
+    } else {
+      results.invalid.push({ index, listing, validation });
+      results.summary.invalidCount++;
+    }
+
+    if (validation.warnings.length > 0) {
+      results.warnings.push({ index, listing, warnings: validation.warnings });
+      results.summary.warningCount++;
+    }
+  });
+
+  return results;
+}
+
 module.exports = {
-  validateEmail,
-  validatePhoneNumber,
-  validatePostalCode,
-  validateShippingLocation,
   validateListingData,
-  validateImageUpload,
-  validateEbayCategoryId,
-  validateEbayCondition,
-  validateUserPreferences,
+  validateEmail,
+  validatePhone,
+  validateUrl,
+  validatePrice,
+  validateCondition,
+  validateShippingLocation,
+  validatePostalCode,
   sanitizeString,
-  validateAndSanitizeTitle,
-  validateAll
+  validateAndSanitizeListingData,
+  batchValidateListings
 };

@@ -252,7 +252,7 @@
                     code: requestBody.code.substring(0, 20) + '...' // Don't log full code
                 });
 
-                const response = await fetch(`${API_BASE_URL}/ebayAuth/callback`, {
+const response = await fetch(`${API_BASE_URL}/api/ebay/auth/callback`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',

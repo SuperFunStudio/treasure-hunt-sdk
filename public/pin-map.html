@@ -1,0 +1,1488 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Treasure Spots Near You - Treasure Hunter</title>
+    
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+        <link rel="stylesheet" href="/css/pin-map.css" />
+
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f7fa;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .header {
+            background: white;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            padding: 0 20px;
+            position: relative;
+            z-index: 1000;
+            height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 18px;
+            font-weight: bold;
+            color: #333;
+            text-decoration: none;
+        }
+
+        .header-controls {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .search-radius {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .radius-slider {
+            width: 100px;
+        }
+
+        .filter-btn, .create-btn {
+            padding: 8px 16px;
+            border: 1px solid #e0e0e0;
+            background: white;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+
+        .create-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+        }
+
+        .filter-btn:hover, .create-btn:hover {
+            transform: translateY(-1px);
+        }
+
+        .map-container {
+            height: calc(100vh - 60px);
+            position: relative;
+        }
+
+        #map {
+            height: 100%;
+            width: 100%;
+        }
+
+        .map-controls {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .control-panel {
+            background: white;
+            border-radius: 10px;
+            padding: 15px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            min-width: 200px;
+        }
+
+        .control-group {
+            margin-bottom: 15px;
+        }
+
+        .control-group:last-child {
+            margin-bottom: 0;
+        }
+
+        .control-label {
+            font-size: 12px;
+            font-weight: 600;
+            color: #666;
+            margin-bottom: 8px;
+        }
+
+        .category-filters {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
+
+        .category-filter {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 12px;
+        }
+
+        .category-filter input[type="checkbox"] {
+            transform: scale(0.8);
+        }
+
+        .value-range {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 12px;
+        }
+
+        .value-input {
+            width: 60px;
+            padding: 4px 6px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 11px;
+        }
+
+        .pin-info-panel {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            right: 20px;
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+            transform: translateY(100%);
+            transition: transform 0.3s ease;
+            z-index: 1000;
+            max-height: 40vh;
+            overflow-y: auto;
+        }
+
+        .pin-info-panel.active {
+            transform: translateY(0);
+        }
+
+        .pin-info-header {
+            display: flex;
+            justify-content: space-between; /* Changed for better alignment */
+            align-items: flex-start;
+            margin-bottom: 15px;
+        }
+
+        .pin-info-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #333;
+            flex: 1;
+        }
+
+        .pin-info-close {
+            background: none;
+            border: none;
+            font-size: 20px;
+            cursor: pointer;
+            color: #666;
+            padding: 0;
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .pin-info-meta {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 15px;
+            font-size: 14px;
+            color: #666;
+        }
+
+        .pin-info-description {
+            margin-bottom: 15px;
+            line-height: 1.5;
+        }
+
+        .pin-info-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .pin-action-btn {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-interest {
+            background: #f0f4ff;
+            color: #667eea;
+        }
+
+        .btn-claim {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            z-index: 2000;
+        }
+
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .error-message {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: #ffebee;
+            color: #c62828;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            z-index: 2000;
+            max-width: 300px;
+        }
+
+        .success-message {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: #e8f5e9;
+            color: #2e7d32;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            z-index: 2000;
+            max-width: 300px;
+        }
+
+        /* Custom pin markers */
+        .pin-marker {
+            background: white;
+            border-radius: 50%;
+            border: 3px solid #667eea;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .pin-marker:hover {
+            transform: scale(1.1);
+            border-color: #764ba2;
+        }
+
+        .pin-marker.claimed {
+            border-color: #f57c00;
+            opacity: 0.7;
+        }
+
+        .pin-marker.expired {
+            border-color: #bdbdbd;
+            opacity: 0.5;
+        }
+
+        /* Mobile styles */
+        @media (max-width: 768px) {
+            .header {
+                padding: 0 15px;
+                height: 50px;
+            }
+
+            .header-controls {
+                gap: 10px;
+            }
+
+            .search-radius {
+                display: none;
+            }
+
+            .map-container {
+                height: calc(100vh - 50px);
+            }
+
+            .map-controls {
+                top: 10px;
+                left: 10px;
+            }
+
+            .control-panel {
+                padding: 10px;
+                min-width: 150px;
+            }
+
+            .pin-info-panel {
+                bottom: 10px;
+                left: 10px;
+                right: 10px;
+                padding: 15px;
+            }
+
+            .category-filters {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <a href="/dashboard.html" class="logo">
+            🗺️ Treasure Spots
+        </a>
+        <div class="header-controls">
+            <div class="search-radius">
+                <span>Radius:</span>
+                <input type="range" id="radiusSlider" class="radius-slider" min="1" max="20" value="5">
+                <span id="radiusValue">5 mi</span>
+            </div>
+            <button class="filter-btn" id="filterBtn">🔍 Filters</button>
+            <button class="create-btn" id="createPinBtn">📍 Drop Pin</button>
+            <button class="filter-btn" id="debugBtn" style="background: #ff9800; color: white;">🐛 Debug Pins</button>
+        </div>
+    </div>
+
+    <div class="map-container">
+        <div id="map"></div>
+
+        <div class="map-controls">
+            <div class="control-panel" id="filterPanel" style="display: none;">
+                <div class="control-group">
+                    <div class="control-label">Categories</div>
+                    <div class="category-filters">
+                        <label class="category-filter">
+                            <input type="checkbox" value="electronics" checked> Electronics
+                        </label>
+                        <label class="category-filter">
+                            <input type="checkbox" value="furniture" checked> Furniture
+                        </label>
+                        <label class="category-filter">
+                            <input type="checkbox" value="clothing" checked> Clothing
+                        </label>
+                        <label class="category-filter">
+                            <input type="checkbox" value="tools" checked> Tools
+                        </label>
+                        <label class="category-filter">
+                            <input type="checkbox" value="books" checked> Books
+                        </label>
+                        <label class="category-filter">
+                            <input type="checkbox" value="toys" checked> Toys
+                        </label>
+                        <label class="category-filter">
+                            <input type="checkbox" value="jewelry" checked> Jewelry
+                        </label>
+                        <label class="category-filter">
+                            <input type="checkbox" value="automotive" checked> Automotive
+                        </label>
+                        <label class="category-filter">
+                            <input type="checkbox" value="sporting goods" checked> Sporting Goods
+                        </label>
+                        <label class="category-filter">
+                            <input type="checkbox" value="home & garden" checked> Home & Garden
+                        </label>
+                        <label class="category-filter">
+                            <input type="checkbox" value="collectibles" checked> Collectibles
+                        </label>
+                        <label class="category-filter">
+                            <input type="checkbox" value="other" checked> Other
+                        </label>
+                    </div>
+                </div>
+
+                <div class="control-group">
+                    <div class="control-label">Value Range</div>
+                    <div class="value-range">
+                        $<input type="number" id="minValue" class="value-input" placeholder="0" min="0">
+                        to
+                        $<input type="number" id="maxValue" class="value-input" placeholder="∞" min="0">
+                    </div>
+                </div>
+
+                <div class="control-group">
+                    <div class="control-label">Type</div>
+                    <select id="dispositionType" style="width: 100%; padding: 4px; border: 1px solid #ddd; border-radius: 4px;">
+                        <option value="">All Types</option>
+                        <option value="pickup">Free Pickup</option>
+                        <option value="sale">For Sale</option>
+                        <option value="donation">Donation</option>
+                        <option value="trade">Trade</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <div class="pin-info-panel" id="pinInfoPanel">
+            <div class="pin-info-header">
+                <div class="pin-info-title" id="pinInfoTitle">Pin Title</div>
+                <button class="pin-info-close" id="pinInfoClose">×</button>
+            </div>
+            <div class="pin-info-meta" id="pinInfoMeta">
+                <span>0.5 mi away</span>
+                <span>2h remaining</span>
+                <span>Electronics</span>
+            </div>
+            <div class="pin-info-description" id="pinInfoDescription">
+                Item description will appear here...
+            </div>
+            <div class="pin-info-actions">
+                <button class="pin-action-btn btn-interest" id="interestBtn">Show Interest</button>
+                <button class="pin-action-btn btn-claim" id="claimBtn">Claim Item</button>
+            </div>
+        </div>
+
+        <div class="loading" id="loadingOverlay" style="display: none;">
+            <div class="spinner"></div>
+            <p>Loading treasure spots...</p>
+        </div>
+
+        <div class="error-message" id="errorMessage" style="display: none;">
+            Error message will appear here
+        </div>
+
+        <div class="success-message" id="successMessage" style="display: none;">
+            Success message will appear here
+        </div>
+    </div>
+
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-firestore-compat.js"></script>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <script src="/js/firebase-config.js"></script>
+    <script src="/shared/api-client.js"></script>
+    <script src="/shared/ui-helpers.js"></script>
+    <script src="/js/pin-manager.js"></script>
+  <script src="/js/pin-enhanced-display.js"></script>
+    
+
+
+    <script>
+        // Global variables for map state
+        let map = null;
+        let userLocation = null; // Renamed to avoid conflicts
+        let pinMarkers = [];
+        let currentRadius = 5;
+        let selectedPin = null;
+
+        // Initialize the map application after DOM content is loaded
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log('Initializing Treasure Spots map...');
+
+            // Check authentication
+            auth.onAuthStateChanged(async (user) => {
+                if (user) {
+                    console.log('User authenticated:', user.uid);
+                    await initializeMap();
+
+                    // DEBUG: Check database pins vs displayed pins
+                    setTimeout(debugPinDiscrepancy, 2000);
+                } else {
+                    // Redirect to signin or show guest view
+                    window.location.href = '/signin.html';
+                }
+            });
+        });
+
+        // DEBUG: Compare database pins with displayed pins
+        async function debugPinDiscrepancy() {
+            try {
+                console.log('\n=== PIN DISCREPANCY DEBUG ===');
+
+                // Check all pins in database
+                const allPinsResponse = await apiClient.request('/api/pins/debug/all?limit=100');
+                console.log(`📊 Total pins in database: ${allPinsResponse.total}`);
+
+                // Count by status
+                const statusCounts = {};
+                const categoryDistribution = {};
+                allPinsResponse.pins.forEach(pin => {
+                    statusCounts[pin.status] = (statusCounts[pin.status] || 0) + 1;
+                    const cat = pin.category || 'unknown';
+                    categoryDistribution[cat] = (categoryDistribution[cat] || 0) + 1;
+                });
+                console.log('📈 Status breakdown:', statusCounts);
+                console.log('📦 Category distribution:', categoryDistribution);
+
+                // Check geohash distribution
+                const geohashPrefixes = {};
+                allPinsResponse.pins.forEach(pin => {
+                    const prefix = pin.geohash?.substring(0, 4) || 'no-geohash';
+                    geohashPrefixes[prefix] = (geohashPrefixes[prefix] || 0) + 1;
+                });
+                console.log('📍 Geohash distribution (first 4 chars):', geohashPrefixes);
+
+                // List each pin with details
+                console.log('\n📋 All pins:');
+                allPinsResponse.pins.forEach((pin, index) => {
+                    console.log(`  ${index + 1}. ID: ${pin.id.substring(0, 8)}... | Status: ${pin.status} | Category: ${pin.category} | Coords: ${pin.coordinates?.lat?.toFixed(4)}, ${pin.coordinates?.lng?.toFixed(4)} | Geohash: ${pin.geohash}`);
+                });
+
+                // Show pins on map
+                console.log(`\n🗺️ Pins displayed on map: ${pinMarkers.length}`);
+
+                // Check current location and geohash
+                if (userLocation) {
+                    console.log(`📍 Your location: ${userLocation.latitude.toFixed(6)}, ${userLocation.longitude.toFixed(6)}`);
+
+                    // Calculate distances to all pins
+                    console.log('\n📏 Distances to all pins:');
+                    allPinsResponse.pins.forEach((pin, index) => {
+                        if (pin.coordinates?.lat && pin.coordinates?.lng) {
+                            const distance = calculateDistance(
+                                userLocation.latitude, userLocation.longitude,
+                                pin.coordinates.lat, pin.coordinates.lng
+                            );
+                            const inRadius = distance <= currentRadius;
+                            console.log(`  ${index + 1}. Pin ${pin.id.substring(0, 8)}... is ${distance.toFixed(2)} mi away ${inRadius ? '✅ IN RADIUS' : `❌ OUT OF RADIUS (>${currentRadius}mi)`}`);
+                        }
+                    });
+                }
+
+                console.log('=== END DEBUG ===\n');
+
+                // Show alert with summary
+                alert(`Debug Summary:\n\nTotal in DB: ${allPinsResponse.total}\nDisplayed: ${pinMarkers.length}\nStatus: ${JSON.stringify(statusCounts, null, 2)}\n\nCheck console for details.`);
+            } catch (error) {
+                console.error('❌ Debug failed:', error);
+                alert('Debug failed: ' + error.message);
+            }
+        }
+
+        // Initialize the map, now using the PinManager for location
+     
+async function initializeMap() {
+    try {
+        // Get location directly instead of using Pin Manager
+        if (!navigator.geolocation) {
+            throw new Error('Geolocation not supported by this browser');
+        }
+
+        userLocation = await new Promise((resolve, reject) => {
+            navigator.geolocation.getCurrentPosition(
+                position => resolve({
+                    latitude: position.coords.latitude,
+                    longitude: position.coords.longitude
+                }),
+                error => reject(new Error('Location access denied')),
+                { enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 }
+            );
+        });
+
+        console.log('Got user location:', userLocation);
+
+        // Create map
+        createMap();
+        
+        // Set up event listeners
+        setupEventListeners();
+        
+        // Load initial pins
+        await loadNearbyPins();
+        
+        console.log('Map initialized successfully');
+        
+    } catch (error) {
+        console.error('Failed to initialize map:', error);
+        showError('Failed to load map: ' + error.message);
+    }
+}
+
+        // Create the Leaflet map
+        function createMap() {
+            // Initialize map
+            map = L.map('map').setView([userLocation.latitude, userLocation.longitude], 13);
+
+            // Add tile layer - CartoDB Voyager (clean, street-focused)
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+                subdomains: 'abcd',
+                maxZoom: 20
+            }).addTo(map);
+
+            // Add user location marker
+            L.marker([userLocation.latitude, userLocation.longitude])
+                .addTo(map)
+                .bindPopup('Your Location')
+                .openPopup();
+
+            // Add radius circle
+            updateRadiusCircle();
+        }
+
+        // Set up event listeners
+        function setupEventListeners() {
+            // Filter button
+            document.getElementById('filterBtn').addEventListener('click', toggleFilters);
+
+            // Create pin button
+            document.getElementById('createPinBtn').addEventListener('click', () => {
+                window.location.href = '/scan-editor.html?mode=pin';
+            });
+
+            // Debug button
+            document.getElementById('debugBtn').addEventListener('click', () => {
+                debugPinDiscrepancy();
+            });
+
+            // Radius slider
+            const radiusSlider = document.getElementById('radiusSlider');
+            radiusSlider.addEventListener('input', async (e) => {
+                currentRadius = parseInt(e.target.value);
+                document.getElementById('radiusValue').textContent = currentRadius + ' mi';
+                updateRadiusCircle();
+                await loadNearbyPins();
+            });
+            radiusSlider.addEventListener('change', async () => await loadNearbyPins());
+
+            // Filter controls
+            document.querySelectorAll('.category-filter input').forEach(checkbox => {
+                checkbox.addEventListener('change', async () => await loadNearbyPins());
+            });
+
+            document.getElementById('minValue').addEventListener('change', async () => await loadNearbyPins());
+            document.getElementById('maxValue').addEventListener('change', async () => await loadNearbyPins());
+            document.getElementById('dispositionType').addEventListener('change', async () => await loadNearbyPins());
+
+            // Pin info panel
+            document.getElementById('pinInfoClose').addEventListener('click', closePinInfo);
+            document.getElementById('interestBtn').addEventListener('click', showInterest);
+            document.getElementById('claimBtn').addEventListener('click', claimPin);
+        }
+
+        // Toggle filter panel
+        function toggleFilters() {
+            const panel = document.getElementById('filterPanel');
+            panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+        }
+
+        // Update radius circle on map
+        function updateRadiusCircle() {
+            // Remove existing circle
+            map.eachLayer(layer => {
+                if (layer instanceof L.Circle) {
+                    map.removeLayer(layer);
+                }
+            });
+
+            // Add new circle
+            L.circle([userLocation.latitude, userLocation.longitude], {
+                radius: currentRadius * 1609.34, // Convert miles to meters
+                color: '#667eea',
+                fillColor: '#667eea',
+                fillOpacity: 0.1
+            }).addTo(map);
+        }
+
+  async function loadNearbyPins() {
+    try {
+        showLoading(true, 'Loading treasure spots...');
+        closePinInfo();
+
+        // Get filter values
+        const filters = getFilterValues();
+        
+        // Build API URL with parameters
+        const params = new URLSearchParams({
+            lat: userLocation.latitude,
+            lng: userLocation.longitude,
+            radius: currentRadius,
+            limit: 50,
+            sortBy: 'distance'
+        });
+
+        // Add optional filters
+        if (filters.categories.length > 0) {
+            params.append('categories', filters.categories.join(','));
+        }
+        if (filters.minValue) {
+            params.append('minValue', filters.minValue);
+        }
+        if (filters.maxValue) {
+            params.append('maxValue', filters.maxValue);
+        }
+        if (filters.dispositionType) {
+            params.append('dispositionTypes', filters.dispositionType);
+        }
+
+        console.log('Calling API:', `/api/pins/nearby?${params}`);
+
+        // Call your backend API
+        const response = await apiClient.request(`/api/pins/nearby?${params}`, {
+            method: 'GET'
+        });
+
+        if (response.success) {
+            console.log(`✅ Loaded ${response.pins.length} pins from API`);
+            displayPins(response.pins);
+            
+            // Show success message with count
+            if (response.pins.length === 0) {
+                showError('No treasure spots found in this area. Try expanding your search radius or adjusting filters.');
+            }
+        } else {
+            throw new Error(response.error || 'Failed to load pins');
+        }
+
+    } catch (error) {
+        console.error('❌ Error loading pins:', error);
+        
+        // Fallback to direct Firestore query if API fails
+        console.log('📋 Attempting fallback to direct Firestore query...');
+        await loadNearbyPinsFallback();
+    } finally {
+        showLoading(false);
+    }
+}
+async function loadNearbyPinsFallback() {
+    try {
+        console.log('🔄 Loading pins directly from Firestore...');
+        
+        // Get current user to exclude their pins
+        const currentUser = auth.currentUser;
+        
+        // Direct Firestore query
+        let query = db.collection('pins')
+            .where('status', '==', 'active')
+            .where('isPublic', '==', true)
+            .limit(100);
+
+        const snapshot = await query.get();
+        
+        if (snapshot.empty) {
+            console.log('📭 No pins found in Firestore');
+            displayPins([]);
+            showError('No treasure spots found. Be the first to drop a pin in this area!');
+            return;
+        }
+
+        const allPins = [];
+        snapshot.forEach(doc => {
+            const pin = { id: doc.id, ...doc.data() };
+             
+            
+            // Calculate distance if location exists
+            if (pin.location && pin.location.latitude && pin.location.longitude) {
+                const distance = calculateDistance(
+                    userLocation.latitude, userLocation.longitude,
+                    pin.location.latitude, pin.location.longitude
+                );
+                
+                // Only include pins within radius
+                if (distance <= currentRadius) {
+                    pin.distance = distance;
+                    allPins.push(pin);
+                }
+            }
+        });
+
+        // Apply client-side filters
+        const filteredPins = applyClientFilters(allPins);
+        
+        // Sort by distance
+        filteredPins.sort((a, b) => a.distance - b.distance);
+
+        console.log(`✅ Fallback loaded ${filteredPins.length} pins within ${currentRadius} miles`);
+        displayPins(filteredPins);
+
+        if (filteredPins.length === 0) {
+            showError('No treasure spots found matching your criteria. Try adjusting your filters or expanding the search radius.');
+        }
+
+    } catch (error) {
+        console.error('❌ Fallback loading failed:', error);
+        showError('Unable to load treasure spots. Please check your connection and try again.');
+    }
+}
+
+// Apply filters on client side for fallback
+function applyClientFilters(pins) {
+    const filters = getFilterValues();
+    
+    return pins.filter(pin => {
+        // Category filter
+        if (filters.categories.length > 0) {
+            const pinCategory = pin.item?.category?.toLowerCase();
+            if (!pinCategory || !filters.categories.includes(pinCategory)) {
+                return false;
+            }
+        }
+        
+        // Value filter
+        if (pin.item?.estimatedValue !== undefined) {
+            const value = pin.item.estimatedValue;
+            if (filters.minValue && value < parseFloat(filters.minValue)) {
+                return false;
+            }
+            if (filters.maxValue && value > parseFloat(filters.maxValue)) {
+                return false;
+            }
+        }
+        
+        // Disposition type filter
+        if (filters.dispositionType && pin.dispositionType !== filters.dispositionType) {
+            return false;
+        }
+        
+        return true;
+    });
+}
+
+// Enhanced distance calculation function
+function calculateDistance(lat1, lng1, lat2, lng2) {
+    const R = 3959; // Earth's radius in miles
+    const dLat = toRadians(lat2 - lat1);
+    const dLng = toRadians(lng2 - lng1);
+    
+    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+              Math.cos(toRadians(lat1)) * Math.cos(toRadians(lat2)) *
+              Math.sin(dLng / 2) * Math.sin(dLng / 2);
+    
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    
+    return R * c;
+}
+
+function toRadians(degrees) {
+    return degrees * (Math.PI / 180);
+}
+
+        // Get current filter values
+        function getFilterValues() {
+            // 1. Get all CHECKED values
+            const categories = Array.from(document.querySelectorAll('.category-filter input:checked'))
+                .map(cb => cb.value);
+            
+            // 2. Get ALL possible category values
+            const allCategories = Array.from(document.querySelectorAll('.category-filter input'))
+                .map(cb => cb.value);
+
+            // 3. Determine if all categories are currently checked. 
+            const isAllSelected = allCategories.length > 0 && categories.length === allCategories.length;
+            
+            // If all are selected, treat it as a request for ALL pins by returning an empty array.
+            const finalCategories = isAllSelected ? [] : categories;
+            
+            return {
+                categories: finalCategories, 
+                minValue: document.getElementById('minValue').value || null,
+                maxValue: document.getElementById('maxValue').value || null,
+                dispositionType: document.getElementById('dispositionType').value || null
+            };
+        }
+
+        // Display pins on map
+        function displayPins(pins) {
+    console.log(`Displaying ${pins.length} pins with enhanced features`);
+    
+    // Clear existing markers
+    pinMarkers.forEach(marker => map.removeLayer(marker));
+    pinMarkers = [];
+    
+    if (pins.length === 0) {
+        console.log('No pins to display');
+        return;
+    }
+    
+    // Use enhanced display if available, otherwise fallback to original
+    if (typeof groupPinsByProximity === 'function') {
+        // Enhanced display with yard sale grouping
+        const groupedPins = groupPinsByProximity(pins, 0.1);
+        
+        groupedPins.forEach(group => {
+            if (group.pins.length === 1) {
+                // Single pin
+                const marker = createPinMarker(group.pins[0]);
+                marker.pinData = group.pins[0];
+                if (marker.options) marker.options.pinId = group.pins[0].id;
+                pinMarkers.push(marker);
+                marker.addTo(map);
+            } else {
+                // Multi-item yard sale
+                const yardSaleMarker = createYardSaleMarker(group);
+                pinMarkers.push(yardSaleMarker);
+                yardSaleMarker.addTo(map);
+            }
+        });
+        
+        console.log(`Enhanced display: ${groupedPins.length} groups from ${pins.length} pins`);
+    } else {
+        // Fallback to original simple display
+        console.log('Using basic pin display (enhanced features not loaded)');
+        pins.forEach(pin => {
+            const marker = createPinMarker(pin);
+            marker.pinData = pin;
+            pinMarkers.push(marker);
+            marker.addTo(map);
+        });
+    }
+}
+
+
+        // Create a pin marker
+        function createPinMarker(pin) {
+    const currentUser = auth.currentUser;
+    const isOwnPin = currentUser && pin.userId === currentUser.uid;
+    
+    const icon = getCategoryIcon(pin.item.category);
+    
+    const marker = L.marker([pin.location.latitude, pin.location.longitude], {
+        icon: L.divIcon({
+            className: `pin-marker ${pin.status} ${isOwnPin ? 'own-pin' : ''}`,
+            html: isOwnPin ? `${icon}👤` : icon, // Add user icon for own pins
+            iconSize: [40, 40],
+            iconAnchor: [20, 20]
+        })
+    });
+
+    marker.on('click', () => showPinInfo(pin));
+    return marker;
+}
+
+        // Get category icon
+        function getCategoryIcon(category) {
+            const icons = {
+                'electronics': '📱',
+                'furniture': '🪑',
+                'clothing': '👕',
+                'tools': '🔧',
+                'books': '📚',
+                'toys': '🧸',
+                'jewelry': '💍',
+                'automotive': '🚗',
+                'sporting goods': '⚽',
+                'home & garden': '🏡',
+                'collectibles': '💎', // Added
+                'other': '📦' // Added
+            };
+            return icons[category?.toLowerCase()] || '📦';
+        }
+
+        // Show pin information panel
+        function showPinInfo(pin) {
+            selectedPin = pin;
+            
+            document.getElementById('pinInfoTitle').textContent = pin.item.title;
+            
+            const distance = window.pinManager.calculateDistance(
+                userLocation.latitude,
+                userLocation.longitude,
+                pin.location.latitude,
+                pin.location.longitude
+            );
+
+            document.getElementById('pinInfoMeta').innerHTML = `
+                <span>${distance.toFixed(1)} mi away</span>
+                <span>${formatTimeRemaining(pin)}</span>
+                <span>${pin.item.category}</span>
+                ${pin.item.estimatedValue ? `<span>~${pin.item.estimatedValue}</span>` : ''}
+            `;
+            
+            document.getElementById('pinInfoDescription').textContent = 
+                pin.item.description || pin.notes || 'No description provided.';
+            
+            // Update action buttons based on pin status
+            updateActionButtons(pin);
+            
+            document.getElementById('pinInfoPanel').classList.add('active');
+        }
+
+ function updateActionButtons(pin) {
+    const currentUser = auth.currentUser;
+    const isOwnPin = currentUser && pin.userId === currentUser.uid;
+    
+    const interestBtn = document.getElementById('interestBtn');
+    const claimBtn = document.getElementById('claimBtn');
+    
+    if (isOwnPin) {
+        // Show management options for own pins
+        interestBtn.textContent = 'Edit Pin';
+        interestBtn.style.display = 'block';
+        interestBtn.disabled = false;
+        interestBtn.onclick = () => editPin(pin);
+        
+        if (pin.status === 'active') {
+            claimBtn.textContent = 'Mark as Sold/Gone';
+            claimBtn.disabled = false;
+            claimBtn.onclick = () => markPinComplete(pin);
+        } else {
+            claimBtn.textContent = 'Reactivate';
+            claimBtn.disabled = false;
+            claimBtn.onclick = () => reactivatePin(pin);
+        }
+    } else {
+        // Reset onclick handlers for other users' pins
+        interestBtn.onclick = showInterest;
+        claimBtn.onclick = claimPin;
+        
+        // Original logic for other users' pins
+        if (pin.status === 'claimed') {
+            interestBtn.style.display = 'none';
+            claimBtn.textContent = 'Already Claimed';
+            claimBtn.disabled = true;
+        } else if (pin.status === 'expired') {
+            interestBtn.style.display = 'none';
+            claimBtn.textContent = 'Expired';
+            claimBtn.disabled = true;
+        } else {
+            interestBtn.style.display = 'block';
+            interestBtn.disabled = false;
+            claimBtn.textContent = 'Claim Item';
+            claimBtn.disabled = false;
+        }
+    }
+}
+
+
+// Edit pin function
+async function editPin(pin) {
+    // Redirect to scan editor with pin data
+    const editUrl = `/scan-editor.html?editPin=${pin.id}`;
+    window.location.href = editUrl;
+}
+
+// Mark pin as complete/sold
+async function markPinComplete(pin) {
+    if (!confirm('Mark this item as sold or no longer available?')) return;
+    
+    try {
+        const response = await apiClient.request(`/api/pins/${pin.id}`, {
+            method: 'PUT',
+            body: JSON.stringify({
+                status: 'claimed',
+                notes: pin.notes + '\n[Marked as sold by owner]'
+            })
+        });
+        
+        if (response.success) {
+            showSuccess('Pin marked as sold/gone');
+            closePinInfo();
+            await loadNearbyPins(); // Refresh
+        } else {
+            throw new Error(response.error);
+        }
+    } catch (error) {
+        console.error('Error marking pin complete:', error);
+        showError('Failed to update pin: ' + error.message);
+    }
+}
+
+// Reactivate pin
+async function reactivatePin(pin) {
+    if (!confirm('Reactivate this pin to make it available again?')) return;
+    
+    try {
+        const response = await apiClient.request(`/api/pins/${pin.id}`, {
+            method: 'PUT',
+            body: JSON.stringify({
+                status: 'active'
+            })
+        });
+        
+        if (response.success) {
+            showSuccess('Pin reactivated successfully');
+            closePinInfo();
+            await loadNearbyPins(); // Refresh
+        } else {
+            throw new Error(response.error);
+        }
+    } catch (error) {
+        console.error('Error reactivating pin:', error);
+        showError('Failed to reactivate pin: ' + error.message);
+    }
+}
+
+        // Format time remaining
+        function formatTimeRemaining(pin) {
+            if (!pin.expiresIn) {
+                return 'No expiration';
+            }
+            const expiresAt = new Date(pin.createdAt.seconds * 1000 + pin.expiresIn * 24 * 60 * 60 * 1000);
+            const now = new Date();
+            const timeDiff = expiresAt.getTime() - now.getTime();
+            const hours = Math.floor(timeDiff / (1000 * 60 * 60));
+            const days = Math.floor(hours / 24);
+            const remainingHours = hours % 24;
+
+            if (days > 0) return `${days}d ${remainingHours}h remaining`;
+            if (hours > 0) return `${hours}h remaining`;
+            return `Less than an hour`;
+        }
+
+    
+        // Close pin info panel
+        function closePinInfo() {
+            document.getElementById('pinInfoPanel').classList.remove('active');
+            selectedPin = null;
+        }
+
+        // Show interest in pin
+        async function showInterest() {
+            if (!selectedPin) return;
+            
+            try {
+                const response = await apiClient.request(`/api/pins/${selectedPin.id}/interest`, {
+                    method: 'POST'
+                });
+                
+                if (response.success) {
+                    showSuccess('Interest registered! The pin owner will be notified.');
+                } else {
+                    throw new Error(response.error);
+                }
+                
+            } catch (error) {
+                console.error('Error showing interest:', error);
+                showError('Failed to register interest: ' + error.message);
+            }
+        }
+
+        // Claim pin
+        async function claimPin() {
+            if (!selectedPin) return;
+            
+            try {
+                const response = await apiClient.request(`/api/pins/${selectedPin.id}/claim`, {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        type: 'pickup_request',
+                        message: 'I would like to pick up this item.',
+                        userLocation: window.pinManager.getCurrentCachedLocation()
+                    })
+                });
+                
+                if (response.success) {
+                    showSuccess('Claim submitted! The pin owner will be notified.');
+                    closePinInfo();
+                    loadNearbyPins(); // Refresh pins
+                } else {
+                    throw new Error(response.error);
+                }
+                
+            } catch (error) {
+                console.error('Error claiming pin:', error);
+                showError('Failed to claim item: ' + error.message);
+            }
+        }
+
+        // Utility functions
+        function showLoading(show, message = 'Loading...') {
+            const overlay = document.getElementById('loadingOverlay');
+            if (show) {
+                overlay.querySelector('p').textContent = message;
+                overlay.style.display = 'block';
+            } else {
+                overlay.style.display = 'none';
+            }
+        }
+
+        function showError(message) {
+            const errorDiv = document.getElementById('errorMessage');
+            errorDiv.textContent = message;
+            errorDiv.style.display = 'block';
+            setTimeout(() => {
+                errorDiv.style.display = 'none';
+            }, 5000);
+        }
+
+        function showSuccess(message) {
+            const successDiv = document.getElementById('successMessage');
+            successDiv.textContent = message;
+            successDiv.style.display = 'block';
+            setTimeout(() => {
+                successDiv.style.display = 'none';
+            }, 5000);
+        }
+
+        
+// HTML escaping for security
+function escapeHtml(text) {
+  if (!text) return '';
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+// Format condition for display
+function formatCondition(condition) {
+  if (!condition) return 'Unknown';
+  return condition.charAt(0).toUpperCase() + condition.slice(1);
+}
+
+// Track pin views (analytics placeholder)
+function trackPinView(pinId) {
+  console.log('Tracking view for pin:', pinId);
+  // You can add analytics tracking here later
+}
+
+// Open image gallery modal
+function openImageGallery(pinId, startIndex = 0) {
+  const pin = pinMarkers.find(marker => 
+    (marker.pinData && marker.pinData.id === pinId) ||
+    (marker.yardSaleData && marker.yardSaleData.pins.find(p => p.id === pinId))
+  );
+  
+  if (!pin) return;
+  
+  let images = [];
+  if (pin.pinData) {
+    images = pin.pinData.item?.imageUrls || [];
+  } else if (pin.yardSaleData) {
+    const targetPin = pin.yardSaleData.pins.find(p => p.id === pinId);
+    images = targetPin?.item?.imageUrls || [];
+  }
+  
+  if (images.length === 0) {
+    showError('No images available for this item');
+    return;
+  }
+  
+  createImageLightbox(images, startIndex);
+}
+
+// Create image lightbox modal
+function createImageLightbox(images, startIndex = 0) {
+  let currentIndex = startIndex;
+  
+  const lightbox = document.createElement('div');
+  lightbox.className = 'image-lightbox';
+  lightbox.style.cssText = `
+    position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.9); z-index: 10000;
+    display: flex; align-items: center; justify-content: center;
+    padding: 20px;
+  `;
+  
+  const updateLightbox = () => {
+    lightbox.innerHTML = `
+      <div style="position: relative; max-width: 90vw; max-height: 90vh;">
+        <img src="${images[currentIndex]}" 
+             style="max-width: 100%; max-height: 100%; object-fit: contain;"
+             alt="Item image ${currentIndex + 1}" />
+        
+        ${images.length > 1 ? `
+          <button onclick="navigateGallery(-1)" 
+                  style="position: absolute; left: -60px; top: 50%; transform: translateY(-50%); 
+                         background: rgba(255,255,255,0.8); border: none; border-radius: 50%; 
+                         width: 40px; height: 40px; cursor: pointer; font-size: 18px;">
+            ‹
+          </button>
+          <button onclick="navigateGallery(1)" 
+                  style="position: absolute; right: -60px; top: 50%; transform: translateY(-50%); 
+                         background: rgba(255,255,255,0.8); border: none; border-radius: 50%; 
+                         width: 40px; height: 40px; cursor: pointer; font-size: 18px;">
+            ›
+          </button>
+        ` : ''}
+        
+        <button onclick="closeLightbox()" 
+                style="position: absolute; top: -40px; right: 0; 
+                       background: rgba(255,255,255,0.8); border: none; border-radius: 50%; 
+                       width: 32px; height: 32px; cursor: pointer; font-size: 18px;">
+          ×
+        </button>
+        
+        ${images.length > 1 ? `
+          <div style="position: absolute; bottom: -40px; left: 50%; transform: translateX(-50%); 
+                      color: white; font-size: 14px;">
+            ${currentIndex + 1} of ${images.length}
+          </div>
+        ` : ''}
+      </div>
+    `;
+  };
+  
+  updateLightbox();
+  document.body.appendChild(lightbox);
+  
+  // Store references for navigation
+  window.currentLightbox = lightbox;
+  window.currentImages = images;
+  window.currentImageIndex = currentIndex;
+  
+  window.navigateGallery = (direction) => {
+    currentIndex = (currentIndex + direction + images.length) % images.length;
+    window.currentImageIndex = currentIndex;
+    updateLightbox();
+  };
+  
+  window.closeLightbox = () => {
+    document.body.removeChild(lightbox);
+    delete window.currentLightbox;
+    delete window.currentImages;
+    delete window.currentImageIndex;
+    delete window.navigateGallery;
+    delete window.closeLightbox;
+  };
+  
+  // Close on background click
+  lightbox.addEventListener('click', (e) => {
+    if (e.target === lightbox) {
+      window.closeLightbox();
+    }
+  });
+}
+
+// Override the basic displayPins function to use enhanced version
+// This ensures compatibility with the enhanced display code
+const originalDisplayPins = displayPins;
+displayPins = function(pins) {
+  console.log(`Displaying ${pins.length} pins with enhanced features`);
+  
+  // Clear existing markers
+  pinMarkers.forEach(marker => map.removeLayer(marker));
+  pinMarkers = [];
+  
+  if (pins.length === 0) {
+    console.log('No pins to display');
+    return;
+  }
+  
+  // Use enhanced display if available, otherwise fallback to original
+  if (typeof groupPinsByProximity === 'function') {
+    // Enhanced display with yard sale grouping
+    const groupedPins = groupPinsByProximity(pins, 0.1);
+    
+    groupedPins.forEach(group => {
+      if (group.pins.length === 1) {
+        // Single pin
+        const marker = createPinMarker(group.pins[0]);
+        marker.pinData = group.pins[0];
+        if (marker.options) marker.options.pinId = group.pins[0].id;
+        pinMarkers.push(marker);
+        marker.addTo(map);
+      } else {
+        // Multi-item yard sale
+        const yardSaleMarker = createYardSaleMarker(group);
+        pinMarkers.push(yardSaleMarker);
+        yardSaleMarker.addTo(map);
+      }
+    });
+    
+    console.log(`Enhanced display: ${groupedPins.length} groups from ${pins.length} pins`);
+  } else {
+    // Fallback to original simple display
+    console.log('Using basic pin display (enhanced features not loaded)');
+    originalDisplayPins(pins);
+  }
+};
+
+// Enhanced error display with retry functionality
+function showError(message, allowRetry = true) {
+  const errorDiv = document.getElementById('errorMessage');
+  if (errorDiv) {
+    errorDiv.innerHTML = allowRetry ? 
+      `${message} <button onclick="loadNearbyPins()" style="margin-left: 10px; padding: 5px 10px; background: #667eea; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px;">Retry</button>` :
+      message;
+    errorDiv.style.display = 'block';
+    
+    // Auto-hide after 8 seconds
+    setTimeout(() => {
+      if (errorDiv.style.display === 'block') {
+        errorDiv.style.display = 'none';
+      }
+    }, 8000);
+  } else {
+    // Fallback to console if no error div
+    console.error('Error:', message);
+  }
+}
+
+// Add this to test if integration works
+function testEnhancedFeatures() {
+    console.log('Testing enhanced pin features:');
+    console.log('- groupPinsByProximity:', typeof groupPinsByProximity);
+    console.log('- createYardSaleMarker:', typeof createYardSaleMarker);
+    console.log('- expandAllItems:', typeof expandAllItems);
+    
+    if (typeof groupPinsByProximity === 'function') {
+        console.log('✅ Enhanced display features loaded');
+        return true;
+    } else {
+        console.log('❌ Enhanced display features not loaded');
+        return false;
+    }
+}
+
+// Call this after page loads
+document.addEventListener('DOMContentLoaded', () => {
+    setTimeout(testEnhancedFeatures, 1000);
+});
+
+// Enhanced success display
+function showSuccess(message) {
+  const successDiv = document.getElementById('successMessage');
+  if (successDiv) {
+    successDiv.textContent = message;
+    successDiv.style.display = 'block';
+    
+    // Auto-hide after 5 seconds
+    setTimeout(() => {
+      if (successDiv.style.display === 'block') {
+        successDiv.style.display = 'none';
+      }
+    }, 5000);
+  } else {
+    // Fallback to console if no success div
+    console.log('Success:', message);
+  }
+}
+
+// Compatibility function for enhanced display
+function navigateGallery(direction) {
+  if (window.navigateGallery) {
+    window.navigateGallery(direction);
+  }
+}
+
+function closeLightbox() {
+  if (window.closeLightbox) {
+    window.closeLightbox();
+  }
+}
+
+console.log('✅ Enhanced display utility functions loaded');
+    </script>
+</body>
+</html>

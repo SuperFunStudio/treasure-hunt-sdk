@@ -1,0 +1,1040 @@
+/* css/scan-simple.css - Simplified Shazam-style scan interface with improved collection card */
+
+/* Upload Section */
+.scan-upload {
+    text-align: center;
+    padding: 40px 20px;
+    min-height: 80vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+}
+
+.upload-header {
+    margin-bottom: 60px;
+}
+
+.upload-header h1 {
+    font-size: 36px;
+    font-weight: 700;
+    color: #333;
+    margin-bottom: 10px;
+}
+
+.upload-header p {
+    font-size: 18px;
+    color: #666;
+    margin: 0;
+}
+
+/* Shazam-style Upload Circle */
+.shazam-container {
+    position: relative;
+    margin: 40px 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.shazam-circle {
+    position: relative;
+    width: 200px;
+    height: 200px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 10px 30px rgba(102, 126, 234, 0.3);
+}
+
+.shazam-circle:hover {
+    transform: scale(1.05);
+    box-shadow: 0 15px 40px rgba(102, 126, 234, 0.4);
+}
+
+.shazam-circle:active {
+    transform: scale(0.95);
+}
+
+.shazam-inner {
+    background: rgba(255, 255, 255, 0.15);
+    width: 140px;
+    height: 140px;
+    border-radius: 50%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.camera-icon {
+    font-size: 40px;
+    margin-bottom: 8px;
+}
+
+.upload-text {
+    color: white;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+/* Pulse Animation */
+.pulse-ring {
+    position: absolute;
+    border: 3px solid rgba(102, 126, 234, 0.3);
+    border-radius: 50%;
+    width: 200px;
+    height: 200px;
+    animation: pulse 2s cubic-bezier(0.455, 0.03, 0.515, 0.955) infinite;
+}
+
+.pulse-ring.delay-1 {
+    animation-delay: 0.3s;
+}
+
+.pulse-ring.delay-2 {
+    animation-delay: 0.6s;
+}
+
+@keyframes pulse {
+    0% {
+        transform: scale(1);
+        opacity: 1;
+    }
+    100% {
+        transform: scale(1.8);
+        opacity: 0;
+    }
+}
+
+/* Quick Tips */
+.quick-tips {
+    display: flex;
+    gap: 30px;
+    margin-top: 40px;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+
+.tip {
+    font-size: 14px;
+    color: #666;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* Loading Section */
+.scan-loading {
+    text-align: center;
+    padding: 60px 20px;
+    min-height: 80vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+}
+
+.loading-animation {
+    position: relative;
+    margin-bottom: 40px;
+}
+
+.loading-circle {
+    width: 120px;
+    height: 120px;
+    border: 4px solid #f0f0f0;
+    border-top: 4px solid #667eea;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+}
+
+.loading-icon {
+    font-size: 32px;
+}
+
+.scanner-line {
+    position: absolute;
+    top: 50%;
+    left: -20px;
+    right: -20px;
+    height: 2px;
+    background: linear-gradient(90deg, transparent 0%, #667eea 50%, transparent 100%);
+    animation: scanLine 2s ease-in-out infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+@keyframes scanLine {
+    0%, 100% {
+        transform: translateY(-60px);
+        opacity: 0;
+    }
+    50% {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+#loadingTitle {
+    font-size: 24px;
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 10px;
+}
+
+#loadingMessage {
+    font-size: 16px;
+    color: #666;
+    margin-bottom: 30px;
+}
+
+/* Loading Steps */
+.loading-steps {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    align-items: center;
+}
+
+.loading-step {
+    padding: 10px 20px;
+    border-radius: 25px;
+    background: #f5f5f5;
+    color: #999;
+    font-size: 14px;
+    font-weight: 500;
+    transition: all 0.5s ease;
+    opacity: 0.5;
+}
+
+.loading-step.active {
+    background: #667eea;
+    color: white;
+    opacity: 1;
+    transform: scale(1.05);
+}
+
+.loading-step.completed {
+    background: #4caf50;
+    color: white;
+    opacity: 1;
+}
+
+/* Results Section */
+.scan-results {
+    padding: 30px 20px;
+    max-width: 600px;
+    margin: 0 auto;
+}
+
+.results-header {
+    text-align: center;
+    margin-bottom: 30px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 15px;
+}
+
+.results-header h2 {
+    font-size: 28px;
+    font-weight: 700;
+    color: #333;
+    margin: 0;
+}
+
+.confidence-badge {
+    background: linear-gradient(135deg, #4caf50 0%, #45a049 100%);
+    color: white;
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+/* IMPROVED Collection Card - NO MORE FIXED HEIGHT ISSUES */
+.collection-card {
+    background: white;
+    border-radius: 20px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+    margin-bottom: 30px;
+    border: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+/* Enhanced Image Gallery Section */
+.card-images {
+    position: relative;
+    background: #f5f5f5;
+    padding: 20px 20px 15px 20px;
+    /* REMOVED: height: 200px; overflow-x: auto; - These were causing the cutoff issues */
+}
+
+/* Main Featured Image - Replaces the old cramped container */
+.main-image-container {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 4/3;
+    margin-bottom: 15px;
+    border-radius: 15px;
+    overflow: hidden;
+    background: #fff;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.main-image-container:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+}
+
+.main-image {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 0.3s ease;
+}
+
+.main-image-container:hover .main-image {
+    transform: scale(1.05);
+}
+
+/* Image Controls Overlay - Now Always Accessible */
+.image-controls {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    display: flex;
+    gap: 8px;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.main-image-container:hover .image-controls {
+    opacity: 1;
+}
+
+.control-btn {
+    background: rgba(0, 0, 0, 0.8);
+    color: white;
+    border: none;
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    font-size: 16px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+    backdrop-filter: blur(10px);
+}
+
+.control-btn:hover {
+    background: rgba(0, 0, 0, 0.95);
+    transform: scale(1.1);
+}
+
+.control-btn.edit:hover {
+    background: #667eea;
+}
+
+.control-btn.delete:hover {
+    background: #f44336;
+}
+
+.control-btn.expand:hover {
+    background: #4caf50;
+}
+
+/* Image Count Badge */
+.image-count-badge {
+    position: absolute;
+    bottom: 12px;
+    left: 12px;
+    background: rgba(0, 0, 0, 0.8);
+    color: white;
+    padding: 6px 12px;
+    border-radius: 15px;
+    font-size: 12px;
+    font-weight: 600;
+    backdrop-filter: blur(10px);
+}
+
+/* Thumbnail Strip - Replaces the old horizontal scroll */
+.thumbnail-strip {
+    display: flex;
+    gap: 10px;
+    overflow-x: auto;
+    padding: 5px 0;
+    scroll-snap-type: x mandatory;
+}
+
+.thumbnail-strip::-webkit-scrollbar {
+    height: 4px;
+}
+
+.thumbnail-strip::-webkit-scrollbar-track {
+    background: #f0f0f0;
+    border-radius: 2px;
+}
+
+.thumbnail-strip::-webkit-scrollbar-thumb {
+    background: #ccc;
+    border-radius: 2px;
+}
+
+.thumbnail-strip::-webkit-scrollbar-thumb:hover {
+    background: #999;
+}
+
+.thumbnail-item {
+    position: relative;
+    width: 60px;
+    height: 60px;
+    flex-shrink: 0;
+    border-radius: 8px;
+    overflow: hidden;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border: 3px solid transparent;
+    scroll-snap-align: start;
+}
+
+.thumbnail-item:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.thumbnail-item.active {
+    border-color: #667eea;
+    box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.3);
+}
+
+.thumbnail-item img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+/* Thumbnail Controls */
+.thumbnail-controls {
+    position: absolute;
+    top: 2px;
+    right: 2px;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+
+.thumbnail-item:hover .thumbnail-controls {
+    opacity: 1;
+}
+
+.thumbnail-control-btn {
+    background: rgba(255, 255, 255, 0.9);
+    color: #333;
+    border: none;
+    border-radius: 50%;
+    width: 20px;
+    height: 20px;
+    font-size: 10px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+}
+
+.thumbnail-control-btn:hover {
+    background: #f44336;
+    color: white;
+    transform: scale(1.1);
+}
+
+/* Add Image Button */
+.add-image-btn {
+    width: 60px;
+    height: 60px;
+    flex-shrink: 0;
+    border: 2px dashed #ccc;
+    border-radius: 8px;
+    background: #f8f9fa;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    color: #666;
+}
+
+.add-image-btn:hover {
+    border-color: #667eea;
+    background: #f0f4ff;
+    color: #667eea;
+    transform: translateY(-2px);
+}
+
+.add-image-btn .icon {
+    font-size: 20px;
+    margin-bottom: 2px;
+}
+
+.add-image-btn .text {
+    font-size: 8px;
+    font-weight: 600;
+}
+
+/* Full-Screen Modal for Image Viewing */
+.image-modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.9);
+    z-index: 1000;
+    padding: 20px;
+}
+
+.image-modal.active {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.modal-content {
+    position: relative;
+    max-width: 90vw;
+    max-height: 90vh;
+    background: white;
+    border-radius: 15px;
+    overflow: hidden;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+}
+
+.modal-image {
+    width: 100%;
+    height: auto;
+    max-height: 70vh;
+    object-fit: contain;
+    display: block;
+}
+
+.modal-controls {
+    padding: 15px 20px;
+    background: white;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-top: 1px solid #f0f0f0;
+    gap: 10px;
+}
+
+.modal-close {
+    position: absolute;
+    top: 15px;
+    right: 15px;
+    background: rgba(0, 0, 0, 0.8);
+    color: white;
+    border: none;
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    font-size: 18px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+    backdrop-filter: blur(10px);
+}
+
+.modal-close:hover {
+    background: rgba(0, 0, 0, 0.95);
+    transform: scale(1.1);
+}
+
+.card-content {
+    padding: 25px;
+}
+
+.card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 20px;
+    gap: 15px;
+}
+
+.card-header h3 {
+    font-size: 20px;
+    font-weight: 700;
+    color: #333;
+    margin: 0;
+    line-height: 1.3;
+    flex: 1;
+}
+
+.estimated-value {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 8px 16px;
+    border-radius: 15px;
+    font-size: 18px;
+    font-weight: 700;
+    flex-shrink: 0;
+}
+
+.item-details {
+    display: grid;
+    gap: 12px;
+    margin-bottom: 20px;
+}
+
+.detail-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 0;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.detail-row:last-child {
+    border-bottom: none;
+}
+
+.detail-row .label {
+    font-weight: 600;
+    color: #666;
+    font-size: 14px;
+}
+
+.detail-row .value {
+    color: #333;
+    font-weight: 500;
+    font-size: 14px;
+}
+
+.description {
+    background: #f8f9fa;
+    padding: 15px;
+    border-radius: 10px;
+    color: #666;
+    font-size: 14px;
+    line-height: 1.5;
+    margin-bottom: 20px;
+}
+
+/* Similar Items */
+.similar-items {
+    border-top: 1px solid #f0f0f0;
+    padding-top: 20px;
+    margin-top: 20px;
+}
+
+.similar-items h4 {
+    font-size: 16px;
+    color: #333;
+    margin-bottom: 15px;
+    font-weight: 600;
+}
+
+.similar-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 15px;
+}
+
+.similar-item {
+    text-align: center;
+    padding: 10px;
+    border-radius: 8px;
+    background: #f8f9fa;
+    text-decoration: none;
+    transition: all 0.2s;
+}
+
+.similar-item:hover {
+    background: #e9ecef;
+    transform: translateY(-2px);
+}
+
+.similar-item img {
+    width: 60px;
+    height: 60px;
+    object-fit: cover;
+    border-radius: 6px;
+    margin-bottom: 8px;
+}
+
+.similar-item .price {
+    font-weight: 600;
+    color: #667eea;
+    font-size: 12px;
+}
+
+.similar-item .title {
+    font-size: 11px;
+    color: #666;
+    line-height: 1.2;
+    margin-top: 4px;
+}
+
+/* Action Buttons */
+.action-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.btn {
+    padding: 15px 25px;
+    border: none;
+    border-radius: 10px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+.btn-primary {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+}
+
+.btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4);
+}
+
+.btn-secondary {
+    background: #f8f9fa;
+    color: #333;
+    border: 2px solid #e9ecef;
+}
+
+.btn-secondary:hover {
+    background: #e9ecef;
+    border-color: #dee2e6;
+    transform: translateY(-1px);
+}
+
+.btn-ghost {
+    background: transparent;
+    color: #666;
+    border: 2px solid #e0e0e0;
+}
+
+.btn-ghost:hover {
+    color: #333;
+    border-color: #ccc;
+    transform: translateY(-1px);
+}
+
+/* Mobile Responsive Improvements */
+@media (max-width: 768px) {
+    .scan-upload {
+        padding: 30px 15px;
+        min-height: 70vh;
+    }
+
+    .upload-header h1 {
+        font-size: 28px;
+    }
+
+    .upload-header p {
+        font-size: 16px;
+    }
+
+    .shazam-circle {
+        width: 160px;
+        height: 160px;
+    }
+
+    .shazam-inner {
+        width: 110px;
+        height: 110px;
+    }
+
+    .camera-icon {
+        font-size: 32px;
+    }
+
+    .upload-text {
+        font-size: 12px;
+    }
+
+    .pulse-ring {
+        width: 160px;
+        height: 160px;
+    }
+
+    .quick-tips {
+        flex-direction: column;
+        gap: 15px;
+        margin-top: 30px;
+    }
+
+    .scan-loading {
+        padding: 40px 15px;
+        min-height: 70vh;
+    }
+
+    .loading-circle {
+        width: 100px;
+        height: 100px;
+    }
+
+    .loading-icon {
+        font-size: 24px;
+    }
+
+    .loading-steps {
+        gap: 12px;
+    }
+
+    .loading-step {
+        padding: 8px 16px;
+        font-size: 13px;
+    }
+
+    .scan-results {
+        padding: 20px 15px;
+    }
+
+    .results-header h2 {
+        font-size: 24px;
+    }
+
+    /* Mobile Image Gallery Adjustments */
+    .card-images {
+        padding: 15px 15px 10px 15px;
+    }
+
+    .main-image-container {
+        margin-bottom: 12px;
+    }
+
+    .thumbnail-item {
+        width: 50px;
+        height: 50px;
+    }
+
+    .control-btn {
+        width: 36px;
+        height: 36px;
+        font-size: 14px;
+    }
+
+    .image-controls {
+        top: 8px;
+        right: 8px;
+        gap: 6px;
+    }
+
+    .add-image-btn {
+        width: 50px;
+        height: 50px;
+    }
+
+    .add-image-btn .icon {
+        font-size: 16px;
+    }
+
+    .add-image-btn .text {
+        font-size: 7px;
+    }
+
+    .card-content {
+        padding: 20px;
+    }
+
+    .card-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+    }
+
+    .card-header h3 {
+        font-size: 18px;
+    }
+
+    .estimated-value {
+        align-self: flex-end;
+        font-size: 16px;
+    }
+
+    .similar-grid {
+        grid-template-columns: repeat(3, 1fr);
+        gap: 10px;
+    }
+
+    .modal-content {
+        max-width: 95vw;
+        max-height: 95vh;
+    }
+
+    .modal-controls {
+        padding: 12px 15px;
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+}
+
+/* Extra small screens */
+@media (max-width: 375px) {
+    .shazam-circle {
+        width: 140px;
+        height: 140px;
+    }
+
+    .shazam-inner {
+        width: 95px;
+        height: 95px;
+    }
+
+    .pulse-ring {
+        width: 140px;
+        height: 140px;
+    }
+
+    .camera-icon {
+        font-size: 28px;
+    }
+
+    .similar-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .thumbnail-strip {
+        gap: 8px;
+    }
+
+    .thumbnail-item {
+        width: 45px;
+        height: 45px;
+    }
+
+    .add-image-btn {
+        width: 45px;
+        height: 45px;
+    }
+}
+
+/* Touch Device Optimizations */
+@media (hover: none) and (pointer: coarse) {
+    /* Always show controls on touch devices */
+    .image-controls {
+        opacity: 1;
+    }
+
+    .thumbnail-controls {
+        opacity: 1;
+    }
+
+    .control-btn {
+        min-height: 44px;
+        min-width: 44px;
+        touch-action: manipulation;
+    }
+
+    .thumbnail-item {
+        min-height: 44px;
+        min-width: 44px;
+    }
+
+    /* Remove hover effects on touch */
+    .main-image-container:hover,
+    .thumbnail-item:hover,
+    .add-image-btn:hover {
+        transform: none;
+    }
+
+    /* Add active states for touch feedback */
+    .main-image-container:active {
+        transform: scale(0.98);
+    }
+
+    .thumbnail-item:active {
+        transform: scale(0.95);
+    }
+
+    .control-btn:active {
+        transform: scale(0.9);
+    }
+}
+
+/* Animations for smooth transitions */
+.scan-upload,
+.scan-loading,
+.scan-results {
+    animation: fadeIn 0.5s ease-in;
+}
+
+.collection-card {
+    animation: slideUp 0.5s ease-out;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes slideUp {
+    from { 
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to { 
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Image loading states */
+.main-image-container.loading {
+    background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+    background-size: 200% 100%;
+    animation: loading 1.5s infinite;
+}
+
+.thumbnail-item.loading {
+    background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+    background-size: 200% 100%;
+    animation: loading 1.5s infinite;
+}
+
+@keyframes loading {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}

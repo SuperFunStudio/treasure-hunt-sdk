@@ -207,12 +207,13 @@ class TestEbayAPI {
       const max = prices[prices.length - 1];
 
       // Condition adjustment
-      const conditionMultipliers = {
-        'excellent': 1.0,
-        'good': 0.85,
-        'fair': 0.65,
-        'poor': 0.35
-      };
+     const conditionMultipliers = {
+  'excellent': 1.0,
+  'good': 0.75,      // Was 0.85 - too high
+  'fair': 0.50,      // Was 0.65 - too high
+  'poor': 0.25,      // Was 0.35 - way too high
+  'parts_only': 0.15  // NEW - for non-functional items
+};
       
       const conditionMultiplier = conditionMultipliers[itemData.condition?.rating || 'good'] || 0.75;
       const suggestedPrice = Math.round(median * conditionMultiplier);

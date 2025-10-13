@@ -1,10 +1,16 @@
-// capture-sdk/core/routeDisposition.js - FIXED CommonJS version
+// capture-sdk/core/routeDisposition.js - UPDATED with vehicle detection and realistic pricing
 
-// ✅ FIXED: Use CommonJS require instead of ES modules
 const fetch = (...args) => import('node-fetch').then(mod => mod.default(...args));
+const { 
+  detectItemCategory, 
+  buildVehicleSearchQuery, 
+  getPricingTier, 
+  validatePriceEstimate,
+  calculateCategoryFees
+} = require('../utils/vehicle-detector');
 
 async function routeDisposition(itemData, userPreferences = {}, ebayConfig = null) {
-  console.log('🎯 routeDisposition called with:', {
+  console.log('🎯 routeDisposition called with enhanced vehicle detection:', {
     category: itemData.category,
     brand: itemData.brand,
     model: itemData.model,
@@ -12,17 +18,32 @@ async function routeDisposition(itemData, userPreferences = {}, ebayConfig = nul
   });
 
   try {
-    // Get market pricing - this will now use REAL eBay API if available
-    const marketAnalysis = await getMarketPrice(itemData, ebayConfig);
+    // ENHANCED: Detect vehicle category and get appropriate pricing tier
+    const detectedCategory = detectItemCategory(itemData);
+    const pricingTier = getPricingTier(itemData);
+    
+    console.log(`🔍 Detected category: ${detectedCategory} (original: ${itemData.category})`);
+    console.log(`💰 Pricing tier: $${pricingTier.min}-$${pricingTier.max}, base: $${pricingTier.base}`);
+    
+    // Enhanced item data with detected category
+    const enhancedItemData = {
+      ...itemData,
+      detectedCategory,
+      pricingTier
+    };
+
+    // Get market pricing with category awareness
+    const marketAnalysis = await getMarketPrice(enhancedItemData, ebayConfig);
     
     console.log('💰 Market analysis result:', {
       suggested: marketAnalysis.suggested,
       source: marketAnalysis.source,
-      confidence: marketAnalysis.confidence
+      confidence: marketAnalysis.confidence,
+      isVehicle: ['automobile', 'motorcycle', 'boat', 'rv'].includes(detectedCategory)
     });
 
-    // Calculate routes based on market analysis
-    const routes = calculateRoutes(itemData, marketAnalysis, userPreferences);
+    // Calculate routes based on enhanced market analysis
+    const routes = calculateRoutes(enhancedItemData, marketAnalysis, userPreferences);
     
     return {
       recommendedRoute: routes.primary,
@@ -31,7 +52,9 @@ async function routeDisposition(itemData, userPreferences = {}, ebayConfig = nul
         estimatedValue: marketAnalysis,
         dataSource: marketAnalysis.source,
         searchQuery: marketAnalysis.searchQuery,
-        confidence: marketAnalysis.confidence
+        confidence: marketAnalysis.confidence,
+        detectedCategory: detectedCategory,
+        pricingTier: pricingTier
       }
     };
   } catch (error) {
@@ -59,17 +82,33 @@ async function routeDisposition(itemData, userPreferences = {}, ebayConfig = nul
   }
 }
 
-// Enhanced market pricing that uses REAL eBay API
-async function getMarketPrice(itemData, ebayConfig) {
-  console.log('🛒 Getting market price with eBay config:', !!ebayConfig);
+// Enhanced market pricing with vehicle awareness
+async function getMarketPrice(enhancedItemData, ebayConfig) {
+  const { detectedCategory, pricingTier } = enhancedItemData;
   
-  // If we have eBay config, try the real eBay API first
+  console.log(`🛒 Getting market price for ${detectedCategory} with eBay config:`, !!ebayConfig);
+  
+  // Special handling for vehicles
+  if (['automobile', 'motorcycle', 'boat', 'rv'].includes(detectedCategory)) {
+    return await getVehicleMarketPrice(enhancedItemData, ebayConfig);
+  }
+  
+  // Standard eBay API for non-vehicles
   if (ebayConfig && ebayConfig.clientId && ebayConfig.clientSecret) {
     try {
       console.log('🛒 Attempting eBay API pricing...');
-      const ebayResult = await getEbayMarketPricing(itemData, ebayConfig);
+      const ebayResult = await getEbayMarketPricing(enhancedItemData, ebayConfig);
       
       if (ebayResult.suggested && ebayResult.suggested > 0) {
+        // Validate price against category tier
+        const validatedPrice = validatePriceEstimate(ebayResult.suggested, enhancedItemData);
+        
+        if (validatedPrice !== ebayResult.suggested) {
+          console.log(`💡 Price adjusted from $${ebayResult.suggested} to $${validatedPrice} for category ${detectedCategory}`);
+          ebayResult.suggested = validatedPrice;
+          ebayResult.note += ` (Price adjusted to fit ${detectedCategory} category range)`;
+        }
+        
         console.log('✅ eBay API pricing successful:', ebayResult.source);
         return ebayResult;
       } else {
@@ -79,138 +118,436 @@ async function getMarketPrice(itemData, ebayConfig) {
       console.error('❌ eBay API failed, falling back to manual:', error.message);
     }
   } else {
-    console.log('⚠️ No eBay config available, using manual pricing');
+    console.log('⚠️ No eBay config available, using enhanced manual pricing');
   }
   
-  // Fallback to existing price estimation
-  const manualPrice = getEnhancedManualEstimate(itemData);
-  return {
-    suggested: manualPrice,
-    confidence: 'medium',
-    source: 'enhanced_manual',
-    priceRange: {
-      low: Math.round(manualPrice * 0.7),
-      high: Math.round(manualPrice * 1.3),
-      median: manualPrice
-    },
-    shippingCost: calculateShippingCost(itemData),
-    ebayFees: Math.round((manualPrice * 0.1325) * 100) / 100,
-    netProfit: Math.round((manualPrice - calculateShippingCost(itemData) - (manualPrice * 0.1325)) * 100) / 100,
-    note: 'Based on enhanced category analysis and brand recognition'
-  };
+  // Fallback to enhanced manual estimation
+  return getEnhancedManualEstimate(enhancedItemData);
 }
 
-// ✅ BRAND-AWARE manual pricing
-function getEnhancedManualEstimate(itemData) {
-  console.log('Using enhanced manual pricing for:', {
-    category: itemData.category,
-    brand: itemData.brand,
-    condition: itemData.condition?.rating
-  });
-
-  // Base category pricing
-  const categoryPricing = {
-    'electronics': 45,
-    'furniture': 35,
-    'clothing': 15,
-    'footwear': 25,
-    'tools': 25,
-    'books': 8,
-    'toys': 12,
-    'jewelry': 35,
-    'automotive': 40,
-    'sporting goods': 20,
-    'home & garden': 18,
-    'collectibles': 25
-  };
-
-  const category = itemData.category?.toLowerCase() || 'unknown';
-  let basePrice = categoryPricing[category] || 20;
-
-  // ✅ IKEA-aware brand multipliers
-  let brandMultiplier = 1.0;
-  if (itemData.brand && itemData.brand !== 'Unknown') {
-    const brand = itemData.brand.toLowerCase();
-    
-    // IKEA gets realistic pricing
-    if (brand.includes('ikea')) {
-      brandMultiplier = 0.4; // IKEA furniture is typically 40% of generic furniture pricing
-      console.log('🏷️ IKEA detected - applying 0.4x multiplier');
-    }
-    // Premium brands
-    else if (['apple', 'samsung', 'sony', 'nike', 'adidas'].some(premium => brand.includes(premium))) {
-      brandMultiplier = 2.0;
-    }
-    // Good brands
-    else if (['hp', 'dell', 'canon', 'levi', 'gap'].some(good => brand.includes(good))) {
-      brandMultiplier = 1.3;
-    }
-    // Any other known brand
-    else {
-      brandMultiplier = 1.1;
+// NEW: Vehicle-specific market pricing
+async function getVehicleMarketPrice(enhancedItemData, ebayConfig) {
+  const { detectedCategory, pricingTier } = enhancedItemData;
+  
+  console.log(`🚗 Getting vehicle market price for ${detectedCategory}`);
+  
+  // Try eBay Motors API if configured
+  if (ebayConfig && ebayConfig.clientId && ebayConfig.clientSecret) {
+    try {
+      const ebayResult = await getEbayMotorsPricing(enhancedItemData, ebayConfig);
+      if (ebayResult.suggested && ebayResult.suggested > 0) {
+        return ebayResult;
+      }
+    } catch (error) {
+      console.error('❌ eBay Motors API failed:', error.message);
     }
   }
-
-  // Condition multiplier
-  const conditionMultipliers = {
-    'excellent': 1.0,
-    'good': 0.85,
-    'fair': 0.65,
-    'poor': 0.35
-  };
   
-  const condition = itemData.condition?.rating || 'good';
-  const conditionMultiplier = conditionMultipliers[condition] || 0.75;
-
-  const suggestedPrice = Math.round(basePrice * brandMultiplier * conditionMultiplier);
-  
-  console.log('💰 Enhanced pricing calculation:', {
-    basePrice,
-    brandMultiplier,
-    conditionMultiplier,
-    suggestedPrice
-  });
-
-  return suggestedPrice;
+  // Fallback to enhanced vehicle estimation
+  return getVehicleManualEstimate(enhancedItemData);
 }
 
-// REAL eBay API implementation with condition awareness
-async function getEbayMarketPricing(itemData, ebayConfig) {
-  console.log('🛒 Starting condition-aware eBay API market pricing...');
-  console.log('📋 Item condition:', itemData.condition?.rating || 'unknown');
+// NEW: eBay Motors specific pricing
+async function getEbayMotorsPricing(enhancedItemData, ebayConfig) {
+  console.log('🏁 Using eBay Motors API for vehicle pricing...');
   
-  // Get eBay access token
   const accessToken = await getEbayAccessToken(ebayConfig);
+  const query = buildVehicleSearchQuery(enhancedItemData);
   
-  // Build enhanced search query
-  const query = buildEnhancedSearchQuery(itemData);
-  console.log(`🔍 Enhanced eBay search query: "${query}"`);
+  console.log(`🔍 eBay Motors search query: "${query}"`);
+  
+  // Search eBay Motors categories specifically
+  const items = await searchEbayMotors(query, accessToken, ebayConfig, enhancedItemData.condition);
+  
+  if (items.length === 0) {
+    throw new Error(`No similar vehicles found for "${query}"`);
+  }
+  
+  // Analyze vehicle pricing
+  const priceAnalysis = analyzeVehiclePricing(items, enhancedItemData.condition, query);
+  
+  if (!priceAnalysis) {
+    throw new Error('No valid vehicle prices found in search results');
+  }
+  
+  // Vehicle-specific fee calculation
+  const vehicleFees = calculateCategoryFees(priceAnalysis.suggestedPrice, enhancedItemData.detectedCategory);
+  const shippingCost = enhancedItemData.pricingTier.shippingCost; // Usually 0 for vehicles
+  const netProfit = Math.round((priceAnalysis.suggestedPrice - vehicleFees - shippingCost) * 100) / 100;
+  
+  return {
+    suggested: priceAnalysis.suggestedPrice,
+    confidence: priceAnalysis.sampleSize >= 3 ? 'high' : 'medium',
+    priceRange: {
+      low: priceAnalysis.min,
+      high: priceAnalysis.max,
+      median: priceAnalysis.median,
+      average: Math.round(priceAnalysis.average)
+    },
+    shippingCost: shippingCost,
+    ebayFees: vehicleFees,
+    netProfit: netProfit,
+    sampleSize: priceAnalysis.sampleSize,
+    searchQuery: query,
+    source: 'ebay_motors_api',
+    isVehicle: true,
+    note: `Based on ${priceAnalysis.sampleSize} eBay Motors listings`,
+    comparableItems: items.slice(0, 3).map(item => ({
+      title: item.title,
+      price: parseFloat(item.price?.value || 0),
+      url: item.itemWebUrl,
+      condition: item.condition || 'Not specified'
+    }))
+  };
+}
+
+// NEW: Search eBay Motors categories
+async function searchEbayMotors(query, accessToken, ebayConfig, itemCondition) {
+  const apiUrl = ebayConfig.environment === 'sandbox'
+    ? 'https://api.sandbox.ebay.com'
+    : 'https://api.ebay.com';
+  
+  const searchUrl = `${apiUrl}/buy/browse/v1/item_summary/search`;
+  
+  // eBay Motors category IDs
+  const motorsCategoryIds = [
+    '6001', // Cars & Trucks
+    '6024', // Motorcycles
+    '26429', // Boats
+    '50054'  // RVs & Campers
+  ];
+  
+  const params = new URLSearchParams({
+    q: query,
+    category_ids: motorsCategoryIds.join(','),
+    limit: '20',
+    filter: 'buyingOptions:{FIXED_PRICE|AUCTION}'
+  });
+  
+  console.log(`🔍 eBay Motors API call: ${searchUrl}?${params}`);
+  
+  const response = await fetch(`${searchUrl}?${params}`, {
+    method: 'GET',
+    headers: {
+      'Authorization': `Bearer ${accessToken}`,
+      'X-EBAY-C-MARKETPLACE-ID': 'EBAY_US',
+      'Accept': 'application/json'
+    }
+  });
+  
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`eBay Motors search failed: ${response.status} - ${errorText}`);
+  }
+  
+  const data = await response.json();
+  const items = data.itemSummaries || [];
+  
+  console.log(`✅ Found ${items.length} vehicle listings`);
+  return items;
+}
+
+// NEW: Analyze vehicle pricing with age consideration
+function analyzeVehiclePricing(items, itemCondition, query) {
+  const prices = items
+    .map(item => ({
+      price: parseFloat(item.price?.value || 0),
+      condition: item.condition,
+      title: item.title,
+      year: extractYearFromTitle(item.title)
+    }))
+    .filter(item => item.price > 500) // Filter out unrealistic vehicle prices
+    .filter(item => item.price < 200000); // Filter out exotic cars
+  
+  if (prices.length === 0) {
+    return null;
+  }
+  
+  console.log('🚗 Vehicle price distribution:', prices.map(p => `$${p.price}`).join(', '));
+  
+  const sortedPrices = prices.map(p => p.price).sort((a, b) => a - b);
+  
+  const median = sortedPrices[Math.floor(sortedPrices.length / 2)];
+  const average = sortedPrices.reduce((a, b) => a + b, 0) / sortedPrices.length;
+  
+  // For vehicles, use median as base (more reliable than average)
+  const suggestedPrice = Math.round(median);
+  
+  console.log('🚗 Vehicle pricing analysis:', {
+    medianPrice: median,
+    averagePrice: average,
+    suggestedPrice: suggestedPrice,
+    sampleSize: prices.length
+  });
+  
+  return {
+    median,
+    average,
+    min: sortedPrices[0],
+    max: sortedPrices[sortedPrices.length - 1],
+    suggestedPrice,
+    sampleSize: prices.length,
+    priceAnalyzed: true
+  };
+}
+
+// NEW: Extract year from vehicle title
+function extractYearFromTitle(title) {
+  const yearMatch = title.match(/\b(19|20)\d{2}\b/);
+  return yearMatch ? parseInt(yearMatch[0]) : null;
+}
+
+// NEW: Vehicle manual estimation
+function getVehicleManualEstimate(enhancedItemData) {
+  const { detectedCategory, pricingTier } = enhancedItemData;
+  
+  console.log(`🚗 Using vehicle manual estimation for ${detectedCategory}`);
+  
+  let basePrice = pricingTier.base;
+  
+  // Brand multipliers for vehicles
+  const vehicleBrandMultipliers = {
+    'tesla': 1.8,
+    'bmw': 1.6,
+    'mercedes': 1.7,
+    'audi': 1.5,
+    'lexus': 1.4,
+    'acura': 1.2,
+    'infiniti': 1.2,
+    'cadillac': 1.3,
+    'toyota': 1.1,
+    'honda': 1.1,
+    'nissan': 1.0,
+    'ford': 0.9,
+    'chevrolet': 0.9,
+    'dodge': 0.8,
+    'kia': 0.8,
+    'hyundai': 0.8
+  };
+  
+  // Apply brand multiplier
+  const brand = enhancedItemData.brand?.toLowerCase();
+  if (brand && vehicleBrandMultipliers[brand]) {
+    basePrice *= vehicleBrandMultipliers[brand];
+    console.log(`🏷️ Applied ${brand} multiplier: ${vehicleBrandMultipliers[brand]}`);
+  }
+  
+  // Apply condition multiplier
+  const condition = enhancedItemData.condition?.rating || 'good';
+ const conditionMultipliers = {
+  'excellent': 1.0,
+  'good': 0.75,      // Was 0.85 - too high
+  'fair': 0.50,      // Was 0.65 - too high
+  'poor': 0.25,      // Was 0.35 - way too high
+  'parts_only': 0.15  // NEW - for non-functional items
+};
+  
+  basePrice *= (conditionMultipliers[condition] || 0.75);
+  
+  // Age-based depreciation for vehicles
+  const description = enhancedItemData.description || '';
+  const yearMatch = description.match(/\b(19|20)\d{2}\b/);
+  if (yearMatch) {
+    const year = parseInt(yearMatch[0]);
+    const currentYear = new Date().getFullYear();
+    const age = currentYear - year;
+    
+    // Vehicle depreciation curve
+    if (age <= 1) basePrice *= 0.85; // 15% depreciation first year
+    else if (age <= 3) basePrice *= 0.7; // 30% total depreciation
+    else if (age <= 5) basePrice *= 0.55; // 45% total depreciation
+    else if (age <= 10) basePrice *= 0.35; // 65% total depreciation
+    else if (age <= 20) basePrice *= 0.2; // 80% total depreciation
+    else basePrice *= 0.15; // Classic/vintage (85% depreciation)
+    
+    // Classic car bonus (25+ years)
+    if (age >= 25 && condition === 'excellent') {
+      basePrice *= 1.5; // Classic car premium
+    }
+    
+    console.log(`🗓️ Vehicle age: ${age} years, depreciation applied`);
+  }
+  
+  const suggestedPrice = validatePriceEstimate(Math.round(basePrice), enhancedItemData);
+  
+  // Calculate vehicle-specific costs
+  const shippingCost = pricingTier.shippingCost;
+  const vehicleFees = calculateCategoryFees(suggestedPrice, detectedCategory);
+  const netProfit = Math.round((suggestedPrice - vehicleFees - shippingCost) * 100) / 100;
+  
+  return {
+    suggested: suggestedPrice,
+    confidence: 'medium',
+    priceRange: {
+      low: Math.round(suggestedPrice * 0.8),
+      high: Math.round(suggestedPrice * 1.2),
+      median: suggestedPrice
+    },
+    shippingCost: shippingCost,
+    ebayFees: vehicleFees,
+    netProfit: netProfit,
+    source: 'vehicle_manual_estimate',
+    isVehicle: true,
+    note: detectedCategory === 'automobile' ? 
+      'Vehicle pricing estimate - typically requires local pickup/delivery' : 
+      `${detectedCategory} pricing estimate based on category analysis`,
+    factors: {
+      category: detectedCategory,
+      brand: enhancedItemData.brand,
+      condition: condition,
+      basePricing: pricingTier.base
+    }
+  };
+}
+
+// Enhanced manual estimation for non-vehicles (existing logic improved)
+function getEnhancedManualEstimate(enhancedItemData) {
+  const { detectedCategory, pricingTier } = enhancedItemData;
+  
+  console.log(`💡 Using enhanced manual pricing for ${detectedCategory}`);
+  
+  let basePrice = pricingTier.base;
+  
+  // Brand multipliers by category
+  const brandMultipliers = {
+  'electronics': {
+    'apple': 1.0,        // Was 2.5 - way too high! Apple retains ~50% vs generic 25%, so 2x generic
+    'samsung': 0.7,      // Was 1.8 - Samsung loses value faster than Apple
+    'sony': 0.8,         // Was 1.6
+    'microsoft': 0.9,    // Was 1.7
+    'nintendo': 1.1,     // Was 1.9 - Nintendo holds value well but not 90% premium
+    'hp': 0.6,          // Was 1.2 - HP loses value quickly
+    'dell': 0.55        // Was 1.1 - Dell loses value quickly
+  },
+  'clothing': {
+    'nike': 0.6,        // Was 1.8 - Regular Nike clothing loses 70% value
+    'adidas': 0.55,     // Was 1.7
+    'levi': 0.7,        // Was 1.4 - Denim holds better
+    'gucci': 1.5,       // Was 3.0 - Still luxury but not 3x
+    'coach': 1.2,       // Was 2.2 - Premium but not that high
+    'ralph lauren': 0.8  // Was 1.6 - Not luxury tier
+  },
+  'footwear': {
+    'nike': 0.8,        // Was 2.0 - Regular Nike shoes
+    'jordan': 1.5,      // Was 2.5 - Jordans do hold value but not 2.5x
+    'adidas': 0.7,      // Was 1.8
+    'converse': 0.5,    // Was 1.3 - Basic shoes
+    'vans': 0.45        // Was 1.2 - Basic shoes
+  },
+  'furniture': {
+    'west elm': 0.8,    // Was 1.5 - Furniture depreciates heavily
+    'pottery barn': 0.85, // Was 1.6
+    'restoration hardware': 1.0, // Was 2.0 - Quality but still used furniture
+    'cb2': 0.7,         // Was 1.4
+    'ikea': 0.3         // Was 0.8 - IKEA loses 70-75% immediately
+  },
+  'tools': {
+    'dewalt': 1.2,      // Was 1.8 - Tools hold value but not 80% premium
+    'milwaukee': 1.15,   // Was 1.7
+    'makita': 1.1,      // Was 1.6
+    'craftsman': 0.9,   // Was 1.3
+    'ryobi': 0.7        // Was 1.1 - Budget brand
+  }
+};
+
+  
+  // Apply brand multiplier if available
+  const categoryMultipliers = brandMultipliers[detectedCategory] || {};
+  const brand = enhancedItemData.brand?.toLowerCase();
+  if (brand && categoryMultipliers[brand]) {
+    basePrice *= categoryMultipliers[brand];
+    console.log(`Applied ${brand} multiplier for ${detectedCategory}: ${categoryMultipliers[brand]}`);
+  } else if (enhancedItemData.brand && enhancedItemData.brand !== 'Unknown') {
+    basePrice *= 1.1; // Generic brand bonus
+  }
+  
+  // Apply condition multiplier
+  const condition = enhancedItemData.condition?.rating || 'good';
+ const conditionMultipliers = {
+  'excellent': 1.0,
+  'good': 0.75,      // Was 0.85 - too high
+  'fair': 0.50,      // Was 0.65 - too high
+  'poor': 0.25,      // Was 0.35 - way too high
+  'parts_only': 0.15  // NEW - for non-functional items
+};
+  
+  basePrice *= (conditionMultipliers[condition] || 0.75);
+  
+  // Additional adjustments
+  if (enhancedItemData.condition?.usableAsIs === false) {
+    basePrice *= 0.6; // 40% reduction for items needing repair
+  }
+  
+  if (enhancedItemData.model && enhancedItemData.model !== 'Unknown') {
+    basePrice *= 1.1; // 10% bonus for known model
+  }
+  
+  const suggestedPrice = validatePriceEstimate(Math.round(basePrice), enhancedItemData);
+  
+  // Calculate costs
+  const shippingCost = pricingTier.shippingCost;
+  const ebayFees = calculateCategoryFees(suggestedPrice, detectedCategory);
+  const netProfit = Math.round((suggestedPrice - ebayFees - shippingCost) * 100) / 100;
+  
+  return {
+    suggested: suggestedPrice,
+    confidence: 'medium',
+    priceRange: {
+      low: Math.round(suggestedPrice * 0.7),
+      high: Math.round(suggestedPrice * 1.4),
+      median: suggestedPrice
+    },
+    shippingCost: shippingCost,
+    ebayFees: ebayFees,
+    netProfit: netProfit,
+    source: 'enhanced_manual',
+    factors: {
+      category: detectedCategory,
+      brand: enhancedItemData.brand,
+      condition: condition,
+      basePricing: pricingTier.base
+    },
+    note: `Based on enhanced ${detectedCategory} category analysis and brand recognition`
+  };
+}
+
+// Enhanced eBay API implementation with smart query building
+async function getEbayMarketPricing(enhancedItemData, ebayConfig) {
+  console.log('Starting enhanced eBay API market pricing...');
+  
+  const accessToken = await getEbayAccessToken(ebayConfig);
+  const query = buildVehicleSearchQuery(enhancedItemData); // Now handles all categories
+  
+  console.log(`Enhanced eBay search query: "${query}"`);
   
   if (!query.trim()) {
     throw new Error('No valid search terms could be generated');
   }
   
   // Search eBay with condition filtering
-  const items = await searchEbayItemsWithCondition(query, accessToken, ebayConfig, itemData.condition);
+  const items = await searchEbayItemsWithCondition(query, accessToken, ebayConfig, enhancedItemData.condition);
   
   if (items.length === 0) {
     throw new Error(`No similar items found for "${query}"`);
   }
   
   // Analyze prices with condition awareness
-  const priceAnalysis = analyzeConditionAwarePricing(items, itemData.condition, query);
+  const priceAnalysis = analyzeConditionAwarePricing(items, enhancedItemData.condition, query);
   
   if (!priceAnalysis) {
     throw new Error('No valid prices found in search results');
   }
   
+  // Validate price against category
+  const validatedPrice = validatePriceEstimate(priceAnalysis.suggestedPrice, enhancedItemData);
+  
   // Calculate additional costs
-  const shippingCost = calculateShippingCost(itemData);
-  const ebayFees = Math.round((priceAnalysis.suggestedPrice * 0.1325) * 100) / 100;
-  const netProfit = Math.round((priceAnalysis.suggestedPrice - shippingCost - ebayFees) * 100) / 100;
+  const shippingCost = enhancedItemData.pricingTier.shippingCost;
+  const ebayFees = calculateCategoryFees(validatedPrice, enhancedItemData.detectedCategory);
+  const netProfit = Math.round((validatedPrice - shippingCost - ebayFees) * 100) / 100;
   
   const result = {
-    suggested: priceAnalysis.suggestedPrice,
+    suggested: validatedPrice,
     confidence: priceAnalysis.sampleSize >= 5 ? 'high' : 'medium',
     priceRange: {
       low: priceAnalysis.min,
@@ -223,10 +560,9 @@ async function getEbayMarketPricing(itemData, ebayConfig) {
     netProfit: netProfit,
     sampleSize: priceAnalysis.sampleSize,
     searchQuery: query,
-    source: 'ebay_api_condition_aware',
-    conditionMatched: true,
-    conditionDistribution: priceAnalysis.conditionDistribution,
-    note: `Based on ${priceAnalysis.sampleSize} condition-matched eBay listings`,
+    source: 'ebay_api_enhanced',
+    detectedCategory: enhancedItemData.detectedCategory,
+    note: `Based on ${priceAnalysis.sampleSize} eBay listings for ${enhancedItemData.detectedCategory}`,
     comparableItems: items.slice(0, 3).map(item => ({
       title: item.title,
       price: parseFloat(item.price?.value || 0),
@@ -235,83 +571,36 @@ async function getEbayMarketPricing(itemData, ebayConfig) {
     }))
   };
   
-  console.log('✅ Condition-aware eBay pricing complete:', {
+  console.log('Enhanced eBay pricing complete:', {
     suggested: result.suggested,
     netProfit: result.netProfit,
     source: result.source,
-    sampleSize: result.sampleSize,
-    conditionMatched: result.conditionMatched
+    category: enhancedItemData.detectedCategory
   });
   
   return result;
 }
 
-// ✅ BRAND-AWARE search query builder
-function buildEnhancedSearchQuery(itemData) {
-  console.log('🔍 Building enhanced search query for:', {
-    category: itemData.category,
-    brand: itemData.brand,
-    materials: itemData.materials,
-    keyFeatures: itemData.keyFeatures
-  });
-  
-  const queryParts = [];
-  const excludeGeneric = ['unknown', 'generic', 'see photos', 'item', 'object'];
-  
-  // 1. Use specific category (most important)
-  if (itemData.category && 
-      !excludeGeneric.some(term => itemData.category.toLowerCase().includes(term))) {
-    queryParts.push(itemData.category);
-  }
-  
-  // 2. Add brand if it's meaningful (INCLUDING IKEA!)
-  if (itemData.brand && 
-      !excludeGeneric.some(term => itemData.brand.toLowerCase().includes(term)) &&
-      itemData.brand.length > 2) {
-    queryParts.push(itemData.brand);
-    console.log('✅ Added brand to search:', itemData.brand);
-  }
-  
-  // 3. Add primary material if distinctive
-  if (itemData.materials && itemData.materials.length > 0) {
-    const primaryMaterial = itemData.materials[0];
-    if (primaryMaterial && 
-        !['unknown', 'generic'].includes(primaryMaterial.toLowerCase()) &&
-        !queryParts.some(part => part.toLowerCase().includes(primaryMaterial.toLowerCase()))) {
-      queryParts.push(primaryMaterial);
-    }
-  }
-  
-  const query = queryParts.join(' ').trim();
-  console.log('🎯 Enhanced query built:', `"${query}"`);
-  
-  return query;
-}
-
-// Helper functions (keeping the same as before)
+// Existing helper functions (keeping the same)
 function mapConditionToEbayFilters(itemCondition) {
   const condition = itemCondition?.rating?.toLowerCase() || 'good';
   
   const conditionMappings = {
     'excellent': {
       primary: ['1000', '1500', '2000'],
-      fallback: ['2500', '3000'],
-      description: 'excellent to new condition'
+      fallback: ['2500', '3000']
     },
     'good': {
       primary: ['2500', '3000'],
-      fallback: ['2000', '4000'],
-      description: 'good to very good condition'
+      fallback: ['2000', '4000']
     },
     'fair': {
       primary: ['3000', '4000'],
-      fallback: ['2500', '5000'],
-      description: 'fair to acceptable condition'
+      fallback: ['2500', '5000']
     },
     'poor': {
       primary: ['4000', '5000', '7000'],
-      fallback: ['3000'],
-      description: 'poor to for parts condition'
+      fallback: ['3000']
     }
   };
   
@@ -325,22 +614,19 @@ async function searchEbayItemsWithCondition(query, accessToken, ebayConfig, item
   
   const conditionMapping = mapConditionToEbayFilters(itemCondition);
   
-  console.log(`🔍 Searching eBay with condition filter for ${itemCondition?.rating || 'unknown'} condition`);
-  console.log(`📋 Using eBay condition IDs: ${conditionMapping.primary.join(', ')}`);
+  console.log(`Searching eBay with condition filter for ${itemCondition?.rating || 'unknown'} condition`);
   
   let items = await performEbaySearch(query, accessToken, apiUrl, conditionMapping.primary);
   
   if (items.length < 5 && conditionMapping.fallback.length > 0) {
-    console.log(`⚠️ Only ${items.length} items found with primary conditions, expanding search...`);
+    console.log(`Only ${items.length} items found with primary conditions, expanding search...`);
     const expandedConditions = [...conditionMapping.primary, ...conditionMapping.fallback];
     items = await performEbaySearch(query, accessToken, apiUrl, expandedConditions);
-    console.log(`📈 Expanded search found ${items.length} items`);
   }
   
   if (items.length < 3) {
-    console.log(`⚠️ Still only ${items.length} items found, searching without condition filter...`);
+    console.log(`Still only ${items.length} items found, searching without condition filter...`);
     items = await performEbaySearch(query, accessToken, apiUrl, []);
-    console.log(`🔓 Unrestricted search found ${items.length} items`);
   }
   
   return items;
@@ -356,10 +642,9 @@ async function performEbaySearch(query, accessToken, apiUrl, conditionIds = []) 
   if (conditionIds.length > 0) {
     const conditionFilter = `conditionIds:{${conditionIds.join('|')}}`;
     params.append('filter', conditionFilter);
-    console.log(`🏷️ Applied condition filter: ${conditionFilter}`);
   }
   
-  console.log(`🔍 eBay API call: ${searchUrl}?${params}`);
+  console.log(`eBay API call: ${searchUrl}?${params}`);
   
   const response = await fetch(`${searchUrl}?${params}`, {
     method: 'GET',
@@ -378,7 +663,7 @@ async function performEbaySearch(query, accessToken, apiUrl, conditionIds = []) 
   const data = await response.json();
   const items = data.itemSummaries || [];
   
-  console.log(`✅ Found ${items.length} items${conditionIds.length ? ' with condition filter' : ' (no condition filter)'}`);
+  console.log(`Found ${items.length} items`);
   return items;
 }
 
@@ -395,38 +680,44 @@ function analyzeConditionAwarePricing(items, itemCondition, query) {
     return null;
   }
   
-  const conditionCounts = prices.reduce((acc, item) => {
-    const condition = item.condition || 'Unknown';
-    acc[condition] = (acc[condition] || 0) + 1;
-    return acc;
-  }, {});
-  
-  console.log('📊 Condition distribution in results:', conditionCounts);
-  
   const sortedPrices = prices.map(p => p.price).sort((a, b) => a - b);
   
-  const median = sortedPrices[Math.floor(sortedPrices.length / 2)];
-  const average = sortedPrices.reduce((a, b) => a + b, 0) / sortedPrices.length;
+  // Remove statistical outliers using IQR method
+  const q1 = sortedPrices[Math.floor(sortedPrices.length * 0.25)];
+  const q3 = sortedPrices[Math.floor(sortedPrices.length * 0.75)];
+  const iqr = q3 - q1;
+  const lowerBound = q1 - 1.5 * iqr;
+  const upperBound = q3 + 1.5 * iqr;
   
-  const conditionMultiplier = getConditionMultiplier(itemCondition?.rating || 'good');
-  const suggestedPrice = Math.round(median * conditionMultiplier);
+  const filteredPrices = sortedPrices.filter(price => price >= lowerBound && price <= upperBound);
   
-  console.log('💰 Condition-aware pricing:', {
-    medianFromEbay: median,
-    conditionMultiplier: conditionMultiplier,
-    finalSuggestedPrice: suggestedPrice,
-    sampleSize: prices.length
-  });
+  if (filteredPrices.length < 2) {
+    // Fallback to original prices if too many filtered out
+    const median = sortedPrices[Math.floor(sortedPrices.length / 2)];
+    const average = sortedPrices.reduce((a, b) => a + b, 0) / sortedPrices.length;
+    
+    return {
+      median,
+      average,
+      min: sortedPrices[0],
+      max: sortedPrices[sortedPrices.length - 1],
+      suggestedPrice: Math.round(median),
+      sampleSize: prices.length
+    };
+  }
+  
+  const median = filteredPrices[Math.floor(filteredPrices.length / 2)];
+  const average = filteredPrices.reduce((a, b) => a + b, 0) / filteredPrices.length;
+  
+  console.log(`Market statistics: Median ${median}, Range ${filteredPrices[0]}-${filteredPrices[filteredPrices.length - 1]}, Sample: ${filteredPrices.length}/${prices.length}`);
   
   return {
     median,
     average,
-    min: sortedPrices[0],
-    max: sortedPrices[sortedPrices.length - 1],
-    suggestedPrice,
-    sampleSize: prices.length,
-    conditionDistribution: conditionCounts,
-    conditionAdjusted: true
+    min: filteredPrices[0],
+    max: filteredPrices[filteredPrices.length - 1],
+    suggestedPrice: Math.round(median),
+    sampleSize: filteredPrices.length
   };
 }
 
@@ -436,8 +727,6 @@ async function getEbayAccessToken(ebayConfig) {
   const tokenUrl = ebayConfig.environment === 'sandbox'
     ? 'https://api.sandbox.ebay.com/identity/v1/oauth2/token'
     : 'https://api.ebay.com/identity/v1/oauth2/token';
-  
-  console.log('🔑 Getting eBay access token...');
   
   const response = await fetch(tokenUrl, {
     method: 'POST',
@@ -457,39 +746,53 @@ async function getEbayAccessToken(ebayConfig) {
   }
   
   const data = await response.json();
-  console.log('✅ eBay access token acquired');
   return data.access_token;
 }
 
-function getConditionMultiplier(condition) {
-  const multipliers = {
-    'excellent': 1.0,
-    'good': 0.85,
-    'fair': 0.65,
-    'poor': 0.35
-  };
-  return multipliers[condition] || 0.75;
-}
-
-function calculateShippingCost(itemData) {
-  const shippingRates = {
-    'electronics': 12,
-    'clothing': 6,
-    'furniture': 25,
-    'tools': 15,
-    'sporting goods': 18,
-    'books': 4,
-    'toys': 8,
-    'jewelry': 5,
-    'collectibles': 10
-  };
-  return shippingRates[itemData.category?.toLowerCase()] || 8;
-}
-
-function calculateRoutes(itemData, marketAnalysis, userPreferences) {
+function calculateRoutes(enhancedItemData, marketAnalysis, userPreferences) {
   const suggestedPrice = marketAnalysis.suggested || 0;
   const netProfit = marketAnalysis.netProfit || 0;
+  const { detectedCategory } = enhancedItemData;
   
+  // Vehicle-specific routing
+  if (['automobile', 'motorcycle', 'boat', 'rv'].includes(detectedCategory)) {
+    return {
+      primary: {
+        type: "local_pickup",
+        priority: 1,
+        estimatedReturn: netProfit,
+        timeToMoney: "1-7 days",
+        effort: "medium",
+        details: {
+          listingPrice: suggestedPrice,
+          estimatedFees: marketAnalysis.ebayFees,
+          shippingCost: 0,
+          netProfit: netProfit
+        },
+        note: "Vehicles typically require local pickup or arranged transport"
+      },
+      alternatives: [
+        {
+          type: "ebay_motors",
+          priority: 2,
+          estimatedReturn: netProfit,
+          timeToMoney: "7-21 days",
+          effort: "high",
+          note: "List on eBay Motors for wider reach"
+        },
+        {
+          type: "donation",
+          priority: 3,
+          estimatedReturn: 0,
+          timeToMoney: "immediate",
+          effort: "low",
+          note: "Tax deduction for charitable donation"
+        }
+      ]
+    };
+  }
+  
+  // Standard item routing
   let primaryRoute = {
     type: "ebay",
     priority: 1,
@@ -538,10 +841,99 @@ function calculateRoutes(itemData, marketAnalysis, userPreferences) {
   };
 }
 
-// ✅ FIXED: Proper CommonJS export
-module.exports = { 
+/**
+ * NEW: Get preliminary routes without eBay API for instant response
+ * Uses AI-suggested pricing for <1s response time
+ */
+function getPreliminaryRoutes(itemData, userPreferences = {}) {
+  console.log('⚡ Getting preliminary routes (no API calls):', {
+    category: itemData.category,
+    brand: itemData.brand
+  });
+
+  try {
+    const detectedCategory = detectItemCategory(itemData);
+    const pricingTier = getPricingTier(itemData);
+
+    // Use AI-suggested price or tier-based estimate
+    let estimatedPrice = itemData.resale?.priceRange?.high || pricingTier.base;
+
+    // Quick validation
+    estimatedPrice = validatePriceEstimate(estimatedPrice, itemData);
+
+    // Calculate quick estimates
+    const shippingCost = pricingTier.shippingCost;
+    const fees = calculateCategoryFees(estimatedPrice, detectedCategory);
+    const netProfit = Math.round((estimatedPrice - shippingCost - fees) * 100) / 100;
+
+    const marketAnalysis = {
+      suggested: estimatedPrice,
+      confidence: 'preliminary',
+      priceRange: {
+        low: Math.round(estimatedPrice * 0.7),
+        high: Math.round(estimatedPrice * 1.3),
+        median: estimatedPrice
+      },
+      shippingCost,
+      ebayFees: fees,
+      netProfit,
+      source: 'ai_preliminary',
+      note: 'Preliminary estimate - market pricing in progress'
+    };
+
+    const routes = calculateRoutes(
+      { ...itemData, detectedCategory, pricingTier },
+      marketAnalysis,
+      userPreferences
+    );
+
+    console.log('⚡ Preliminary routes complete:', {
+      estimatedPrice,
+      netProfit,
+      routeType: routes.primary.type
+    });
+
+    return {
+      recommendedRoute: routes.primary,
+      alternativeRoutes: routes.alternatives,
+      marketAnalysis: {
+        estimatedValue: marketAnalysis,
+        dataSource: 'preliminary',
+        confidence: 'low',
+        detectedCategory,
+        pricingTier,
+        isPreliminary: true
+      }
+    };
+  } catch (error) {
+    console.error('❌ Preliminary routes failed:', error);
+
+    // Ultra-safe fallback
+    return {
+      recommendedRoute: {
+        type: "evaluate",
+        priority: 1,
+        estimatedReturn: 0,
+        timeToMoney: "unknown",
+        effort: "medium",
+        reason: "Getting market pricing..."
+      },
+      alternativeRoutes: [],
+      marketAnalysis: {
+        estimatedValue: {
+          suggested: null,
+          confidence: 'none',
+          source: 'preliminary_error'
+        },
+        isPreliminary: true
+      }
+    };
+  }
+}
+
+module.exports = {
   routeDisposition,
+  getPreliminaryRoutes,
   getEbayAccessToken,
-  getConditionMultiplier,
-  calculateShippingCost
+  calculateCategoryFees
 };

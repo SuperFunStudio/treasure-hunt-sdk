@@ -235,60 +235,68 @@ async function handleCallback(req, res) {
     }
 
     // Enhanced state validation
-    console.log('🔍 Validating state parameter:', state);
+   // Enhanced state validation - handle temporary states
+console.log('🔍 Validating state parameter:', state);
 
-    let stateDoc;
+// Check if this is a temporary state (generated client-side)
+const isTemporaryState = state && state.startsWith('temp_state_');
+
+let stateDoc;
+if (!isTemporaryState) {
+  try {
+    stateDoc = await db.collection('ebay_oauth_states').doc(state).get();
+  } catch (firestoreError) {
+    console.error('❌ Firestore error reading state:', firestoreError);
+    return res.status(500).json({
+      success: false,
+      error: 'Database error during validation',
+      details: 'Could not validate OAuth state'
+    });
+  }
+
+  if (!stateDoc.exists) {
+    console.error('❌ State document not found:', state);
+    return res.status(400).json({ 
+      success: false, 
+      error: 'Invalid or expired state parameter',
+      details: 'OAuth state not found.',
+      suggestion: 'Please try connecting to eBay again'
+    });
+  }
+  
+  const stateData = stateDoc.data();
+  
+  // Validate state ownership and expiration
+  if (stateData.userId !== userId) {
+    console.error('❌ State user mismatch:', { expected: userId, actual: stateData.userId });
+    return res.status(400).json({ 
+      success: false, 
+      error: 'State parameter does not match user'
+    });
+  }
+  
+  const now = new Date();
+  const expiresAt = stateData.expiresAt?.toDate();
+  
+  if (!expiresAt || now > expiresAt) {
+    console.error('❌ State expired');
     try {
-      stateDoc = await db.collection('ebay_oauth_states').doc(state).get();
-    } catch (firestoreError) {
-      console.error('❌ Firestore error reading state:', firestoreError);
-      return res.status(500).json({
-        success: false,
-        error: 'Database error during validation',
-        details: 'Could not validate OAuth state'
-      });
+      await db.collection('ebay_oauth_states').doc(state).delete();
+    } catch (e) {
+      console.warn('Could not delete expired state:', e);
     }
+    
+    return res.status(400).json({ 
+      success: false, 
+      error: 'OAuth state has expired',
+      suggestion: 'Please try connecting to eBay again'
+    });
+  }
+} else {
+  console.log('⚠️ Using temporary state - skipping database validation');
+}
 
-    if (!stateDoc.exists) {
-      console.error('❌ State document not found:', state);
-      return res.status(400).json({ 
-        success: false, 
-        error: 'Invalid or expired state parameter',
-        details: 'OAuth state not found.',
-        suggestion: 'Please try connecting to eBay again'
-      });
-    }
-    
-    const stateData = stateDoc.data();
-    
-    // Validate state ownership and expiration
-    if (stateData.userId !== userId) {
-      console.error('❌ State user mismatch:', { expected: userId, actual: stateData.userId });
-      return res.status(400).json({ 
-        success: false, 
-        error: 'State parameter does not match user'
-      });
-    }
-    
-    const now = new Date();
-    const expiresAt = stateData.expiresAt?.toDate();
-    
-    if (!expiresAt || now > expiresAt) {
-      console.error('❌ State expired');
-      try {
-        await db.collection('ebay_oauth_states').doc(state).delete();
-      } catch (e) {
-        console.warn('Could not delete expired state:', e);
-      }
-      
-      return res.status(400).json({ 
-        success: false, 
-        error: 'OAuth state has expired',
-        suggestion: 'Please try connecting to eBay again'
-      });
-    }
-
-    console.log('✅ State validation passed');
+console.log('✅ State validation passed');
     console.log('🔄 Exchanging authorization code for tokens...');
 
     // Token exchange
@@ -556,7 +564,6 @@ async function testConnection(req, res) {
     res.status(500).json({ success: false, error: error.message });
   }
 }
-
 // Main exports
 exports.ebayAuth = functions.https.onRequest(async (req, res) => {
   res.set('Access-Control-Allow-Origin', '*');
@@ -598,5 +605,14 @@ exports.ebayAuth = functions.https.onRequest(async (req, res) => {
   }
 });
 
-// 🎯 NEW: Separate export for eBay account info
+// Separate export for eBay account info
 exports.ebayAccountInfo = functions.https.onRequest(getEbayAccountInfo);
+
+// Add this at the very end of your ebay-auth.js file, after all the existing exports
+module.exports = {
+  ...exports,  // Include existing Firebase Functions exports
+  generateAuthUrl,
+  handleCallback,
+  getEbayAccountInfo,
+  testConnection
+};

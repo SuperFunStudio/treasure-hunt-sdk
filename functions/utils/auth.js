@@ -2,7 +2,7 @@
 // Authentication utilities and middleware
 
 const { admin } = require('../config/firebase');
-const { AuthenticationError, AuthorizationError, ValidationError } = require('../capture-sdk/utils/error-handler');
+const { AuthenticationError, AuthorizationError, ValidationError } = require('./error-handler');
 
 /**
  * Extract and verify Firebase ID token from request

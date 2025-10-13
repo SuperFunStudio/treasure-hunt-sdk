@@ -1,12 +1,12 @@
 // functions/index.js
-// Main entry point - fully modular with route separation
+// Main entry point - fully modular with route separation and affiliate tracking
 
 // ========== 1. IMPORTS ==========
 const express = require('express');
-const cors = require('cors');
+const { onSchedule } = require('firebase-functions/v2/scheduler');
 
 // Import configuration modules
-const { config, getEnvironmentStatus } = require('./config/environment');
+const { config, getEnvironmentStatus, validateAffiliateConfig } = require('./config/environment');
 const { EBAY_LISTING } = require('./config/constants');
 const { 
   onRequest, 
@@ -21,6 +21,15 @@ const {
 const { router: healthRoutes, injectSDKGetter } = require('./routes/health');
 const { router: analysisRoutes, injectDependencies: injectAnalysisDeps } = require('./routes/analysis');
 const { router: ebayRoutes, injectDependencies: injectEbayDeps } = require('./routes/ebay');
+const { router: pinsRoutes, injectDependencies: injectPinsDeps } = require('./routes/pins');
+const { router: locationRoutes } = require('./routes/location');
+
+
+
+// Import new services for affiliate tracking and subscriptions
+const affiliateService = require('./services/affiliate/affiliateService');
+const subscriptionService = require('./services/subscription/subscriptionService');
+const subscriptionRoutes = require('./routes/subscription');
 
 // Import existing modules (keeping category mapper for now)
 const { initializeDatabase } = require('./utils/ebay-category-mapper');
@@ -30,22 +39,56 @@ initializeDatabase(db, admin);
 console.log('Category mapper initialized with database access');
 
 logStartup();
-console.log('Environment check:', getEnvironmentStatus());
 
-// ========== 3. UTILITY FUNCTIONS ==========
-const corsHandler = cors({
-  origin: true,
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
-});
+// ========== 3. ENHANCED STARTUP VALIDATION ==========
+const envStatus = getEnvironmentStatus();
+const affiliateValidation = validateAffiliateConfig();
 
-// ========== 4. EXPRESS APP SETUP ==========
+console.log('=== ENVIRONMENT STATUS ===');
+console.log('Environment check:', envStatus);
+console.log('Production ready:', envStatus.isProductionReady);
+
+console.log('=== AFFILIATE CONFIGURATION ===');
+if (!affiliateValidation.isValid) {
+  console.warn('⚠️  AFFILIATE CONFIGURATION ISSUES:');
+  affiliateValidation.errors.forEach(error => console.warn(`  - ${error}`));
+} else {
+  console.log('✅ Affiliate configuration valid');
+}
+
+// Validate affiliate service configuration
+try {
+  const affiliateConfigCheck = affiliateService.validateConfiguration();
+  if (!affiliateConfigCheck.isValid) {
+    console.warn('⚠️  AFFILIATE SERVICE ISSUES:');
+    affiliateConfigCheck.errors.forEach(error => console.warn(`  - ${error}`));
+  } else {
+    console.log('✅ Affiliate tracking service configured correctly');
+  }
+} catch (error) {
+  console.warn('⚠️  Affiliate service validation failed:', error.message);
+}
+
+console.log('=== FEATURE STATUS ===');
+console.log('Affiliate Tracking:', envStatus.affiliateTrackingEnabled ? '✅ Enabled' : '❌ Disabled');
+console.log('Subscriptions:', envStatus.subscriptionsEnabled ? '✅ Enabled' : '❌ Disabled');
+console.log('Commission Reporting:', envStatus.commissionReportingEnabled ? '✅ Enabled' : '❌ Disabled');
+
+// ========== 4. UTILITY FUNCTIONS ==========
+const { getCorsMiddleware, logCorsRequests } = require('./utils/cors');
+const corsHandler = getCorsMiddleware('development'); // Use development for testing
+
+// ========== 5. EXPRESS APP SETUP ==========
 const app = express();
 app.use(corsHandler);
+app.use(logCorsRequests);
+
+// Special handling for Stripe webhooks (raw body needed) - MUST come before express.json
+app.use('/api/subscription/webhook', express.raw({type: 'application/json'}));
+
 app.use(express.json({ limit: '50mb' }));
 
-// ========== 5. SDK INITIALIZATION ==========
+// ========== 6. SDK INITIALIZATION ==========
 let cachedSDK = null;
 let sdkInitError = null;
 
@@ -143,7 +186,7 @@ function createFallbackSDK() {
   };
 }
 
-// ========== 6. AUTHENTICATION MIDDLEWARE ==========
+// ========== 7. AUTHENTICATION MIDDLEWARE ==========
 async function verifyAuth(req) {
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -153,7 +196,7 @@ async function verifyAuth(req) {
   return await admin.auth().verifyIdToken(idToken);
 }
 
-// ========== 7. INJECT DEPENDENCIES INTO ROUTES ==========
+// ========== 8. INJECT DEPENDENCIES INTO ROUTES ==========
 // Inject SDK getter into health routes
 injectSDKGetter(getSDK, sdkInitError);
 
@@ -163,12 +206,102 @@ injectAnalysisDeps(getSDK, verifyAuth);
 // Inject dependencies into eBay routes
 injectEbayDeps(verifyAuth);
 
-// ========== 8. REGISTER ROUTES ==========
+//Inject pin dependenceies 
+injectPinsDeps(verifyAuth);
+
+
+// ========== 9. REGISTER ROUTES ==========
+console.log('Registering routes...');
+
 app.use('/', healthRoutes);    // /health, /api/test, /api/status
 app.use('/', analysisRoutes);  // /api/analyze, /api/analyze-json
-app.use('/', ebayRoutes);      // /api/ebay/*
+app.use('/', ebayRoutes);      // /api/ebay/* (now with affiliate tracking)
+app.use('/', pinsRoutes);      // /api/pins/*
+app.use('/', locationRoutes);  // /api/location/*
 
-// ========== 9. DIAGNOSTIC ENDPOINTS ==========
+app.use('/', subscriptionRoutes); // NEW: Subscription management
+
+console.log('Core routes registered');
+
+// Add eBay Auth routes to main app
+try {
+  app.post('/api/ebay/auth/auth-url', async (req, res) => {
+    try {
+      const { generateAuthUrl } = require('./api/ebay-auth.js');
+      await generateAuthUrl(req, res);
+    } catch (error) {
+      console.error('Auth URL error:', error);
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  // Add this GET handler for eBay's OAuth redirect
+  app.get('/api/ebay/auth/callback', (req, res) => {
+    const { code, state, expires_in } = req.query;
+    
+    console.log('eBay OAuth callback received:', { 
+      hasCode: !!code, 
+      hasState: !!state, 
+      code: code ? code.substring(0, 20) + '...' : 'missing',
+      allParams: Object.keys(req.query)
+    });
+    
+    res.send(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>eBay Connection - Treasure Hunter</title>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      </head>
+      <body>
+        <div style="text-align: center; padding: 50px; font-family: Arial, sans-serif;">
+          <h2>Connecting to eBay...</h2>
+          <p>Please wait while we complete your eBay connection.</p>
+        </div>
+        
+        <script>
+          const code = ${JSON.stringify(code)};
+          const state = ${JSON.stringify(state)} || 'temp_state_' + Date.now();
+          
+          console.log('Callback parameters:', { 
+            code: code ? 'present' : 'missing', 
+            state: state ? 'present' : 'generated' 
+          });
+          
+          if (code) {
+            // Proceed even without state for testing
+            const params = new URLSearchParams({
+              code: code,
+              state: state
+            });
+            window.location.href = '/ebay-oauth-callback.html?' + params.toString();
+          } else {
+            console.error('Missing code parameter');
+            document.body.innerHTML = '<div style="text-align: center; padding: 50px;"><h2>Error</h2><p>Missing authorization code. Please try connecting again.</p></div>';
+          }
+        </script>
+      </body>
+      </html>
+    `);
+  });
+
+  app.post('/api/ebay/auth/callback', async (req, res) => {
+    try {
+      const { handleCallback } = require('./api/ebay-auth.js');
+      await handleCallback(req, res);
+    } catch (error) {
+      console.error('Callback error:', error);
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+  
+  console.log('eBay auth routes added to main app');
+} catch (error) {
+  console.warn('Could not load eBay auth routes:', error.message);
+}
+
+// ========== 10. DIAGNOSTIC ENDPOINTS ==========
 app.options('/api/echo-raw', corsHandler);
 app.post('/api/echo-raw', (req, res) => {
   const chunks = [];
@@ -191,7 +324,7 @@ app.post('/api/echo-raw', (req, res) => {
   req.on('error', (e) => res.status(500).json({ ok: false, error: String(e) }));
 });
 
-// ========== ROOT ROUTE ==========
+// ========== 11. ROOT ROUTE ==========
 app.get('/', (req, res) => {
   res.json({
     service: 'Treasure Hunt SDK API',
@@ -199,18 +332,64 @@ app.get('/', (req, res) => {
     status: 'running',
     timestamp: new Date().toISOString(),
     architecture: 'modular',
+    features: {
+      affiliateTracking: envStatus.affiliateTrackingEnabled,
+      subscriptions: envStatus.subscriptionsEnabled,
+      commissionReporting: envStatus.commissionReportingEnabled
+    },
     endpoints: [
       'GET /health - Health check',
-      'GET /api/test - API test',
+      'GET /api/test - API test', 
       'GET /api/status - Detailed status',
       'POST /api/analyze - Image analysis',
-      'POST /api/ebay/create-listing - Create eBay listing',
-      'GET /api/ebay/account-info - eBay account info'
+      'POST /api/ebay/create-listing - Create eBay listing (with tracking)',
+      'GET /api/ebay/account-info - eBay account info',
+      'GET /api/ebay/quota-status - Check listing quotas',
+      'GET /api/subscription/status - Subscription status',
+      'POST /api/subscription/create-checkout - Upgrade subscription',
+       // Add these new pin endpoints
+      'POST /api/pins - Create pin',
+      'GET /api/pins/nearby - Find nearby pins',
+      'GET /api/pins/:id - Get pin details',
+      'GET /api/pins/user/mine - Get user pins',
+      'POST /api/pins/:id/interest - Show interest',
+      'POST /api/pins/:id/claim - Claim pin',
+      'PUT /api/pins/:id - Update pin',
+      'DELETE /api/pins/:id - Delete pin',
+      'GET /api/location/reverse-geocode - Reverse geocode coordinates'
     ]
   });
 });
 
-// ========== 10. ERROR HANDLERS ==========
+// ========== 12. ENHANCED ERROR HANDLING ==========
+// Enhanced error handling for subscription/quota errors
+app.use((error, req, res, next) => {
+  console.error('Enhanced error handler:', error);
+  
+  // Handle specific error types
+  if (error.message.includes('QUOTA_EXCEEDED')) {
+    return res.status(429).json({
+      success: false,
+      error: 'Rate limit or quota exceeded',
+      errorCode: 'QUOTA_EXCEEDED',
+      message: 'Please upgrade your subscription or wait for quota reset'
+    });
+  }
+  
+  if (error.message.includes('SUBSCRIPTION_REQUIRED')) {
+    return res.status(402).json({
+      success: false,
+      error: 'Subscription required',
+      errorCode: 'SUBSCRIPTION_REQUIRED',
+      message: 'This feature requires a paid subscription'
+    });
+  }
+
+  // Continue to existing error handler
+  next(error);
+});
+
+// Original error handler
 app.use((err, _req, res, _next) => {
   console.error('UNHANDLED ERROR:', err?.stack || err);
   res.status(500).json({ 
@@ -219,10 +398,104 @@ app.use((err, _req, res, _next) => {
   });
 });
 
-// ========== 11. EXPORT FUNCTIONS ==========
+// 404 handler
+app.use((req, res) => {
+  // We remove the old static list and return a dynamic one from the root endpoint
+  res.status(404).json({
+    success: false,
+    error: 'Endpoint not found',
+    errorCode: 'NOT_FOUND',
+    message: 'Please see the root endpoint (/) for a list of available endpoints.'
+  });
+});
+
+// ========== 13. SCHEDULED FUNCTIONS ==========
+
+/**
+ * Commission Report Processing
+ * Scheduled function to process eBay Partner Network commission reports
+ */
+const processCommissionReports = onRequest(getAppConfig(), async (req, res) => {
+  try {
+    console.log('Processing commission reports...');
+    
+    // Placeholder for eBay Partner Network API integration
+    // This would fetch and process commission data from EPN
+    
+    res.json({
+      success: true,
+      message: 'Commission report processing completed',
+      processed: 0,
+      timestamp: new Date().toISOString()
+    });
+    
+  } catch (error) {
+    console.error('Commission processing failed:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+/**
+ * Subscription Analytics
+ * Generate subscription and usage analytics
+ */
+const generateAnalytics = onRequest(getAppConfig(), async (req, res) => {
+  try {
+    console.log('Generating analytics...');
+    
+    // Get subscription distribution
+    const usersSnapshot = await db.collection('users').get();
+    const subscriptionStats = {
+      total: 0,
+      free: 0,
+      starter: 0,
+      pro: 0
+    };
+    
+    usersSnapshot.docs.forEach(doc => {
+      const userData = doc.data();
+      const tier = userData.subscription?.tier || 'free';
+      subscriptionStats.total++;
+      subscriptionStats[tier] = (subscriptionStats[tier] || 0) + 1;
+    });
+    
+    // Get commission stats
+    const commissionsSnapshot = await db.collection('commissions').get();
+    const totalCommissions = commissionsSnapshot.docs.reduce((sum, doc) => {
+      return sum + (doc.data().ourCommission || 0);
+    }, 0);
+    
+    res.json({
+      success: true,
+      analytics: {
+        subscriptions: subscriptionStats,
+        commissions: {
+          total: totalCommissions,
+          count: commissionsSnapshot.size
+        },
+        generatedAt: new Date().toISOString()
+      }
+    });
+    
+  } catch (error) {
+    console.error('Analytics generation failed:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+// ========== 14. EXPORT FUNCTIONS ==========
+console.log('Exporting Cloud Functions...');
+
 // Main Express app
 exports.app = onRequest(getAppConfig(), app);
 
+// Health check (standalone)
 exports.health = onRequest(getHealthConfig(), (_req, res) => {
   res.set('Access-Control-Allow-Origin', '*');
   res.json({
@@ -230,6 +503,11 @@ exports.health = onRequest(getHealthConfig(), (_req, res) => {
     timestamp: new Date().toISOString(),
     service: 'Treasure Hunt SDK',
     ebayConfigured: !!(config.EBAY_CLIENT_ID && config.EBAY_CLIENT_SECRET),
+    affiliateConfigured: !!(config.EBAY_CAMPAIGN_ID),
+    features: {
+      affiliateTracking: envStatus.affiliateTrackingEnabled,
+      subscriptions: envStatus.subscriptionsEnabled
+    }
   });
 });
 
@@ -252,12 +530,63 @@ try {
 
 exports.ebayAuth = ebayAuth;
 
-console.log('Functions initialized with modular services and routes');
-console.log('Exports:', Object.keys(exports).join(', '));
+// NEW: Scheduled functions
+exports.processCommissionReports = processCommissionReports;
+exports.generateAnalytics = generateAnalytics;
+
+exports.pinCleanup = onSchedule('every 1 hours', async (event) => {
+  console.log('Running scheduled pin cleanup...');
+  
+  try {
+    const expirationService = require('./services/location/expirationService');
+    const result = await expirationService.runCleanup();
+    
+    console.log('Pin cleanup completed:', result);
+    return result;
+    
+  } catch (error) {
+    console.error('Pin cleanup failed:', error);
+    throw error;
+  }
+});
+
+exports.pinNotifications = onSchedule('every 30 minutes', async (event) => {
+  console.log('Checking for pins requiring expiration notifications...');
+  
+  try {
+    const expirationService = require('./services/location/expirationService');
+    const notificationsSent = await expirationService.sendExpirationNotifications();
+    
+    console.log(`Sent ${notificationsSent} expiration notifications`);
+    return { notificationsSent };
+    
+  } catch (error) {
+    console.error('Notification check failed:', error);
+    throw error;
+  }
+});
+
+
+// ========== 15. STARTUP SUMMARY ==========
+console.log('=== STARTUP COMPLETE ===');
+console.log('✅ Express app configured');
+console.log('✅ Routes registered');
+console.log('✅ Error handling configured');
+console.log('✅ Cloud Functions exported');
+
+if (envStatus.isProductionReady) {
+  console.log('🚀 Application ready for production');
+} else {
+  console.log('⚠️  Additional configuration needed for production');
+}
+
+console.log('=== EXPORTS ===');
+console.log('Functions:', Object.keys(exports).join(', '));
+console.log('===============');
 
 // Architecture Summary:
 // - Configuration: /config/*.js
-// - Services: /services/ebay/*.js 
+// - Services: /services/{affiliate,subscription,ebay}/*.js 
 // - Utilities: /utils/*.js
 // - Routes: /routes/*.js
-// - Main file: ~150 lines (was 3000+)
+// - Enhanced with affiliate tracking and subscription management

@@ -121,17 +121,17 @@ class EbayPricingBridge {
     this.log('Using enhanced manual pricing...');
     
     // Category-based base pricing
-    const categoryPrices = {
-      'electronics': 25,
-      'clothing': 15,
-      'furniture': 35,
-      'tools': 20,
-      'sporting goods': 18,
-      'books': 8,
-      'toys': 12,
-      'jewelry': 30,
-      'collectibles': 40
-    };
+   const categoryPrices = {
+  'electronics': 25,    // Was 25, keep it
+  'clothing': 10,       // Reduce from 15
+  'furniture': 20,      // Reduce from 35
+  'tools': 20,         // Keep at 20
+  'sporting goods': 15, // Reduce from 18
+  'books': 5,          // Reduce from 8
+  'toys': 8,           // Reduce from 12
+  'jewelry': 20,       // Reduce from 30
+  'collectibles': 25   // Reduce from 40
+};
 
     const basePrice = categoryPrices[itemData.category?.toLowerCase()] || 15;
     this.log('Base price for category:', { category: itemData.category, basePrice });
@@ -152,11 +152,12 @@ class EbayPricingBridge {
 
     // Condition multiplier
     const conditionMultipliers = {
-      'excellent': 1.0,
-      'good': 0.85,
-      'fair': 0.65,
-      'poor': 0.35
-    };
+  'excellent': 1.0,
+  'good': 0.75,      // Was 0.85 - too high
+  'fair': 0.50,      // Was 0.65 - too high
+  'poor': 0.25,      // Was 0.35 - way too high
+  'parts_only': 0.15  // NEW - for non-functional items
+};
     
     const condition = itemData.condition?.rating || 'good';
     const conditionMultiplier = conditionMultipliers[condition] || 0.75;

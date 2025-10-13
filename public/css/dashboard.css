@@ -1,0 +1,560 @@
+/* css/dashboard.css - Dashboard-specific styles */
+
+/* Welcome section */
+.welcome-section {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 40px;
+    border-radius: 20px;
+    margin-bottom: 30px;
+    text-align: center;
+}
+
+.welcome-section h1 {
+    font-size: 32px;
+    margin-bottom: 10px;
+    font-weight: 700;
+}
+
+.welcome-section p {
+    font-size: 18px;
+    opacity: 0.9;
+    margin: 0;
+}
+
+/* Stats grid */
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 20px;
+    margin-bottom: 30px;
+}
+
+.stat-card {
+    background: white;
+    padding: 30px;
+    border-radius: 15px;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+    text-align: center;
+    transition: transform 0.2s;
+    border: 1px solid rgba(0,0,0,0.05);
+}
+
+.stat-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+}
+
+.stat-icon {
+    font-size: 48px;
+    margin-bottom: 15px;
+    display: block;
+}
+
+.stat-value {
+    font-size: 36px;
+    font-weight: 700;
+    color: #333;
+    margin-bottom: 5px;
+    display: block;
+}
+
+.stat-label {
+    color: #666;
+    font-size: 16px;
+    font-weight: 500;
+}
+
+/* Actions section */
+.actions-section {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 20px;
+    margin-bottom: 30px;
+}
+
+.action-card {
+    background: white;
+    padding: 30px;
+    border-radius: 15px;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+    transition: transform 0.2s;
+    border: 1px solid rgba(0,0,0,0.05);
+    position: relative;
+}
+
+.action-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+}
+
+.action-card[style*="border-left"] {
+    border-left-width: 4px !important;
+}
+
+.action-icon {
+    font-size: 40px;
+    margin-bottom: 15px;
+    display: block;
+}
+
+.action-card h3 {
+    font-size: 24px;
+    margin-bottom: 10px;
+    color: #333;
+    font-weight: 700;
+}
+
+.action-card p {
+    color: #666;
+    margin-bottom: 20px;
+    line-height: 1.5;
+    font-size: 15px;
+}
+
+.action-btn {
+    width: 100%;
+    padding: 15px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    border-radius: 10px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: transform 0.2s;
+    text-decoration: none;
+    display: inline-block;
+    text-align: center;
+}
+
+.action-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(102, 126, 234, 0.3);
+}
+
+.action-btn.secondary {
+    background: #f5f5f5;
+    color: #333;
+    border: 2px solid #e0e0e0;
+}
+
+.action-btn.secondary:hover {
+    border-color: #667eea;
+    color: #667eea;
+    background: #f8f9ff;
+}
+
+/* eBay status specific styles */
+.ebay-status {
+    margin-bottom: 20px;
+}
+
+/* Recent scans section */
+.recent-scans {
+    background: white;
+    border-radius: 15px;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+    padding: 30px;
+    border: 1px solid rgba(0,0,0,0.05);
+}
+
+.recent-scans h3 {
+    margin-bottom: 20px;
+    color: #333;
+    font-size: 24px;
+    font-weight: 700;
+}
+
+.scan-item {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    padding: 15px;
+    border-radius: 10px;
+    margin-bottom: 10px;
+    transition: all 0.2s;
+    cursor: pointer;
+    border: 1px solid transparent;
+}
+
+.scan-item:hover {
+    background: #f8f9fa;
+    border-color: #e9ecef;
+    transform: translateX(5px);
+}
+
+.scan-item:last-child {
+    margin-bottom: 0;
+}
+
+.scan-image {
+    width: 60px;
+    height: 60px;
+    border-radius: 8px;
+    background: linear-gradient(135deg, #f0f0f0 0%, #e8e8e8 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    flex-shrink: 0;
+    border: 1px solid #e0e0e0;
+}
+
+.scan-details {
+    flex: 1;
+    min-width: 0;
+}
+
+.scan-title {
+    font-weight: 600;
+    margin-bottom: 5px;
+    color: #333;
+    font-size: 16px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.scan-meta {
+    font-size: 14px;
+    color: #666;
+    font-weight: 400;
+}
+
+.scan-status {
+    padding: 5px 10px;
+    border-radius: 5px;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: capitalize;
+    flex-shrink: 0;
+}
+
+.status-draft {
+    background: #fff3e0;
+    color: #f57c00;
+    border: 1px solid #ffcc80;
+}
+
+.status-listed {
+    background: #e8f5e9;
+    color: #2e7d32;
+    border: 1px solid #a5d6a7;
+}
+
+.status-sold {
+    background: #e3f2fd;
+    color: #1976d2;
+    border: 1px solid #90caf9;
+}
+
+.status-analyzed {
+    background: #f3e5f5;
+    color: #7b1fa2;
+    border: 1px solid #ce93d8;
+}
+
+.status-completed {
+    background: #e8f5e9;
+    color: #2e7d32;
+    border: 1px solid #a5d6a7;
+}
+
+.status-editing {
+    background: #fff3e0;
+    color: #f57c00;
+    border: 1px solid #ffcc80;
+}
+
+.status-creating_listing {
+    background: #e3f2fd;
+    color: #1976d2;
+    border: 1px solid #90caf9;
+}
+
+.status-ready_to_publish {
+    background: #f3e5f5;
+    color: #7b1fa2;
+    border: 1px solid #ce93d8;
+}
+
+/* Dashboard-specific responsive adjustments */
+@media (max-width: 768px) {
+    .welcome-section {
+        padding: 30px 20px;
+        border-radius: 15px;
+        margin-bottom: 25px;
+    }
+
+    .welcome-section h1 {
+        font-size: 24px;
+        margin-bottom: 8px;
+    }
+
+    .welcome-section p {
+        font-size: 16px;
+    }
+
+    .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 15px;
+        margin-bottom: 25px;
+    }
+
+    .stat-card {
+        padding: 20px 15px;
+    }
+
+    .stat-icon {
+        font-size: 36px;
+        margin-bottom: 12px;
+    }
+
+    .stat-value {
+        font-size: 28px;
+        margin-bottom: 4px;
+    }
+
+    .stat-label {
+        font-size: 14px;
+    }
+
+    .actions-section {
+        grid-template-columns: 1fr;
+        gap: 15px;
+        margin-bottom: 25px;
+    }
+
+    .action-card {
+        padding: 20px 15px;
+        border-radius: 12px;
+    }
+
+    .action-icon {
+        font-size: 32px;
+        margin-bottom: 12px;
+    }
+
+    .action-card h3 {
+        font-size: 20px;
+        margin-bottom: 8px;
+    }
+
+    .action-card p {
+        font-size: 14px;
+        margin-bottom: 15px;
+    }
+
+    .action-btn {
+        padding: 14px;
+        font-size: 15px;
+        border-radius: 8px;
+    }
+
+    .recent-scans {
+        padding: 20px 15px;
+        border-radius: 12px;
+    }
+
+    .recent-scans h3 {
+        font-size: 20px;
+        margin-bottom: 15px;
+    }
+
+    .scan-item {
+        padding: 12px;
+        border-radius: 8px;
+        margin-bottom: 8px;
+        gap: 12px;
+    }
+
+    .scan-image {
+        width: 50px;
+        height: 50px;
+        font-size: 20px;
+    }
+
+    .scan-title {
+        font-size: 15px;
+        margin-bottom: 4px;
+    }
+
+    .scan-meta {
+        font-size: 13px;
+    }
+
+    .scan-status {
+        padding: 4px 8px;
+        font-size: 11px;
+        border-radius: 4px;
+    }
+}
+
+/* Extra small mobile adjustments */
+@media (max-width: 375px) {
+    .stats-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .stat-card {
+        padding: 18px 12px;
+    }
+
+    .action-card {
+        padding: 18px 12px;
+    }
+
+    .scan-item {
+        flex-direction: column;
+        text-align: center;
+        gap: 10px;
+        padding: 15px;
+    }
+
+    .scan-details {
+        order: 2;
+    }
+
+    .scan-status {
+        order: 3;
+        align-self: center;
+    }
+
+    .scan-image {
+        order: 1;
+        align-self: center;
+    }
+}
+
+/* Large screen optimizations */
+@media (min-width: 1200px) {
+    .stats-grid {
+        grid-template-columns: repeat(4, 1fr);
+    }
+
+    .actions-section {
+        grid-template-columns: repeat(3, 1fr);
+    }
+}
+
+/* Dashboard animations */
+.stat-card {
+    animation: slideUp 0.3s ease-out;
+}
+
+.stat-card:nth-child(1) { animation-delay: 0.1s; }
+.stat-card:nth-child(2) { animation-delay: 0.2s; }
+.stat-card:nth-child(3) { animation-delay: 0.3s; }
+.stat-card:nth-child(4) { animation-delay: 0.4s; }
+
+.action-card {
+    animation: slideUp 0.3s ease-out;
+}
+
+.action-card:nth-child(1) { animation-delay: 0.2s; }
+.action-card:nth-child(2) { animation-delay: 0.3s; }
+.action-card:nth-child(3) { animation-delay: 0.4s; }
+.action-card:nth-child(4) { animation-delay: 0.5s; }
+
+.scan-item {
+    animation: slideUp 0.3s ease-out;
+    animation-fill-mode: both;
+}
+
+.scan-item:nth-child(1) { animation-delay: 0.1s; }
+.scan-item:nth-child(2) { animation-delay: 0.2s; }
+.scan-item:nth-child(3) { animation-delay: 0.3s; }
+.scan-item:nth-child(4) { animation-delay: 0.4s; }
+.scan-item:nth-child(5) { animation-delay: 0.5s; }
+
+/* Dashboard loading states */
+.dashboard-loading .stat-card,
+.dashboard-loading .action-card {
+    background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+    background-size: 200% 100%;
+    animation: loading 1.5s infinite;
+}
+
+@keyframes loading {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}
+
+/* Special highlighting for important cards */
+.action-card.priority {
+    border: 2px solid #ff9800;
+    box-shadow: 0 5px 20px rgba(255, 152, 0, 0.2);
+}
+
+.action-card.priority::before {
+    content: "⚡";
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    background: #ff9800;
+    color: white;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: bold;
+}
+
+/* Dark mode dashboard adjustments */
+@media (prefers-color-scheme: dark) {
+    .welcome-section {
+        background: linear-gradient(135deg, #4a5568 0%, #553c9a 100%);
+    }
+
+    .stat-card,
+    .action-card,
+    .recent-scans {
+        background: #2d3748;
+        border-color: #4a5568;
+    }
+
+    .stat-value,
+    .action-card h3,
+    .recent-scans h3,
+    .scan-title {
+        color: #e2e8f0;
+    }
+
+    .stat-label,
+    .action-card p,
+    .scan-meta {
+        color: #a0aec0;
+    }
+
+    .scan-item:hover {
+        background: #374151;
+        border-color: #4b5563;
+    }
+
+    .scan-image {
+        background: linear-gradient(135deg, #374151 0%, #4b5563 100%);
+        border-color: #4b5563;
+    }
+
+    .status-draft {
+        background: #744210;
+        color: #fbbf24;
+        border-color: #92400e;
+    }
+
+    .status-listed {
+        background: #14532d;
+        color: #4ade80;
+        border-color: #166534;
+    }
+
+    .status-sold {
+        background: #1e3a8a;
+        color: #60a5fa;
+        border-color: #1d4ed8;
+    }
+}

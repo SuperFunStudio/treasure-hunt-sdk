@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>eBay Connection - Treasure Hunter</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        
+        .callback-container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            padding: 40px;
+            width: 100%;
+            max-width: 500px;
+            text-align: center;
+        }
+        
+        .status-icon {
+            font-size: 64px;
+            margin-bottom: 20px;
+        }
+        
+        .status-title {
+            font-size: 24px;
+            margin-bottom: 10px;
+            color: #333;
+        }
+        
+        .status-message {
+            color: #666;
+            margin-bottom: 30px;
+            line-height: 1.6;
+        }
+        
+        .loading .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .close-btn {
+            padding: 12px 24px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .close-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(102, 126, 234, 0.3);
+        }
+        
+        .error-details {
+            background: #ffebee;
+            border: 1px solid #f44336;
+            border-radius: 10px;
+            padding: 15px;
+            margin: 20px 0;
+            text-align: left;
+            font-size: 14px;
+        }
+        
+        .debug-info {
+            background: #f5f5f5;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 20px 0;
+            text-align: left;
+            font-size: 12px;
+            font-family: monospace;
+        }
+    </style>
+</head>
+<body>
+    <div class="callback-container">
+        <!-- Loading State -->
+        <div id="loadingState" class="loading">
+            <div class="spinner"></div>
+            <div class="status-title">Processing eBay Connection</div>
+            <div class="status-message">Please wait while we complete your eBay account connection...</div>
+        </div>
+
+        <!-- Success State -->
+        <div id="successState" class="success" style="display: none;">
+            <div class="status-icon">✅</div>
+            <div class="status-title">Connection Successful!</div>
+            <div class="status-message">Your eBay account has been connected successfully. This window will close automatically.</div>
+            <button class="close-btn" onclick="closeWindow()">Close Window</button>
+        </div>
+
+        <!-- Error State -->
+        <div id="errorState" class="error" style="display: none;">
+            <div class="status-icon">❌</div>
+            <div class="status-title">Connection Failed</div>
+            <div class="status-message">There was an issue connecting your eBay account.</div>
+            <div id="errorDetails" class="error-details" style="display: none;"></div>
+            <div id="debugInfo" class="debug-info" style="display: none;"></div>
+            <button class="close-btn" onclick="closeWindow()">Close Window</button>
+        </div>
+    </div>
+
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-firestore-compat.js"></script>
+
+    <script>
+        // Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyDymYwo7NUAu7lhoPfS9KLQmckvVgky7PU",
+            authDomain: "treasurehunter-sdk.firebaseapp.com",
+            projectId: "treasurehunter-sdk",
+            storageBucket: "treasurehunter-sdk.firebasestorage.app",
+            messagingSenderId: "328804663359",
+            appId: "1:328804663359:web:eb124f150c4853c123788a",
+            measurementId: "G-YNJ58GLX3T"
+        };
+
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+
+        // FIXED: Updated API base URL to match your current deployment
+const API_BASE_URL = ''; // Use relative URLs through Firebase Hosting
+
+        // UI Elements
+        const loadingState = document.getElementById('loadingState');
+        const successState = document.getElementById('successState');
+        const errorState = document.getElementById('errorState');
+        const errorDetails = document.getElementById('errorDetails');
+        const debugInfo = document.getElementById('debugInfo');
+
+        // FIXED: Enhanced callback processing with aligned endpoints
+        document.addEventListener('DOMContentLoaded', async () => {
+            console.log('eBay callback page loaded - aligned endpoints');
+            
+            try {
+                // Get URL parameters with comprehensive logging
+                const urlParams = new URLSearchParams(window.location.search);
+                const urlData = {
+                    fullUrl: window.location.href,
+                    search: window.location.search,
+                    code: urlParams.get('code'),
+                    error: urlParams.get('error') || urlParams.get('error_description'),
+                    state: urlParams.get('state'),
+                    expires_in: urlParams.get('expires_in'),
+                    all_params: Object.fromEntries(urlParams.entries())
+                };
+                
+                console.log('Callback URL analysis:', urlData);
+                
+                // Show debug info
+                if (debugInfo) {
+                    debugInfo.innerHTML = `
+                        <strong>Debug Information:</strong><br>
+                        <strong>Full URL:</strong> ${urlData.fullUrl}<br>
+                        <strong>Code present:</strong> ${!!urlData.code}<br>
+                        <strong>Error present:</strong> ${!!urlData.error}<br>
+                        <strong>State present:</strong> ${!!urlData.state}<br>
+                        <strong>All parameters:</strong> ${JSON.stringify(urlData.all_params, null, 2)}
+                    `;
+                    debugInfo.style.display = 'block';
+                }
+
+                // Handle eBay OAuth errors
+                if (urlData.error) {
+                    const errorMessage = urlData.error === 'access_denied' 
+                        ? 'You declined to authorize the application'
+                        : `eBay OAuth error: ${urlData.error}`;
+                    
+                    handleError(errorMessage, urlData);
+                    return;
+                }
+
+                // Check for authorization code
+                if (!urlData.code) {
+                    handleError('No authorization code received from eBay. This might indicate a configuration issue.', urlData);
+                    return;
+                }
+
+                console.log('Authorization code received:', urlData.code.substring(0, 20) + '...');
+
+                // Wait for Firebase Auth
+                console.log('Waiting for Firebase Auth...');
+                await new Promise((resolve, reject) => {
+                    const unsubscribe = auth.onAuthStateChanged((user) => {
+                        unsubscribe();
+                        if (user) {
+                            console.log('User authenticated:', user.uid);
+                            resolve(user);
+                        } else {
+                            reject(new Error('User not authenticated'));
+                        }
+                    });
+                    
+                    setTimeout(() => {
+                        unsubscribe();
+                        reject(new Error('Authentication timeout'));
+                    }, 10000);
+                });
+
+                const user = auth.currentUser;
+                if (!user) {
+                    handleError('User authentication required. Please login first.', urlData);
+                    return;
+                }
+
+                console.log('Processing eBay OAuth callback for user:', user.uid);
+
+                // FIXED: Align with backend route structure
+                const requestBody = {
+                    code: urlData.code,
+                    state: urlData.state || null, // Handle missing state gracefully
+                    userId: user.uid,
+                    // Add fallback data for missing state
+                    ...((!urlData.state) && {
+                        fallback: true,
+                        timestamp: Date.now(),
+                        source: 'oauth_callback'
+                    })
+                };
+
+                console.log('Sending to backend:', { 
+                    ...requestBody, 
+                    code: requestBody.code.substring(0, 20) + '...' 
+                });
+
+                // FIXED: Use the correct endpoint path that matches your modular routes
+const response = await fetch('/api/ebay/auth/callback', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${await user.getIdToken(true)}`
+                    },
+                    body: JSON.stringify(requestBody)
+                });
+
+                console.log('Backend response status:', response.status);
+                
+                let responseData;
+                try {
+                    const responseText = await response.text();
+                    console.log('Raw backend response:', responseText);
+                    
+                    // Handle HTML error responses
+                    if (responseText.startsWith('<!DOCTYPE html>') || responseText.startsWith('<html')) {
+                        throw new Error('Backend returned HTML instead of JSON - likely a configuration error');
+                    }
+                    
+                    responseData = JSON.parse(responseText);
+                } catch (parseError) {
+                    console.error('JSON parse error:', parseError);
+                    throw new Error(`Invalid response from backend: ${parseError.message}`);
+                }
+
+                if (!response.ok) {
+                    throw new Error(`Backend error: ${response.status} - ${responseData.error || 'Unknown error'}`);
+                }
+
+                if (!responseData.success) {
+                    throw new Error(responseData.error || 'eBay connection failed');
+                }
+
+                console.log('Backend processing successful:', responseData);
+
+                // Update user document in Firestore
+                await updateUserEbayConnection(user.uid, responseData);
+
+                // Show success and notify parent window
+                handleSuccess(responseData);
+
+            } catch (error) {
+                console.error('Callback processing error:', error);
+                handleError(error.message, { error_details: error.stack });
+            }
+        });
+
+        // Enhanced success handling
+        function handleSuccess(data) {
+            console.log('eBay connection successful:', data);
+            
+            // Hide loading, show success
+            if (loadingState) loadingState.style.display = 'none';
+            if (successState) successState.style.display = 'block';
+            if (debugInfo) debugInfo.style.display = 'none';
+            
+            // Update success message
+            const statusMessage = successState.querySelector('.status-message');
+            if (statusMessage) {
+                statusMessage.textContent = data.sellerAccount 
+                    ? `Your eBay seller account "${data.sellerAccount}" has been connected successfully.`
+                    : 'Your eBay account has been connected successfully.';
+            }
+
+            // Notify parent window
+            if (window.opener) {
+                window.opener.postMessage({
+                    type: 'EBAY_AUTH_SUCCESS',
+                    sellerAccount: data.sellerAccount,
+                    data: data
+                }, window.location.origin);
+                
+                console.log('Success message sent to parent window');
+            }
+
+            // Auto-close after 3 seconds
+            setTimeout(() => {
+                closeWindow();
+            }, 3000);
+        }
+
+        // Enhanced error handling
+        function handleError(errorMessage, debugData = {}) {
+            console.error('eBay connection error:', errorMessage);
+            
+            // Hide loading, show error
+            if (loadingState) loadingState.style.display = 'none';
+            if (errorState) errorState.style.display = 'block';
+            
+            // Categorize error types for better user guidance
+            let userFriendlyMessage = errorMessage;
+            let helpText = '';
+            let isConfigurationError = false;
+            
+            if (errorMessage.includes('invalid_request') || errorMessage.includes('redirect_uri')) {
+                isConfigurationError = true;
+                userFriendlyMessage = 'eBay OAuth configuration error';
+                helpText = `
+                    <h4>Configuration Issue Detected</h4>
+                    <p><strong>This is likely a redirect URI mismatch.</strong></p>
+                    <p>The developer needs to:</p>
+                    <ul>
+                        <li>Use the correct eBay RuName (not a regular URL)</li>
+                        <li>Ensure the RuName is configured properly in eBay Developer Console</li>
+                        <li>Update the environment variables with the correct RuName</li>
+                    </ul>
+                `;
+            } else if (errorMessage.includes('HTML instead of JSON')) {
+                isConfigurationError = true;
+                userFriendlyMessage = 'Backend configuration error';
+                helpText = `
+                    <h4>Backend Configuration Issue</h4>
+                    <p>The backend is returning HTML instead of JSON, which usually means:</p>
+                    <ul>
+                        <li>The API endpoint is not found (404 error)</li>
+                        <li>CORS issues are causing the request to fail</li>
+                        <li>The backend function is not properly deployed</li>
+                    </ul>
+                `;
+            } else if (errorMessage.includes('access_denied') || errorMessage.includes('declined')) {
+                userFriendlyMessage = 'Authorization declined';
+                helpText = `
+                    <h4>You declined to authorize the application</h4>
+                    <p>To connect your eBay account, you need to:</p>
+                    <ul>
+                        <li>Click "Agree and Continue" on the eBay authorization page</li>
+                        <li>Accept all the requested permissions</li>
+                        <li>Make sure you have an eBay seller account</li>
+                    </ul>
+                    <button onclick="window.location.href='/ebay-connect.html'" class="close-btn" style="margin-top: 10px;">
+                        Try Again
+                    </button>
+                `;
+            } else if (errorMessage.includes('authentication') || errorMessage.includes('login')) {
+                userFriendlyMessage = 'Authentication required';
+                helpText = `
+                    <h4>Please login first</h4>
+                    <p>You need to be logged into Treasure Hunter before connecting eBay.</p>
+                    <button onclick="window.location.href='/signin.html'" class="close-btn" style="margin-top: 10px;">
+                        Go to Login
+                    </button>
+                `;
+            }
+            
+            // Show error details
+            if (errorDetails) {
+                errorDetails.innerHTML = `
+                    <h4>${userFriendlyMessage}</h4>
+                    ${helpText}
+                    ${isConfigurationError ? 
+                        '<p><strong>Note:</strong> This appears to be a configuration issue that needs developer attention.</p>' : 
+                        ''
+                    }
+                    ${Object.keys(debugData).length > 0 ? 
+                        `<details style="margin-top: 15px;">
+                            <summary>Technical Details</summary>
+                            <pre style="background: #f8f9fa; padding: 10px; border-radius: 4px; margin-top: 10px; font-size: 11px; overflow-x: auto;">${JSON.stringify(debugData, null, 2)}</pre>
+                        </details>` : 
+                        ''
+                    }
+                `;
+                errorDetails.style.display = 'block';
+            }
+
+            // Notify parent window
+            if (window.opener) {
+                window.opener.postMessage({
+                    type: 'EBAY_AUTH_ERROR',
+                    error: errorMessage,
+                    isConfigurationError: isConfigurationError
+                }, window.location.origin);
+            }
+        }
+
+        async function updateUserEbayConnection(userId, data) {
+            try {
+                const updateData = {
+                    'ebay.isConnected': true,
+                    'ebay.connectedAt': firebase.firestore.FieldValue.serverTimestamp(),
+                    'ebay.lastUpdated': firebase.firestore.FieldValue.serverTimestamp()
+                };
+                
+                if (data.accountInfo) {
+                    Object.assign(updateData, {
+                        'ebay.username': data.accountInfo.username,
+                        'ebay.displayName': data.accountInfo.displayName,
+                        'ebay.sellerAccount': data.accountInfo.sellerAccount,
+                        'ebay.canList': data.accountInfo.canList,
+                        'ebay.environment': data.environment
+                    });
+                }
+                
+                await db.collection('users').doc(userId).update(updateData);
+                console.log('User eBay connection updated in Firestore');
+                
+            } catch (error) {
+                console.error('Error updating user eBay connection:', error);
+                // Don't throw - this is not critical for the OAuth flow
+            }
+        }
+
+        function closeWindow() {
+            try {
+                if (window.opener) {
+                    window.close();
+                } else {
+                    window.location.href = '/dashboard.html';
+                }
+            } catch (error) {
+                window.location.href = '/dashboard.html';
+            }
+        }
+    </script>
+</body>
+</html>

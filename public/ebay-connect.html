@@ -399,7 +399,7 @@
         // Global variables
         let currentUser = null;
         let userData = {};
-const API_BASE_URL = 'https://us-central1-treasurehunter-sdk.cloudfunctions.net';
+const API_BASE_URL = 'https://app-beprv7ll2q-uc.a.run.app';
 
         // UI Elements
         const connectBtn = document.getElementById('connectBtn');
@@ -455,8 +455,8 @@ const API_BASE_URL = 'https://us-central1-treasurehunter-sdk.cloudfunctions.net'
         
         console.log('Requesting OAuth URL from backend...');
         
-        const response = await fetch(`${API_BASE_URL}/ebayAuth/auth-url`, {
-            method: 'POST',
+const response = await fetch(`${API_BASE_URL}/api/ebay/auth/auth-url`, {
+                method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${await currentUser.getIdToken()}`
