@@ -1,7 +1,9 @@
 # OSX
+#
 .DS_Store
 
 # Xcode
+#
 build/
 *.pbxuser
 !default.pbxuser
@@ -18,9 +20,10 @@ DerivedData
 *.hmap
 *.ipa
 *.xcuserstate
-ios/.xcode.env.local
+**/.xcode.env.local
 
 # Android/IntelliJ
+#
 build/
 .idea
 .gradle
@@ -32,11 +35,18 @@ local.properties
 !debug.keystore
 
 # node.js
+#
 node_modules/
 npm-debug.log
 yarn-error.log
 
 # fastlane
+#
+# It is recommended to not store the screenshots in the git repo. Instead, use fastlane to re-generate the
+# screenshots whenever they are needed.
+# For more information about the recommended setup visit:
+# https://docs.fastlane.tools/best-practices/source-control/
+
 **/fastlane/report.xml
 **/fastlane/Preview.html
 **/fastlane/screenshots
@@ -49,13 +59,26 @@ yarn-error.log
 **/Pods/
 /vendor/bundle/
 
-# Temporary files created by Metro
+# Temporary files created by Metro to check the health of the file watcher
 .metro-health-check*
 
-# Firebase
+# testing
+/coverage
+
+# Yarn
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/sdks
+!.yarn/versions
+
+# Firebase configs (download separately on each machine)
 google-services.json
 GoogleService-Info.plist
+ios/GoogleService-Info.plist
+android/app/google-services.json
 
-# Environment
+# Environment variables
 .env
 .env.local

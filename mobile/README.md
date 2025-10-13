@@ -1,261 +1,79 @@
-# Treasure Hunt Mobile App
+This is a new [**React Native**](https://reactnative.dev) project, bootstrapped using [`@react-native-community/cli`](https://github.com/react-native-community/cli).
 
-React Native mobile app for iOS and Android that connects to your existing Firebase backend.
+# Getting Started
 
-## Features
+>**Note**: Make sure you have completed the [React Native - Environment Setup](https://reactnative.dev/docs/environment-setup) instructions till "Creating a new application" step, before proceeding.
 
-- 📸 Camera & photo gallery integration
-- 🤖 AI-powered item analysis
-- 💰 Market pricing estimates
-- 📦 eBay listing creation
-- 🔐 Firebase authentication
-- ⚡ Progressive analysis (fast preliminary results)
+## Step 1: Start the Metro Server
 
-## Prerequisites
+First, you will need to start **Metro**, the JavaScript _bundler_ that ships _with_ React Native.
 
-- **Node.js** 18+ (you have v20.16.0 ✅)
-- **npm** or **yarn**
-- **For iOS:**
-  - macOS with Xcode 15+
-  - CocoaPods (`sudo gem install cocoapods`)
-  - Apple Developer Account ($99/year for TestFlight distribution)
-- **For Android:**
-  - Android Studio
-  - Android SDK
-  - Java Development Kit (JDK) 17+
-
-## Setup Instructions
-
-### 1. Install Dependencies
+To start Metro, run the following command from the _root_ of your React Native project:
 
 ```bash
-cd mobile
-npm install
+# using npm
+npm start
+
+# OR using Yarn
+yarn start
 ```
 
-### 2. Configure Firebase
+## Step 2: Start your Application
 
-You need to add your Firebase configuration files:
+Let Metro Bundler run in its _own_ terminal. Open a _new_ terminal from the _root_ of your React Native project. Run the following command to start your _Android_ or _iOS_ app:
 
-#### iOS Setup
-
-1. Go to [Firebase Console](https://console.firebase.google.com/)
-2. Select your project
-3. Go to Project Settings → iOS apps
-4. Download `GoogleService-Info.plist`
-5. Place it in `mobile/ios/TreasureHuntMobile/`
-
-#### Android Setup
-
-1. Go to [Firebase Console](https://console.firebase.google.com/)
-2. Select your project
-3. Go to Project Settings → Android apps
-4. Download `google-services.json`
-5. Place it in `mobile/android/app/`
-
-### 3. Update API URL
-
-Edit `src/screens/AnalysisResultScreen.tsx` and update the Firebase Cloud Functions URL:
-
-```typescript
-const baseUrl = 'https://YOUR-PROJECT-ID.cloudfunctions.net';
-```
-
-Replace with your actual Firebase project URL.
-
-### 4. iOS Specific Setup
+### For Android
 
 ```bash
-cd ios
-pod install
-cd ..
-```
-
-### 5. Run the App
-
-#### iOS (macOS only)
-
-```bash
-npm run ios
-```
-
-Or open `ios/TreasureHuntMobile.xcworkspace` in Xcode and click Run.
-
-#### Android
-
-```bash
+# using npm
 npm run android
+
+# OR using Yarn
+yarn android
 ```
 
-Make sure you have an Android emulator running or a device connected.
+### For iOS
 
-## Project Structure
-
-```
-mobile/
-├── src/
-│   ├── screens/           # UI screens
-│   │   ├── SignInScreen.tsx
-│   │   ├── DashboardScreen.tsx
-│   │   ├── CameraScreen.tsx
-│   │   ├── AnalysisResultScreen.tsx
-│   │   └── ListingPreviewScreen.tsx
-│   └── services/          # Business logic
-│       ├── FirebaseService.ts
-│       └── AnalysisService.ts
-├── App.tsx               # Main navigation
-├── package.json
-└── README.md
-```
-
-## Building for Production
-
-### iOS - TestFlight Distribution
-
-1. **Open Xcode**
-   ```bash
-   cd ios
-   open TreasureHuntMobile.xcworkspace
-   ```
-
-2. **Configure Signing**
-   - Select the project in Xcode
-   - Go to Signing & Capabilities
-   - Select your team
-   - Ensure "Automatically manage signing" is checked
-
-3. **Archive the App**
-   - Select "Any iOS Device" as the destination
-   - Product → Archive
-   - Wait for archive to complete
-
-4. **Upload to App Store Connect**
-   - Window → Organizer
-   - Select your archive
-   - Click "Distribute App"
-   - Choose "App Store Connect"
-   - Follow the prompts
-
-5. **Configure TestFlight**
-   - Go to [App Store Connect](https://appstoreconnect.apple.com)
-   - Select your app
-   - Go to TestFlight tab
-   - Add internal/external testers
-   - Submit for Beta App Review (external only)
-
-6. **Invite Testers**
-   - Add tester emails in TestFlight
-   - Or create a public link
-   - Testers download TestFlight app
-   - They receive invitation to test
-
-### Android - Google Play Internal Testing
-
-1. **Generate Signing Key**
-   ```bash
-   cd android/app
-   keytool -genkeypair -v -storetype PKCS12 -keystore release.keystore -alias release -keyalg RSA -keysize 2048 -validity 10000
-   ```
-
-2. **Configure Gradle**
-   Edit `android/gradle.properties`:
-   ```
-   RELEASE_STORE_FILE=release.keystore
-   RELEASE_KEY_ALIAS=release
-   RELEASE_STORE_PASSWORD=your-password
-   RELEASE_KEY_PASSWORD=your-password
-   ```
-
-3. **Build Release APK/AAB**
-   ```bash
-   cd android
-   ./gradlew bundleRelease
-   ```
-   Output: `android/app/build/outputs/bundle/release/app-release.aab`
-
-4. **Upload to Google Play Console**
-   - Go to [Google Play Console](https://play.google.com/console)
-   - Create an app
-   - Go to Testing → Internal testing
-   - Create a new release
-   - Upload the AAB file
-   - Add testers by email or create a link
-
-## Troubleshooting
-
-### iOS Build Errors
-
-**Error: "No bundle URL present"**
 ```bash
-npm start -- --reset-cache
+# using npm
+npm run ios
+
+# OR using Yarn
+yarn ios
 ```
 
-**Error: CocoaPods issues**
-```bash
-cd ios
-pod deintegrate
-pod install
-```
+If everything is set up _correctly_, you should see your new app running in your _Android Emulator_ or _iOS Simulator_ shortly provided you have set up your emulator/simulator correctly.
 
-### Android Build Errors
+This is one way to run your app — you can also run it directly from within Android Studio and Xcode respectively.
 
-**Error: "SDK location not found"**
-Create `android/local.properties`:
-```
-sdk.dir=/Users/YOUR_USERNAME/Library/Android/sdk
-```
+## Step 3: Modifying your App
 
-**Error: "Duplicate class"**
-```bash
-cd android
-./gradlew clean
-```
+Now that you have successfully run the app, let's modify it.
 
-### Firebase Connection Issues
+1. Open `App.tsx` in your text editor of choice and edit some lines.
+2. For **Android**: Press the <kbd>R</kbd> key twice or select **"Reload"** from the **Developer Menu** (<kbd>Ctrl</kbd> + <kbd>M</kbd> (on Window and Linux) or <kbd>Cmd ⌘</kbd> + <kbd>M</kbd> (on macOS)) to see your changes!
 
-- Verify `GoogleService-Info.plist` (iOS) is in the correct location
-- Verify `google-services.json` (Android) is in the correct location
-- Check Firebase project settings match your bundle ID
-- Ensure Firebase Authentication is enabled in console
+   For **iOS**: Hit <kbd>Cmd ⌘</kbd> + <kbd>R</kbd> in your iOS Simulator to reload the app and see your changes!
 
-## Next Steps
+## Congratulations! :tada:
 
-1. **Customize Branding**
-   - Update app name in `app.json`
-   - Add app icon and splash screen
-   - Customize colors in screen styles
+You've successfully run and modified your React Native App. :partying_face:
 
-2. **Add Features**
-   - Push notifications for listing updates
-   - Offline mode with local storage
-   - Share listings to social media
-   - In-app purchases for premium features
+### Now what?
 
-3. **Testing**
-   - Write unit tests with Jest
-   - Add E2E tests with Detox
-   - Test on multiple devices
+- If you want to add this new React Native code to an existing application, check out the [Integration guide](https://reactnative.dev/docs/integration-with-existing-apps).
+- If you're curious to learn more about React Native, check out the [Introduction to React Native](https://reactnative.dev/docs/getting-started).
 
-4. **Performance**
-   - Enable Hermes engine (Android)
-   - Optimize image sizes
-   - Add caching for API calls
+# Troubleshooting
 
-## Resources
+If you can't get this to work, see the [Troubleshooting](https://reactnative.dev/docs/troubleshooting) page.
 
-- [React Native Docs](https://reactnative.dev/docs/getting-started)
-- [Firebase iOS Setup](https://firebase.google.com/docs/ios/setup)
-- [Firebase Android Setup](https://firebase.google.com/docs/android/setup)
-- [TestFlight Guide](https://developer.apple.com/testflight/)
-- [Google Play Console](https://support.google.com/googleplay/android-developer)
+# Learn More
 
-## Support
+To learn more about React Native, take a look at the following resources:
 
-For issues specific to:
-- **React Native**: Check [React Native GitHub](https://github.com/facebook/react-native)
-- **Firebase**: Check [Firebase Support](https://firebase.google.com/support)
-- **This App**: Contact your development team
-
-## License
-
-Private - All rights reserved
+- [React Native Website](https://reactnative.dev) - learn more about React Native.
+- [Getting Started](https://reactnative.dev/docs/environment-setup) - an **overview** of React Native and how setup your environment.
+- [Learn the Basics](https://reactnative.dev/docs/getting-started) - a **guided tour** of the React Native **basics**.
+- [Blog](https://reactnative.dev/blog) - read the latest official React Native **Blog** posts.
+- [`@facebook/react-native`](https://github.com/facebook/react-native) - the Open Source; GitHub **repository** for React Native.
