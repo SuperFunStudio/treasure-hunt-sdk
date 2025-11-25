@@ -10,18 +10,19 @@ function buildSmartSearchQueries(itemData) {
   const category = itemData.category?.toLowerCase() || '';
   const brand = itemData.brand;
   const model = itemData.model;
-  
+
   console.log('Building smart queries for:', { category, brand, model });
-  
+
   // Extract key characteristics from the item
   const characteristics = extractItemCharacteristics(itemData);
-  
+
   // Strategy 1: Exact Brand + Model (highest priority for known items)
   if (brand && brand !== 'Unknown' && model && model !== 'Unknown') {
     // Special handling for common brands with specific models
     if (isWellKnownBrandModel(brand, model)) {
+      const cleanedModel = cleanQueryForSingleItem(model);
       queries.push({
-        query: `${brand} ${model}`,
+        query: cleanQueryForSingleItem(`${brand} ${cleanedModel}`),
         priority: 1,
         description: 'Exact brand and model',
         expectedResults: 'high_relevance',
@@ -29,17 +30,30 @@ function buildSmartSearchQueries(itemData) {
       });
     }
   }
-  
+
   // Strategy 2: Brand + simplified category (for mass market brands)
   if (brand && brand !== 'Unknown' && isMassMarketBrand(brand)) {
     const simplifiedCategory = getSimplifiedCategoryForBrand(brand, category);
     if (simplifiedCategory) {
+      // Check if this is a set of items
+      const itemCount = itemData.itemCount || 1;
+      const isSet = itemData.isSet || false;
+
+      let searchTerm = `${brand} ${simplifiedCategory}`;
+
+      // If it's a set, don't clean the query - we want to find sets
+      if (!isSet && itemCount === 1) {
+        searchTerm = cleanQueryForSingleItem(searchTerm);
+      }
+
       queries.push({
-        query: `${brand} ${simplifiedCategory}`,
+        query: searchTerm,
         priority: 2,
-        description: 'Brand with simplified category',
+        description: isSet ? 'Brand with category (set)' : 'Brand with simplified category',
         expectedResults: 'high_relevance',
-        confidence: 0.85
+        confidence: 0.85,
+        isSet: isSet,
+        itemCount: itemCount
       });
     }
   }
@@ -148,11 +162,12 @@ function getSimplifiedCategoryForBrand(brand, category) {
   const brandCategoryMap = {
     'IKEA': {
       'furniture': 'chair',
-      'cantilever armchair': 'chair',
-      'cantilever armchair with headrest': 'chair',
-      'side table': 'table',
-      'coffee table': 'table',
-      'bookshelf': 'shelf',
+      'cantilever armchair': 'armchair',
+      'cantilever armchair with headrest': 'armchair',
+      'armchair': 'armchair',
+      'side table': 'side table',
+      'coffee table': 'coffee table',
+      'bookshelf': 'bookshelf',
       'default': 'furniture'
     },
     'Apple': {
@@ -163,18 +178,38 @@ function getSimplifiedCategoryForBrand(brand, category) {
       'default': 'device'
     }
   };
-  
+
   const categoryMap = brandCategoryMap[brand];
   if (!categoryMap) return null;
-  
+
   // Try exact category match first
   for (const [key, value] of Object.entries(categoryMap)) {
     if (category.includes(key)) {
       return value;
     }
   }
-  
+
   return categoryMap.default;
+}
+
+/**
+ * Clean search query to remove multi-item indicators
+ * Ensures we search for single items only
+ */
+function cleanQueryForSingleItem(query) {
+  // Remove common multi-item phrases
+  let cleaned = query
+    .replace(/\bwith ottoman\b/gi, '')
+    .replace(/\bwith cushion\b/gi, '')
+    .replace(/\bwith footstool\b/gi, '')
+    .replace(/\band ottoman\b/gi, '')
+    .replace(/\band cushion\b/gi, '')
+    .replace(/\bset\b/gi, '')
+    .replace(/\blot\b/gi, '')
+    .replace(/\s+/g, ' ')  // Collapse multiple spaces
+    .trim();
+
+  return cleaned;
 }
 
 /**

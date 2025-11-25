@@ -57,10 +57,80 @@ router.post('/api/pins', asyncHandler(async (req, res) => {
       });
     }
 
+    // Handle image uploads to Firebase Storage
+    let processedImageUrls = [];
+    if (item.imageUrls && Array.isArray(item.imageUrls) && item.imageUrls.length > 0) {
+      console.log(`Processing ${item.imageUrls.length} images for pin creation`);
+
+      const bucket = admin.storage().bucket();
+      const uploadPromises = item.imageUrls.map(async (imageUrl, index) => {
+        try {
+          // Check if it's a base64 data URL
+          if (imageUrl.startsWith('data:image/')) {
+            // Extract base64 data
+            const matches = imageUrl.match(/^data:image\/(\w+);base64,(.+)$/);
+            if (!matches) {
+              console.warn(`Invalid base64 image format at index ${index}`);
+              return null;
+            }
+
+            const [, extension, base64Data] = matches;
+            const buffer = Buffer.from(base64Data, 'base64');
+
+            // Generate unique filename
+            const timestamp = Date.now();
+            const filename = `pins/${userId}/${timestamp}_${index}.${extension}`;
+            const file = bucket.file(filename);
+
+            // Upload to Firebase Storage
+            await file.save(buffer, {
+              metadata: {
+                contentType: `image/${extension}`,
+                metadata: {
+                  userId: userId,
+                  uploadedAt: new Date().toISOString(),
+                  pinImage: 'true'
+                }
+              }
+            });
+
+            // Make file publicly readable
+            await file.makePublic();
+
+            // Get public URL
+            const publicUrl = `https://storage.googleapis.com/${bucket.name}/${filename}`;
+            console.log(`Uploaded image ${index + 1} to Storage: ${filename}`);
+
+            return publicUrl;
+          } else if (imageUrl.startsWith('http')) {
+            // Already a URL, keep as-is
+            return imageUrl;
+          } else {
+            console.warn(`Unknown image format at index ${index}`);
+            return null;
+          }
+        } catch (uploadError) {
+          console.error(`Error uploading image ${index}:`, uploadError);
+          return null;
+        }
+      });
+
+      const uploadedUrls = await Promise.all(uploadPromises);
+      processedImageUrls = uploadedUrls.filter(url => url !== null);
+
+      console.log(`Successfully uploaded ${processedImageUrls.length} out of ${item.imageUrls.length} images`);
+    }
+
+    // Update item with processed image URLs
+    const processedItem = {
+      ...item,
+      imageUrls: processedImageUrls
+    };
+
     // Create pin
     const pin = await pinService.createPin({
       location,
-      item,
+      item: processedItem,
       userId,
       dispositionType,
       expiresIn,

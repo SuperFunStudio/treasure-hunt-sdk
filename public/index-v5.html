@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="theme-color" content="#ffffff">
+    <title>ThriftSpot - Spot & Thrift</title>
+
+    <!-- External Libraries -->
+    <script src="https://cdn.jsdelivr.net/npm/browser-image-compression@2.0.2/dist/browser-image-compression.min.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <!-- New Mobile Design System -->
+    <link rel="stylesheet" href="css/thriftspot-mobile.css">
+
+    <!-- Firebase -->
+    <script src="/__/firebase/10.7.1/firebase-app-compat.js"></script>
+    <script src="/__/firebase/10.7.1/firebase-auth-compat.js"></script>
+    <script src="/__/firebase/10.7.1/firebase-firestore-compat.js"></script>
+    <script src="/__/firebase/10.7.1/firebase-storage-compat.js"></script>
+    <script src="/__/firebase/init.js"></script>
+</head>
+<body>
+    <!-- Skip to content for accessibility -->
+    <a href="#main-content" class="sr-only">Skip to main content</a>
+
+    <!-- App Container -->
+    <div class="app-container">
+        <!-- Header -->
+        <header class="app-header">
+            <div class="header-logo">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"/>
+                    <path d="M12 6v12M6 12h12"/>
+                </svg>
+                <span>ThriftSpot</span>
+            </div>
+
+            <!-- Desktop Mode Toggle -->
+            <div class="mode-toggle desktop-only hidden">
+                <button class="mode-toggle-btn active" data-mode="spot">
+                    📷 Spot
+                </button>
+                <button class="mode-toggle-btn" data-mode="thrift">
+                    🗺️ Thrift
+                </button>
+            </div>
+
+            <!-- User Menu -->
+            <div class="user-menu" id="userMenu">
+                <button class="user-avatar" id="userAvatar" aria-label="User menu">
+                    <!-- Will be populated with user initials -->
+                </button>
+                <div class="dropdown-menu hidden" id="dropdownMenu">
+                    <a href="profile.html" class="dropdown-item">Profile</a>
+                    <a href="dashboard.html" class="dropdown-item">Dashboard</a>
+                    <button class="dropdown-item" id="signOutBtn">Sign Out</button>
+                </div>
+            </div>
+
+            <!-- Auth Buttons (hidden when logged in) -->
+            <div class="auth-buttons hidden" id="authButtons">
+                <a href="signin.html" class="btn btn-primary">Sign In</a>
+            </div>
+        </header>
+
+        <!-- Main Content Area -->
+        <main class="app-main" id="main-content">
+            <!-- SPOT MODE: Camera/Scan View -->
+            <div class="mode-view spot-mode active" id="spotMode">
+                <!-- Upload State -->
+                <section class="spot-section" id="uploadSection">
+                    <h1 class="text-center">Spot a thrift?</h1>
+                    <p class="text-center text-muted">Snap a photo to get instant pricing</p>
+
+                    <!-- Camera Viewfinder (Mobile) -->
+                    <div class="camera-viewfinder hidden" id="cameraView">
+                        <video id="cameraVideo" class="camera-video" autoplay playsinline></video>
+                        <div class="viewfinder-overlay">
+                            <div class="viewfinder-circle"></div>
+                            <div class="viewfinder-crosshair"></div>
+                        </div>
+                        <div class="camera-info">
+                            <div class="estimated-value">
+                                <span class="label">Estimated Value:</span>
+                                <span class="value">$0</span>
+                            </div>
+                            <div class="condition">
+                                <span class="label">Condition:</span>
+                                <span class="value">Unknown</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Desktop Upload Button -->
+                    <div class="upload-area desktop-only" id="uploadArea">
+                        <input type="file" id="fileInput" accept="image/*" class="sr-only" multiple>
+                        <label for="fileInput" class="upload-label">
+                            <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/>
+                            </svg>
+                            <p>Click to upload photos</p>
+                            <p class="text-muted text-sm">or drag and drop</p>
+                        </label>
+                    </div>
+
+                    <!-- Capture Button (Mobile) -->
+                    <button class="btn btn-primary btn-lg btn-full mobile-only hidden" id="captureBtn">
+                        Capture Photo
+                    </button>
+                </section>
+
+                <!-- Analyzing State -->
+                <section class="spot-section hidden" id="analyzingSection">
+                    <h2 class="text-center">Analyzing condition...</h2>
+
+                    <!-- Telescope Loader -->
+                    <div id="telescopeContainer" class="mt-6"></div>
+
+                    <!-- Stage Information -->
+                    <div class="stage-info text-center mt-6">
+                        <h3 id="stageName">Starting Analysis</h3>
+                        <p class="text-muted" id="stageDescription">Please wait...</p>
+                    </div>
+                </section>
+
+                <!-- Results State -->
+                <section class="spot-section hidden" id="resultsSection">
+                    <h2 class="text-center">Thrift Spotted!</h2>
+
+                    <!-- Item Details -->
+                    <div class="card mt-6">
+                        <div class="card-header">
+                            <h3 id="itemName">ITEM NAME</h3>
+                            <div class="flex justify-between items-center mt-4">
+                                <div>
+                                    <p class="text-muted text-sm">Estimated Value</p>
+                                    <p class="text-2xl font-bold" id="estimatedValue">$0</p>
+                                </div>
+                                <div>
+                                    <p class="text-muted text-sm">Condition</p>
+                                    <span class="badge badge-primary" id="conditionBadge">Good</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <!-- eBay Recent Listings -->
+                            <div class="ebay-listings mt-4">
+                                <h4 class="text-lg font-semibold mb-3">Recent eBay Sales</h4>
+                                <div id="ebayListingsContainer">
+                                    <!-- Will be populated dynamically -->
+                                </div>
+                            </div>
+                        </div>
+                        <div class="card-footer">
+                            <button class="btn btn-primary btn-full" id="previewListingBtn">
+                                Preview Listing
+                            </button>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Listing Preview Modal -->
+                <div class="modal-backdrop hidden" id="listingModalBackdrop">
+                    <div class="modal" id="listingModal">
+                        <div class="modal-header">
+                            <h3>Listing Preview</h3>
+                            <button class="btn btn-ghost btn-sm" id="closeListingModal">✕</button>
+                        </div>
+                        <div class="modal-body">
+                            <!-- Editable listing details -->
+                            <div class="form-group">
+                                <label class="label">Title</label>
+                                <input type="text" class="input" id="listingTitle" placeholder="Item title">
+                            </div>
+
+                            <div class="form-group mt-4">
+                                <label class="label">Price</label>
+                                <input type="number" class="input" id="listingPrice" placeholder="50">
+                            </div>
+
+                            <div class="form-group mt-4">
+                                <label class="label">Condition</label>
+                                <select class="select" id="listingCondition">
+                                    <option value="good">Good</option>
+                                    <option value="very-good">Very Good</option>
+                                    <option value="excellent">Excellent</option>
+                                    <option value="fair">Fair</option>
+                                </select>
+                            </div>
+
+                            <div class="form-group mt-4">
+                                <label class="label">Description</label>
+                                <textarea class="textarea" id="listingDescription" placeholder="Describe the item..."></textarea>
+                            </div>
+
+                            <!-- Photo Management -->
+                            <div class="form-group mt-4">
+                                <label class="label">Photos</label>
+                                <div id="photoGallery" class="flex gap-3 flex-wrap mb-3">
+                                    <!-- Photos will be added here -->
+                                </div>
+                                <input type="file" id="addPhotosInput" accept="image/*" multiple class="sr-only">
+                                <button class="btn btn-secondary btn-sm" id="addPhotosBtn">+ Add Photos</button>
+                            </div>
+
+                            <!-- Toggle Options -->
+                            <div class="form-group mt-6">
+                                <div class="flex justify-between items-center mb-3">
+                                    <span>Accept offers</span>
+                                    <label class="toggle-switch">
+                                        <input type="checkbox" id="acceptOffers" checked>
+                                        <span class="toggle-slider"></span>
+                                    </label>
+                                </div>
+
+                                <div class="flex justify-between items-center mb-3">
+                                    <span>List on locality</span>
+                                    <label class="toggle-switch">
+                                        <input type="checkbox" id="listOnLocality" checked>
+                                        <span class="toggle-slider"></span>
+                                    </label>
+                                </div>
+
+                                <div class="flex justify-between items-center">
+                                    <span>List on eBay</span>
+                                    <label class="toggle-switch">
+                                        <input type="checkbox" id="listOnEbay">
+                                        <span class="toggle-slider"></span>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button class="btn btn-ghost" id="cancelListingBtn">Cancel</button>
+                            <button class="btn btn-primary" id="publishListingBtn">Publish Listing</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Success Modal -->
+                <div class="modal-backdrop hidden" id="successModalBackdrop">
+                    <div class="modal text-center" id="successModal">
+                        <div class="modal-body p-8">
+                            <h1 class="text-4xl font-bold mb-4">SUCCESS!</h1>
+                            <p class="text-xl mb-6">Your listing is live.</p>
+                            <div class="listing-summary card mb-6">
+                                <!-- Listing summary here -->
+                            </div>
+                            <div class="flex gap-3">
+                                <button class="btn btn-secondary flex-1" id="editListingBtn">Edit</button>
+                                <button class="btn btn-primary flex-1" id="viewOnMapBtn">View on Map</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- THRIFT MODE: Map View -->
+            <div class="mode-view thrift-mode" id="thriftMode">
+                <!-- Map Container -->
+                <div id="map" style="width: 100%; height: 100%;"></div>
+
+                <!-- Weather Widget -->
+                <div class="weather-widget" id="weatherWidget">
+                    <!-- Weather info will be populated here -->
+                </div>
+
+                <!-- Map Controls -->
+                <div class="map-controls">
+                    <button class="btn btn-secondary btn-sm" id="toggleGridBtn">
+                        <span id="gridToggleText">Show Grid</span>
+                    </button>
+                </div>
+
+                <!-- Pin Info Modal -->
+                <div class="modal-backdrop hidden" id="pinModalBackdrop">
+                    <div class="modal" id="pinModal">
+                        <div class="modal-header">
+                            <h3>Nice Find!</h3>
+                            <button class="btn btn-ghost btn-sm" id="closePinModal">✕</button>
+                        </div>
+                        <div class="modal-body">
+                            <!-- Pin details will be populated here -->
+                            <div id="pinDetailsContainer">
+                                <!-- SOLD badge will appear if sold -->
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button class="btn btn-primary btn-full hidden" id="purchaseBtn">Purchase</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Checkout Modal -->
+                <div class="modal-backdrop hidden" id="checkoutModalBackdrop">
+                    <div class="modal" id="checkoutModal">
+                        <div class="modal-header">
+                            <h3>CHECK OUT</h3>
+                            <button class="btn btn-ghost btn-sm" id="closeCheckoutModal">✕</button>
+                        </div>
+                        <div class="modal-body">
+                            <h4 class="mb-4">Confirm purchase</h4>
+
+                            <!-- Item Summary -->
+                            <div class="checkout-item mb-6" id="checkoutItemSummary">
+                                <!-- Item details -->
+                            </div>
+
+                            <!-- Payment Form -->
+                            <form id="paymentForm">
+                                <div class="form-group">
+                                    <label class="label">Cardholder Information</label>
+                                    <input type="text" class="input mb-3" id="cardholderName" placeholder="John Drowsing" required>
+                                    <input type="tel" class="input" id="cardholderPhone" placeholder="9009-5678 0990 3405" required>
+                                </div>
+
+                                <div class="form-group mt-4">
+                                    <label class="label">Card Details</label>
+                                    <div id="card-element" class="input">
+                                        <!-- Stripe Card Element will be mounted here -->
+                                    </div>
+                                </div>
+
+                                <div class="form-group mt-4">
+                                    <label class="label">Billing Address</label>
+                                    <input type="text" class="input mb-3" id="billingAddress" placeholder="18 Big Dreams Lane, APT" required>
+                                    <input type="text" class="input mb-3" id="billingCity" placeholder="Future City" required>
+                                    <div class="flex gap-3">
+                                        <input type="text" class="input flex-1" id="billingState" placeholder="California" required>
+                                        <input type="text" class="input flex-1" id="billingZip" placeholder="90012" required>
+                                    </div>
+                                </div>
+
+                                <div class="total mt-6 p-4" style="background: var(--gray-50); border-radius: var(--radius-md);">
+                                    <div class="flex justify-between items-center">
+                                        <span class="text-lg font-semibold">Total:</span>
+                                        <span class="text-2xl font-bold" id="checkoutTotal">$45</span>
+                                    </div>
+                                </div>
+                            </form>
+                        </div>
+                        <div class="modal-footer">
+                            <button class="btn btn-ghost" id="cancelCheckoutBtn">Cancel</button>
+                            <button class="btn btn-success btn-lg" id="completePurchaseBtn">Purchase</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- Bottom Navigation (Mobile Only) -->
+        <nav class="bottom-nav" id="bottomNav">
+            <button class="bottom-nav-item active" data-mode="spot">
+                <span class="bottom-nav-icon">📷</span>
+                <span>Spot</span>
+            </button>
+            <button class="bottom-nav-item" data-mode="thrift">
+                <span class="bottom-nav-icon">🗺️</span>
+                <span>Thrift</span>
+            </button>
+            <a href="profile.html" class="bottom-nav-item">
+                <span class="bottom-nav-icon">👤</span>
+                <span>Profile</span>
+            </a>
+        </nav>
+    </div>
+
+    <!-- JavaScript -->
+    <script src="js/telescope-loader.js"></script>
+    <script src="shared/api-client.js"></script>
+    <script src="js/app-v5.js"></script>
+</body>
+</html>

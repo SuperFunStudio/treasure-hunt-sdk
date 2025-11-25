@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(firebase firestore:indexes:*)",
+      "Bash(firebase deploy:*)",
+      "Bash(npm run deploy:*)",
+      "Bash(xargs:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

@@ -1,7 +1,7 @@
 // functions/services/location/geoService.js
 // Geospatial operations and geohash-based pin queries
 
-const { db } = require('../../config/firebase');
+const { db, admin } = require('../../config/firebase');
 
 class GeoService {
   constructor() {
@@ -395,7 +395,7 @@ class GeoService {
       for (const pinId of pinIds) {
         const pinRef = db.collection(this.collection).doc(pinId);
         batch.update(pinRef, {
-          views: db.admin.firestore.FieldValue.increment(1)
+          views: admin.firestore.FieldValue.increment(1)
         });
       }
       

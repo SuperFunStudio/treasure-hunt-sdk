@@ -1,0 +1,552 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <title>ThriftSpot - Profile</title>
+
+    <!-- v6 Design System -->
+    <link rel="stylesheet" href="css/thriftspot-v6.css">
+
+    <!-- Firebase -->
+    <script src="/__/firebase/10.7.1/firebase-app-compat.js"></script>
+    <script src="/__/firebase/10.7.1/firebase-auth-compat.js"></script>
+    <script src="/__/firebase/10.7.1/firebase-firestore-compat.js"></script>
+    <script src="/__/firebase/init.js"></script>
+
+    <style>
+        /* Profile-specific styles */
+        .page-container {
+            min-height: 100vh;
+            padding-top: 60px;
+            background: var(--gray-50);
+        }
+
+        .page-content {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: var(--space-8) var(--space-6);
+        }
+
+        /* Profile Header */
+        .profile-header {
+            background: var(--white);
+            border-radius: var(--radius-lg);
+            padding: var(--space-8);
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            border: 1px solid var(--gray-200);
+            margin-bottom: var(--space-6);
+            text-align: center;
+        }
+
+        .profile-avatar-large {
+            width: 100px;
+            height: 100px;
+            border-radius: var(--radius-full);
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+            color: var(--white);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: var(--font-4xl);
+            font-weight: 700;
+            margin: 0 auto var(--space-4);
+            box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+        }
+
+        .profile-name {
+            font-size: var(--font-3xl);
+            font-weight: 700;
+            color: var(--gray-900);
+            margin-bottom: var(--space-2);
+        }
+
+        .profile-email {
+            font-size: var(--font-base);
+            color: var(--gray-600);
+            margin-bottom: var(--space-6);
+        }
+
+        .profile-stats {
+            display: flex;
+            justify-content: center;
+            gap: var(--space-8);
+            padding-top: var(--space-6);
+            border-top: 1px solid var(--gray-200);
+        }
+
+        .profile-stat {
+            text-align: center;
+        }
+
+        .profile-stat-value {
+            font-size: var(--font-2xl);
+            font-weight: 700;
+            color: var(--gray-900);
+        }
+
+        .profile-stat-label {
+            font-size: 0.875rem;
+            color: var(--gray-600);
+            margin-top: var(--space-1);
+        }
+
+        /* Profile Sections */
+        .profile-section {
+            background: var(--white);
+            border-radius: var(--radius-lg);
+            padding: var(--space-6);
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            border: 1px solid var(--gray-200);
+            margin-bottom: var(--space-6);
+        }
+
+        .section-title {
+            font-size: var(--font-xl);
+            font-weight: 700;
+            color: var(--gray-900);
+            margin-bottom: var(--space-4);
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: var(--space-4);
+        }
+
+        .form-group {
+            margin-bottom: var(--space-4);
+        }
+
+        .form-label {
+            display: block;
+            margin-bottom: var(--space-2);
+            font-size: var(--font-base);
+            font-weight: 600;
+            color: var(--gray-700);
+        }
+
+        .form-input,
+        .form-select {
+            width: 100%;
+            padding: var(--space-3) var(--space-4);
+            border: 2px solid var(--gray-300);
+            border-radius: var(--radius-md);
+            font-size: var(--font-base);
+            font-family: inherit;
+            color: var(--gray-900);
+            background: var(--white);
+            transition: all 0.2s ease;
+        }
+
+        .form-input:focus,
+        .form-select:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+        }
+
+        .form-input:disabled {
+            background: var(--gray-100);
+            color: var(--gray-500);
+            cursor: not-allowed;
+        }
+
+        /* Action Buttons */
+        .action-buttons {
+            display: flex;
+            gap: var(--space-3);
+            margin-top: var(--space-6);
+        }
+
+        .action-buttons .btn {
+            flex: 1;
+        }
+
+        /* Danger Zone */
+        .danger-zone {
+            border: 2px solid var(--error);
+            background: #fef2f2;
+        }
+
+        .danger-zone .section-title {
+            color: var(--error);
+        }
+
+        .btn-danger {
+            background: var(--error);
+            color: var(--white);
+        }
+
+        .btn-danger:hover {
+            background: #dc2626;
+        }
+
+        /* Mobile adjustments */
+        @media (max-width: 768px) {
+            .page-content {
+                padding: var(--space-6) var(--space-4);
+            }
+
+            .profile-header {
+                padding: var(--space-6) var(--space-4);
+            }
+
+            .profile-name {
+                font-size: var(--font-2xl);
+            }
+
+            .profile-stats {
+                flex-direction: column;
+                gap: var(--space-4);
+            }
+
+            .form-row {
+                grid-template-columns: 1fr;
+            }
+
+            .action-buttons {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <header class="app-header">
+        <a href="index-v6.html" class="header-logo">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"/>
+                <path d="M12 6v12M6 12h12"/>
+            </svg>
+            <span>ThriftSpot</span>
+        </a>
+
+        <div id="authSection">
+            <!-- Will be populated with user menu or sign in button -->
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <div class="page-container">
+        <div class="page-content">
+            <!-- Profile Header -->
+            <div class="profile-header">
+                <div class="profile-avatar-large" id="profileAvatar">TS</div>
+                <h1 class="profile-name" id="profileName">Loading...</h1>
+                <p class="profile-email" id="profileEmail">Loading...</p>
+
+                <div class="profile-stats">
+                    <div class="profile-stat">
+                        <div class="profile-stat-value" id="statScans">0</div>
+                        <div class="profile-stat-label">Scans</div>
+                    </div>
+                    <div class="profile-stat">
+                        <div class="profile-stat-value" id="statListings">0</div>
+                        <div class="profile-stat-label">Listings</div>
+                    </div>
+                    <div class="profile-stat">
+                        <div class="profile-stat-value" id="statEarnings">$0</div>
+                        <div class="profile-stat-label">Earnings</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Personal Information -->
+            <div class="profile-section">
+                <h2 class="section-title">Personal Information</h2>
+                <form id="profileForm">
+                    <div class="form-group">
+                        <label class="form-label" for="displayName">Display Name</label>
+                        <input type="text" id="displayName" class="form-input" placeholder="Your name">
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label" for="email">Email</label>
+                        <input type="email" id="email" class="form-input" disabled>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label" for="location">Location</label>
+                        <input type="text" id="location" class="form-input" placeholder="City, State">
+                    </div>
+
+                    <div class="action-buttons">
+                        <button type="submit" class="btn btn-primary">Save Changes</button>
+                        <button type="button" class="btn btn-secondary" onclick="app.resetForm()">Cancel</button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- eBay Integration -->
+            <div class="profile-section">
+                <h2 class="section-title">eBay Integration</h2>
+                <div id="ebayStatus">
+                    <p style="color: var(--gray-600); margin-bottom: var(--space-4);">
+                        Connect your eBay account to list items directly from ThriftSpot.
+                    </p>
+                    <button class="btn btn-primary" id="connectEbayBtn">Connect eBay Account</button>
+                </div>
+
+                <div id="ebayConnected" style="display: none;">
+                    <div style="display: flex; align-items: center; gap: var(--space-3); margin-bottom: var(--space-4);">
+                        <span style="font-size: 24px;">✅</span>
+                        <div>
+                            <div style="font-weight: 600; color: var(--gray-900);">Connected</div>
+                            <div style="font-size: 0.875rem; color: var(--gray-600);" id="ebayAccountName">Account connected</div>
+                        </div>
+                    </div>
+                    <button class="btn btn-outline" id="disconnectEbayBtn">Disconnect eBay</button>
+                </div>
+            </div>
+
+            <!-- Danger Zone -->
+            <div class="profile-section danger-zone">
+                <h2 class="section-title">Danger Zone</h2>
+                <p style="color: var(--gray-700); margin-bottom: var(--space-4);">
+                    Once you delete your account, there is no going back. Please be certain.
+                </p>
+                <button class="btn btn-danger" id="deleteAccountBtn">Delete Account</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- JavaScript -->
+    <script src="shared/api-client.js"></script>
+    <script>
+        class ProfileApp {
+            constructor() {
+                this.currentUser = null;
+                this.userData = null;
+            }
+
+            async init() {
+                console.log('🚀 Profile initializing...');
+
+                // Initialize Firebase Auth
+                await this.initAuth();
+
+                // Load profile data
+                if (this.currentUser) {
+                    await this.loadProfileData();
+                }
+
+                // Setup event listeners
+                this.setupEventListeners();
+
+                console.log('✅ Profile ready!');
+            }
+
+            async initAuth() {
+                return new Promise((resolve) => {
+                    firebase.auth().onAuthStateChanged((user) => {
+                        this.currentUser = user;
+                        this.updateAuthUI();
+
+                        if (!user) {
+                            window.location.href = 'signin.html';
+                        }
+
+                        resolve();
+                    });
+                });
+            }
+
+            updateAuthUI() {
+                const authSection = document.getElementById('authSection');
+                if (this.currentUser) {
+                    const displayName = this.currentUser.displayName || this.currentUser.email;
+                    const initials = this.getUserInitials(displayName);
+
+                    authSection.innerHTML = `
+                        <div class="user-menu-container">
+                            <div class="user-avatar">${initials}</div>
+                            <div class="user-dropdown">
+                                <a href="profile-v6.html" class="dropdown-item">Profile</a>
+                                <a href="dashboard-v6.html" class="dropdown-item">Dashboard</a>
+                                <button class="dropdown-item" onclick="firebase.auth().signOut()">Sign Out</button>
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    authSection.innerHTML = `
+                        <a href="signin.html" class="btn btn-primary">Sign In</a>
+                    `;
+                }
+            }
+
+            getUserInitials(name) {
+                if (!name) return 'U';
+                if (name.includes('@')) {
+                    return name.substring(0, 2).toUpperCase();
+                }
+                const parts = name.trim().split(' ');
+                if (parts.length >= 2) {
+                    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+                }
+                return name.substring(0, 2).toUpperCase();
+            }
+
+            async loadProfileData() {
+                try {
+                    console.log('Loading profile data for user:', this.currentUser.uid);
+
+                    // Load user document
+                    const userDoc = await firebase.firestore()
+                        .collection('users')
+                        .doc(this.currentUser.uid)
+                        .get();
+
+                    if (userDoc.exists) {
+                        this.userData = userDoc.data();
+                        this.populateProfile();
+                    }
+
+                } catch (error) {
+                    console.error('Error loading profile data:', error);
+                }
+            }
+
+            populateProfile() {
+                // Profile header
+                const initials = this.getUserInitials(this.currentUser.displayName || this.currentUser.email);
+                document.getElementById('profileAvatar').textContent = initials;
+                document.getElementById('profileName').textContent = this.currentUser.displayName || 'User';
+                document.getElementById('profileEmail').textContent = this.currentUser.email;
+
+                // Stats
+                const stats = this.userData?.stats || {};
+                document.getElementById('statScans').textContent = stats.totalScans || 0;
+                document.getElementById('statListings').textContent = stats.pinsCreated || 0;
+                document.getElementById('statEarnings').textContent = `$${(stats.totalEarnings || 0).toFixed(2)}`;
+
+                // Form fields
+                document.getElementById('displayName').value = this.currentUser.displayName || '';
+                document.getElementById('email').value = this.currentUser.email;
+                document.getElementById('location').value = this.userData?.location || '';
+
+                // eBay status
+                const isEbayConnected = this.userData?.ebay?.isConnected || false;
+                if (isEbayConnected) {
+                    document.getElementById('ebayStatus').style.display = 'none';
+                    document.getElementById('ebayConnected').style.display = 'block';
+                    document.getElementById('ebayAccountName').textContent = this.userData.ebay.sellerAccount || 'Account connected';
+                }
+            }
+
+            setupEventListeners() {
+                // Profile form
+                document.getElementById('profileForm').addEventListener('submit', (e) => {
+                    e.preventDefault();
+                    this.saveProfile();
+                });
+
+                // eBay buttons
+                document.getElementById('connectEbayBtn')?.addEventListener('click', () => {
+                    window.location.href = 'ebay-connect.html';
+                });
+
+                document.getElementById('disconnectEbayBtn')?.addEventListener('click', () => {
+                    this.disconnectEbay();
+                });
+
+                // Delete account
+                document.getElementById('deleteAccountBtn').addEventListener('click', () => {
+                    this.deleteAccount();
+                });
+            }
+
+            async saveProfile() {
+                try {
+                    const displayName = document.getElementById('displayName').value.trim();
+                    const location = document.getElementById('location').value.trim();
+
+                    // Update Firebase Auth profile
+                    await this.currentUser.updateProfile({
+                        displayName: displayName
+                    });
+
+                    // Update Firestore document
+                    await firebase.firestore()
+                        .collection('users')
+                        .doc(this.currentUser.uid)
+                        .update({
+                            profile: displayName,
+                            location: location,
+                            'metadata.updatedAt': firebase.firestore.FieldValue.serverTimestamp()
+                        });
+
+                    alert('Profile updated successfully!');
+                    this.loadProfileData();
+
+                } catch (error) {
+                    console.error('Error saving profile:', error);
+                    alert('Failed to update profile. Please try again.');
+                }
+            }
+
+            resetForm() {
+                this.populateProfile();
+            }
+
+            async disconnectEbay() {
+                if (!confirm('Are you sure you want to disconnect your eBay account?')) {
+                    return;
+                }
+
+                try {
+                    await firebase.firestore()
+                        .collection('users')
+                        .doc(this.currentUser.uid)
+                        .update({
+                            'ebay.isConnected': false,
+                            'ebay.sellerAccount': null,
+                            'metadata.updatedAt': firebase.firestore.FieldValue.serverTimestamp()
+                        });
+
+                    alert('eBay account disconnected');
+                    this.loadProfileData();
+
+                } catch (error) {
+                    console.error('Error disconnecting eBay:', error);
+                    alert('Failed to disconnect eBay. Please try again.');
+                }
+            }
+
+            async deleteAccount() {
+                const confirmation = prompt('This action cannot be undone. Type "DELETE" to confirm:');
+
+                if (confirmation !== 'DELETE') {
+                    return;
+                }
+
+                try {
+                    // Delete user document
+                    await firebase.firestore()
+                        .collection('users')
+                        .doc(this.currentUser.uid)
+                        .delete();
+
+                    // Delete auth account
+                    await this.currentUser.delete();
+
+                    alert('Account deleted successfully');
+                    window.location.href = '/';
+
+                } catch (error) {
+                    console.error('Error deleting account:', error);
+                    alert('Failed to delete account. You may need to re-authenticate and try again.');
+                }
+            }
+        }
+
+        // Initialize app when DOM is ready
+        document.addEventListener('DOMContentLoaded', () => {
+            window.app = new ProfileApp();
+            window.app.init();
+        });
+    </script>
+</body>
+</html>

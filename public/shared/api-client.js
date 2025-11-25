@@ -151,31 +151,44 @@ class APIClient {
         }
     }
 
+    // Pin-specific methods
+    async createPin(pinData) {
+        // Validate location before sending
+        if (!pinData.location || typeof pinData.location.latitude !== 'number' || typeof pinData.location.longitude !== 'number') {
+            console.error('Invalid location data:', pinData.location);
+            throw new Error('Valid location coordinates required');
+        }
+        
+        console.log('📍 Creating pin with validated data:', {
+            hasLocation: !!pinData.location,
+            lat: pinData.location.latitude,
+            lng: pinData.location.longitude,
+            hasItem: !!pinData.item,
+            hasAnalysis: !!pinData.analysis
+        });
+        
+        return this.request('/api/pins', {
+            method: 'POST',
+            body: JSON.stringify(pinData)
+        });
+    }
 
-// Pin-specific methods
-async createPin(pinData) {
-  return this.request('/api/pins', {
-    method: 'POST',
-    body: JSON.stringify(pinData)
-  });
-}
+    async getNearbyPins(location, options = {}) {
+        const params = new URLSearchParams({
+            lat: location.latitude,
+            lng: location.longitude,
+            radius: options.radius || 5,
+            ...options
+        });
+        return this.request(`/api/pins/nearby?${params}`);
+    }
 
-async getNearbyPins(location, options = {}) {
-  const params = new URLSearchParams({
-    lat: location.latitude,
-    lng: location.longitude,
-    radius: options.radius || 5,
-    ...options
-  });
-  return this.request(`/api/pins/nearby?${params}`);
-}
-
-async claimPin(pinId, claimData) {
-  return this.request(`/api/pins/${pinId}/claim`, {
-    method: 'POST',
-    body: JSON.stringify(claimData)
-  });
-}
+    async claimPin(pinId, claimData) {
+        return this.request(`/api/pins/${pinId}/claim`, {
+            method: 'POST',
+            body: JSON.stringify(claimData)
+        });
+    }
 
     // Health check with fallback
     async healthCheck() {
@@ -213,34 +226,33 @@ async claimPin(pinId, claimData) {
         }
     }
 
-// Enhanced request with automatic retries for failed requests
-async performRequestWithRetry(endpoint, options = {}, maxRetries = 2) {
-  let lastError;
-  
-  for (let attempt = 0; attempt <= maxRetries; attempt++) {
-    try {
-      if (attempt > 0) {
-        console.log(`🔄 Retry attempt ${attempt} for ${endpoint}`);
-        // Wait before retry: 1s, 2s, 3s
-        await new Promise(resolve => setTimeout(resolve, attempt * 1000));
-      }
-      
-      return await this.request(endpoint, options);
-    } catch (error) {
-      lastError = error;
-      
-      // Don't retry on client errors (4xx)
-      if (error.status >= 400 && error.status < 500) {
-        throw error;
-      }
-      
-      console.warn(`Request attempt ${attempt + 1} failed:`, error.message);
+    // Enhanced request with automatic retries for failed requests
+    async performRequestWithRetry(endpoint, options = {}, maxRetries = 2) {
+        let lastError;
+        
+        for (let attempt = 0; attempt <= maxRetries; attempt++) {
+            try {
+                if (attempt > 0) {
+                    console.log(`🔄 Retry attempt ${attempt} for ${endpoint}`);
+                    // Wait before retry: 1s, 2s, 3s
+                    await new Promise(resolve => setTimeout(resolve, attempt * 1000));
+                }
+                
+                return await this.request(endpoint, options);
+            } catch (error) {
+                lastError = error;
+                
+                // Don't retry on client errors (4xx)
+                if (error.status >= 400 && error.status < 500) {
+                    throw error;
+                }
+                
+                console.warn(`Request attempt ${attempt + 1} failed:`, error.message);
+            }
+        }
+        
+        throw lastError;
     }
-  }
-  
-  throw lastError;
-}
-
 
     // Method to get backend status for debugging
     async getBackendStatus() {

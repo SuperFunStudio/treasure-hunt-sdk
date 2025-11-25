@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="theme-color" content="#ffffff">
+    <title>ThriftSpot - Spot & Thrift</title>
+
+    <!-- External Libraries -->
+    <script src="https://cdn.jsdelivr.net/npm/browser-image-compression@2.0.2/dist/browser-image-compression.min.js"></script>
+
+    <!-- v6 Design System -->
+    <link rel="stylesheet" href="css/thriftspot-v6.css">
+
+    <!-- Firebase -->
+    <script src="/__/firebase/10.7.1/firebase-app-compat.js"></script>
+    <script src="/__/firebase/10.7.1/firebase-auth-compat.js"></script>
+    <script src="/__/firebase/10.7.1/firebase-firestore-compat.js"></script>
+    <script src="/__/firebase/10.7.1/firebase-storage-compat.js"></script>
+    <script src="/__/firebase/init.js"></script>
+</head>
+<body>
+    <!-- Header -->
+    <header class="app-header">
+        <div class="header-logo">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"/>
+                <path d="M12 6v12M6 12h12"/>
+            </svg>
+            <span>ThriftSpot</span>
+        </div>
+
+        <div id="authSection">
+            <!-- Will be populated with user menu or sign in button -->
+        </div>
+    </header>
+
+    <!-- TELESCOPE RINGS - ALWAYS VISIBLE -->
+    <div class="telescope-container" id="telescopeContainer">
+        <div class="telescope-rings">
+            <div class="telescope-ring"></div>
+            <div class="telescope-ring"></div>
+            <div class="telescope-ring"></div>
+        </div>
+
+        <!-- Progress ring overlay (only visible during analysis) -->
+        <div class="telescope-progress" id="telescopeProgress">
+            <svg viewBox="0 0 200 200">
+                <circle
+                    cx="100"
+                    cy="100"
+                    r="95"
+                    id="progressCircle"
+                    style="stroke-dasharray: 597; stroke-dashoffset: 597;">
+                </circle>
+            </svg>
+        </div>
+    </div>
+
+    <!-- CENTER CONTENT - IN THE MIDDLE OF RINGS -->
+    <div class="telescope-center" id="telescopeCenter">
+        <!-- MOBILE: Camera viewfinder -->
+        <div class="camera-viewfinder hidden" id="cameraViewfinder">
+            <video id="cameraVideo" class="camera-video" autoplay playsinline></video>
+            <div class="viewfinder-overlay">
+                <div class="viewfinder-crosshair"></div>
+            </div>
+        </div>
+
+        <!-- DESKTOP: Upload button -->
+        <label class="upload-trigger" id="uploadTrigger">
+            <input type="file" id="fileInput" accept="image/*" multiple class="sr-only">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/>
+            </svg>
+            <p>Upload Photos</p>
+        </label>
+    </div>
+
+    <!-- PHOTO GALLERY (shows uploaded/captured photos) -->
+    <div class="photo-gallery hidden" id="photoGallery">
+        <!-- Thumbnails will be added here dynamically -->
+    </div>
+
+    <!-- SCAN BUTTON (always visible, disabled until photos added) -->
+    <div class="analyze-button-container" id="analyzeButtonContainer">
+        <button class="analyze-button" id="analyzeButton" disabled>
+            Scan Items
+        </button>
+        <label class="upload-icon-button" id="uploadIconButton" title="Upload from library">
+            <input type="file" id="fileInputMobile" accept="image/*" multiple class="sr-only">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/>
+            </svg>
+        </label>
+    </div>
+
+    <!-- CAPTURE BUTTON (Mobile only - below rings) -->
+    <div class="capture-button-container hidden" id="captureButtonContainer">
+        <button class="capture-button" id="captureButton">
+            📷
+        </button>
+    </div>
+
+    <!-- ANALYSIS SCREEN (overlays everything when active) -->
+    <div class="analysis-screen" id="analysisScreen">
+        <h2 class="analysis-heading">Analyzing condition...</h2>
+
+        <div class="analysis-stage" id="analysisStage">
+            <h3 id="stageName">Starting Analysis</h3>
+            <p id="stageDescription">Please wait...</p>
+        </div>
+
+        <div class="analysis-progress-text" id="progressText">0%</div>
+    </div>
+
+    <!-- RESULTS SCREEN (overlays everything when active) -->
+    <div class="results-screen" id="resultsScreen">
+        <div class="results-header">
+            <h2>Thrift Spotted!</h2>
+        </div>
+
+        <div class="results-item-card">
+            <h3 class="results-item-name" id="itemName">Loading...</h3>
+
+            <div class="results-stats">
+                <div class="results-stat">
+                    <div class="results-stat-label">Estimated Value</div>
+                    <div class="results-stat-value" id="estimatedValue">$0</div>
+                </div>
+                <div class="results-stat">
+                    <div class="results-stat-label">Condition</div>
+                    <span class="condition-badge" id="conditionBadge">good</span>
+                </div>
+            </div>
+
+            <!-- AI Description -->
+            <div class="ai-description-section">
+                <h4>AI-Generated Description</h4>
+                <p class="ai-description-text" id="aiDescription">
+                    Loading description...
+                </p>
+            </div>
+
+            <!-- eBay Comparable Listings -->
+            <div class="ebay-listings" id="ebayListingsSection">
+                <h4>Comparable eBay Listings</h4>
+                <div id="ebayListingsContainer">
+                    <!-- Will be populated dynamically -->
+                </div>
+            </div>
+
+            <button class="btn btn-primary btn-full btn-lg" id="createListingBtn">
+                Preview Listing
+            </button>
+        </div>
+
+        <button class="btn btn-primary btn-full" id="scanAnotherBtn" style="margin-top: 16px;">
+            Scan Another Item
+        </button>
+    </div>
+
+    <!-- Mode Toggle (replaces bottom nav for main modes) -->
+    <div class="mode-toggle" id="modeToggle">
+        <button class="mode-btn active" id="spotBtn" data-mode="spot">
+            <span>📷</span>
+            <span>Spot</span>
+        </button>
+        <button class="mode-btn" id="thriftBtn" data-mode="thrift">
+            <span>🗺️</span>
+            <span>Thrift</span>
+        </button>
+    </div>
+
+    <!-- JavaScript -->
+    <script src="shared/api-client.js"></script>
+    <script src="js/app-v6.js"></script>
+</body>
+</html>

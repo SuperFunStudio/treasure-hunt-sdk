@@ -9,14 +9,30 @@ function detectItemCategory(itemData) {
   const description = itemData.description?.toLowerCase() || '';
   const brand = itemData.brand?.toLowerCase() || '';
   const model = itemData.model?.toLowerCase() || '';
-  
+
   // Combined text for analysis
   const allText = `${category} ${description} ${brand} ${model}`.toLowerCase();
-  
+
+  // EXCLUSIONS: Items that contain vehicle keywords but are NOT vehicles
+  const excludePatterns = [
+    'car seat', 'carseat', 'infant seat', 'child seat', 'baby seat',
+    'booster seat', 'doona', 'graco', 'chicco', 'britax', 'evenflo',
+    'safety 1st', 'baby jogger', 'uppababy', 'nuna', 'cybex',
+    'stroller', 'bassinet', 'carrier', 'infant', 'toddler', 'baby',
+    'toy car', 'remote control car', 'rc car', 'matchbox', 'hot wheels',
+    'die cast', 'model car', 'toy truck', 'toy vehicle'
+  ];
+
+  // Check exclusions first - if matched, not a vehicle
+  if (excludePatterns.some(pattern => allText.includes(pattern))) {
+    console.log(`Excluded from vehicle detection: matched pattern in "${allText}"`);
+    return category; // Return original category, not a vehicle
+  }
+
   // Vehicle detection patterns
   const vehiclePatterns = {
     'automobile': [
-      'car', 'sedan', 'suv', 'truck', 'van', 'coupe', 'hatchback',
+      'sedan', 'suv', 'truck', 'van', 'coupe', 'hatchback',
       'convertible', 'wagon', 'crossover', 'minivan', 'pickup',
       'vehicle', 'automobile', 'auto', 'ford', 'chevrolet', 'toyota',
       'honda', 'nissan', 'bmw', 'mercedes', 'audi', 'volkswagen',
@@ -152,16 +168,34 @@ function buildAutoPartsQuery(itemData) {
 
 function buildStandardQuery(itemData) {
   const parts = [];
-  
+
+  // Brand is most important for non-vehicles
   if (itemData.brand && itemData.brand !== 'Unknown') {
     parts.push(itemData.brand);
   }
-  
+
+  // Materials are critical for furniture/home goods (glass table vs wood table)
+  if (itemData.materials && Array.isArray(itemData.materials) && itemData.materials.length > 0) {
+    const primaryMaterial = itemData.materials[0];
+    if (primaryMaterial && primaryMaterial.toLowerCase() !== 'unknown') {
+      parts.push(primaryMaterial);
+    }
+  }
+
+  // Category provides context
   if (itemData.category && !itemData.category.includes('Unknown')) {
     parts.push(itemData.category);
   }
-  
-  return parts.join(' ').trim() || 'item';
+
+  // Model adds specificity (for electronics, appliances, etc.)
+  if (itemData.model && itemData.model !== 'Unknown' && itemData.model.length > 2) {
+    parts.push(itemData.model);
+  }
+
+  const query = parts.join(' ').trim();
+  console.log(`Standard search query: "${query}" (brand: ${itemData.brand}, materials: ${itemData.materials?.join(', ')}, category: ${itemData.category})`);
+
+  return query || 'item';
 }
 
 /**

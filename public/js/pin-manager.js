@@ -514,15 +514,20 @@ class PinManager {
       item: {
         // FIX 1: Ensure category, title, description, and brand are always safe strings
         category: String(analysis.category || scanData.category || 'item'),
-        title: String(itemTitle), 
-        description: String(itemDescription), 
+        title: String(itemTitle),
+        description: String(itemDescription),
         brand: String(analysis.brand || 'Unknown'),
-        
+
         condition: analysis.condition || { rating: 'good' },
         estimatedValue: this.getEstimatedValue(scanData),
         confidence: analysis.confidence || 5,
         imageUrls: scanData.imageUrls || [],
-        analysisData: analysis
+        // FIX 4: Flatten analysisData to avoid Firestore nested entity errors
+        // The backend will flatten this anyway, so we send individual fields
+        analysisCategory: analysis.category || null,
+        analysisBrand: analysis.brand || null,
+        analysisConfidence: analysis.confidence || null,
+        analysisDescription: analysis.description || null
       },
       // Merge user-provided options for dispositionType, price, radius, etc.
       dispositionType: options.dispositionType || 'pickup',

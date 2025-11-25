@@ -1,0 +1,799 @@
+/* ============================================
+   THRIFTSPOT DESIGN SYSTEM
+   Version 4.0 - Unified Design System
+
+   Based on:
+   - Dieter Rams: Less, but better
+   - Nielsen's Usability Heuristics
+   - Material Design Principles
+   - WCAG 2.1 AA Accessibility
+
+   Typography:
+   - Primary: Lexend (excellent readability)
+   - Monospace: Roboto Mono (technical content)
+   ============================================ */
+
+/* ============================================
+   1. DESIGN TOKENS - FOUNDATION
+   ============================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600;700&family=Roboto+Mono:wght@400;500;600&display=swap');
+
+:root {
+    /* === TYPOGRAPHY === */
+    --font-primary: 'Lexend', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    --font-mono: 'Roboto Mono', 'Courier New', monospace;
+
+    /* Type Scale (Material Design) */
+    --text-xs: 0.75rem;      /* 12px */
+    --text-sm: 0.875rem;     /* 14px */
+    --text-base: 1rem;       /* 16px - minimum for accessibility */
+    --text-lg: 1.125rem;     /* 18px */
+    --text-xl: 1.25rem;      /* 20px */
+    --text-2xl: 1.5rem;      /* 24px */
+    --text-3xl: 1.875rem;    /* 30px */
+    --text-4xl: 2.25rem;     /* 36px */
+    --text-5xl: 3rem;        /* 48px */
+
+    /* Font Weights */
+    --font-light: 300;
+    --font-normal: 400;
+    --font-medium: 500;
+    --font-semibold: 600;
+    --font-bold: 700;
+
+    /* Line Heights */
+    --leading-tight: 1.25;
+    --leading-normal: 1.5;
+    --leading-relaxed: 1.75;
+
+    /* Letter Spacing */
+    --tracking-tight: -0.015em;
+    --tracking-normal: 0;
+    --tracking-wide: 0.025em;
+    --tracking-wider: 0.05em;
+
+    /* === SPACING (8px grid) === */
+    --space-1: 0.25rem;      /* 4px */
+    --space-2: 0.5rem;       /* 8px */
+    --space-3: 0.75rem;      /* 12px */
+    --space-4: 1rem;         /* 16px */
+    --space-5: 1.25rem;      /* 20px */
+    --space-6: 1.5rem;       /* 24px */
+    --space-8: 2rem;         /* 32px */
+    --space-10: 2.5rem;      /* 40px */
+    --space-12: 3rem;        /* 48px */
+    --space-16: 4rem;        /* 64px */
+    --space-20: 5rem;        /* 80px */
+
+    /* === COLORS - PRIMARY BRAND === */
+    --primary-50: #f5f3ff;
+    --primary-100: #ede9fe;
+    --primary-200: #ddd6fe;
+    --primary-300: #c4b5fd;
+    --primary-400: #a78bfa;
+    --primary-500: #667eea;   /* Primary brand color */
+    --primary-600: #5a67d8;
+    --primary-700: #4c51bf;
+    --primary-800: #434190;
+    --primary-900: #3c366b;
+
+    /* === COLORS - NEUTRAL GRAYS === */
+    --gray-50: #f9fafb;
+    --gray-100: #f3f4f6;
+    --gray-200: #e5e7eb;
+    --gray-300: #d1d5db;
+    --gray-400: #9ca3af;
+    --gray-500: #6b7280;
+    --gray-600: #4b5563;
+    --gray-700: #374151;
+    --gray-800: #1f2937;
+    --gray-900: #111827;
+
+    /* === COLORS - SEMANTIC === */
+    --success-light: #d1fae5;
+    --success: #10b981;
+    --success-dark: #059669;
+
+    --error-light: #fee2e2;
+    --error: #ef4444;
+    --error-dark: #dc2626;
+
+    --warning-light: #fef3c7;
+    --warning: #f59e0b;
+    --warning-dark: #d97706;
+
+    --info-light: #dbeafe;
+    --info: #3b82f6;
+    --info-dark: #2563eb;
+
+    /* === SCAN MODE - Periscope Modern === */
+    --scan-hull-dark: #1a2332;
+    --scan-hull-medium: #2d3e50;
+    --scan-hull-light: #3d5467;
+    --scan-neon-cyan: #00e5ff;
+    --scan-neon-purple: #b388ff;
+    --scan-neon-pink: #ff4081;
+    --scan-glass-shimmer: rgba(0, 229, 255, 0.15);
+    --scan-periscope-glow: rgba(179, 136, 255, 0.3);
+
+    /* === FIND MODE - Brass & Compass === */
+    --brass-primary: #b8860b;
+    --brass-light: #daa520;
+    --brass-dark: #85621b;
+    --brass-patina: #6b8e7f;
+    --compass-ink: #2c2416;
+    --compass-aged: #5a4a3a;
+    --ruled-line: rgba(44, 36, 22, 0.2);
+    --parchment-aged: #f5f1e8;
+
+    /* === ELEVATION - Material Design Shadows === */
+    --elevation-0: none;
+    --elevation-1: 0 1px 3px rgba(0, 0, 0, 0.12), 0 1px 2px rgba(0, 0, 0, 0.24);
+    --elevation-2: 0 3px 6px rgba(0, 0, 0, 0.16), 0 3px 6px rgba(0, 0, 0, 0.23);
+    --elevation-3: 0 10px 20px rgba(0, 0, 0, 0.19), 0 6px 6px rgba(0, 0, 0, 0.23);
+    --elevation-4: 0 14px 28px rgba(0, 0, 0, 0.25), 0 10px 10px rgba(0, 0, 0, 0.22);
+    --elevation-5: 0 19px 38px rgba(0, 0, 0, 0.30), 0 15px 12px rgba(0, 0, 0, 0.22);
+
+    /* Theme-specific shadows */
+    --shadow-neon: 0 0 20px var(--scan-neon-cyan);
+    --shadow-brass: 0 4px 15px rgba(184, 134, 11, 0.3);
+
+    /* === BORDER RADIUS === */
+    --radius-sm: 0.25rem;    /* 4px */
+    --radius-base: 0.5rem;   /* 8px */
+    --radius-lg: 0.75rem;    /* 12px */
+    --radius-xl: 1rem;       /* 16px */
+    --radius-2xl: 1.5rem;    /* 24px */
+    --radius-full: 9999px;   /* Fully rounded */
+
+    /* === TRANSITIONS === */
+    --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-base: 250ms cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-slow: 400ms cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-mode: 600ms cubic-bezier(0.4, 0, 0.2, 1);
+
+    /* === Z-INDEX SCALE === */
+    --z-base: 0;
+    --z-dropdown: 1000;
+    --z-sticky: 1100;
+    --z-fixed: 1200;
+    --z-modal-backdrop: 1300;
+    --z-modal: 1400;
+    --z-popover: 1500;
+    --z-tooltip: 1600;
+}
+
+/* ============================================
+   2. BASE RESET & TYPOGRAPHY
+   ============================================ */
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+html {
+    font-size: 16px; /* Base size for rem calculations */
+    scroll-behavior: smooth;
+    -webkit-text-size-adjust: 100%; /* Prevent font scaling in landscape */
+}
+
+body {
+    font-family: var(--font-primary);
+    font-size: var(--text-base);
+    font-weight: var(--font-normal);
+    line-height: var(--leading-normal);
+    color: var(--gray-900);
+    background: var(--gray-50);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    -webkit-tap-highlight-color: transparent;
+    min-height: 100vh;
+}
+
+/* Typography Elements */
+h1, h2, h3, h4, h5, h6 {
+    font-weight: var(--font-semibold);
+    line-height: var(--leading-tight);
+    letter-spacing: var(--tracking-tight);
+    margin-bottom: var(--space-4);
+}
+
+h1 { font-size: var(--text-5xl); }
+h2 { font-size: var(--text-4xl); }
+h3 { font-size: var(--text-3xl); }
+h4 { font-size: var(--text-2xl); }
+h5 { font-size: var(--text-xl); }
+h6 { font-size: var(--text-lg); }
+
+p {
+    margin-bottom: var(--space-4);
+}
+
+a {
+    color: var(--primary-500);
+    text-decoration: none;
+    transition: color var(--transition-fast);
+}
+
+a:hover {
+    color: var(--primary-600);
+    text-decoration: underline;
+}
+
+a:focus-visible {
+    outline: 2px solid var(--primary-500);
+    outline-offset: 2px;
+    border-radius: var(--radius-sm);
+}
+
+code, pre {
+    font-family: var(--font-mono);
+    font-size: 0.9em;
+}
+
+code {
+    background: var(--gray-100);
+    padding: 0.125rem 0.25rem;
+    border-radius: var(--radius-sm);
+    color: var(--gray-800);
+}
+
+pre {
+    background: var(--gray-900);
+    color: var(--gray-100);
+    padding: var(--space-4);
+    border-radius: var(--radius-base);
+    overflow-x: auto;
+}
+
+/* ============================================
+   3. COMPONENT LIBRARY - BUTTONS
+   ============================================ */
+
+.btn {
+    /* Base styles */
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-2);
+
+    /* Typography */
+    font-family: var(--font-primary);
+    font-size: var(--text-base);
+    font-weight: var(--font-semibold);
+    line-height: var(--leading-normal);
+    text-decoration: none;
+
+    /* Spacing */
+    padding: var(--space-3) var(--space-6);
+
+    /* Visual */
+    border: 1px solid transparent;
+    border-radius: var(--radius-base);
+    cursor: pointer;
+
+    /* Transitions */
+    transition: all var(--transition-base);
+
+    /* Touch */
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+    user-select: none;
+}
+
+/* Button Variants */
+.btn-primary {
+    background: linear-gradient(135deg, var(--primary-500) 0%, #764ba2 100%);
+    color: white;
+    box-shadow: var(--elevation-2);
+}
+
+.btn-primary:hover {
+    box-shadow: var(--elevation-3);
+    transform: translateY(-1px);
+}
+
+.btn-primary:active {
+    box-shadow: var(--elevation-1);
+    transform: translateY(0);
+}
+
+.btn-secondary {
+    background: white;
+    color: var(--primary-500);
+    border-color: var(--primary-500);
+    box-shadow: var(--elevation-1);
+}
+
+.btn-secondary:hover {
+    background: var(--primary-50);
+    box-shadow: var(--elevation-2);
+}
+
+.btn-ghost {
+    background: transparent;
+    color: var(--gray-700);
+    border-color: var(--gray-300);
+}
+
+.btn-ghost:hover {
+    background: var(--gray-100);
+    border-color: var(--gray-400);
+}
+
+/* Button Sizes */
+.btn-sm {
+    font-size: var(--text-sm);
+    padding: var(--space-2) var(--space-4);
+}
+
+.btn-lg {
+    font-size: var(--text-lg);
+    padding: var(--space-4) var(--space-8);
+}
+
+/* Button States */
+.btn:disabled,
+.btn[aria-disabled="true"] {
+    opacity: 0.5;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
+.btn:focus-visible {
+    outline: 3px solid var(--primary-500);
+    outline-offset: 2px;
+}
+
+/* ============================================
+   4. COMPONENT LIBRARY - FORMS
+   ============================================ */
+
+/* Input Fields */
+.input,
+.select,
+.textarea {
+    /* Base */
+    font-family: var(--font-primary);
+    font-size: var(--text-base); /* Minimum 16px prevents zoom on iOS */
+    font-weight: var(--font-normal);
+    line-height: var(--leading-normal);
+
+    /* Spacing */
+    padding: var(--space-3) var(--space-4);
+
+    /* Visual */
+    background: white;
+    color: var(--gray-900);
+    border: 2px solid var(--gray-300);
+    border-radius: var(--radius-base);
+
+    /* Transitions */
+    transition: all var(--transition-base);
+
+    /* Display */
+    display: block;
+    width: 100%;
+}
+
+.input:hover,
+.select:hover,
+.textarea:hover {
+    border-color: var(--gray-400);
+    background: var(--gray-50);
+}
+
+.input:focus,
+.select:focus,
+.textarea:focus {
+    outline: none;
+    border-color: var(--primary-500);
+    box-shadow: 0 0 0 3px var(--primary-100);
+    background: white;
+}
+
+.input::placeholder,
+.textarea::placeholder {
+    color: var(--gray-400);
+    font-weight: var(--font-normal);
+}
+
+/* Textarea specific */
+.textarea {
+    resize: vertical;
+    min-height: 120px;
+}
+
+/* Input with Icon */
+.input-group {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.input-icon {
+    position: absolute;
+    left: var(--space-4);
+    color: var(--gray-400);
+    pointer-events: none;
+}
+
+.input-group .input {
+    padding-left: calc(var(--space-4) * 2.5);
+}
+
+/* Form Labels */
+.label {
+    font-size: var(--text-sm);
+    font-weight: var(--font-medium);
+    color: var(--gray-700);
+    margin-bottom: var(--space-2);
+    display: block;
+}
+
+/* Form Helpers */
+.helper-text {
+    font-size: var(--text-sm);
+    color: var(--gray-500);
+    margin-top: var(--space-2);
+}
+
+.error-text {
+    font-size: var(--text-sm);
+    color: var(--error);
+    margin-top: var(--space-2);
+}
+
+/* ============================================
+   5. COMPONENT LIBRARY - CARDS
+   ============================================ */
+
+.card {
+    background: white;
+    border-radius: var(--radius-xl);
+    box-shadow: var(--elevation-2);
+    overflow: hidden;
+    transition: all var(--transition-base);
+}
+
+.card:hover {
+    box-shadow: var(--elevation-3);
+    transform: translateY(-2px);
+}
+
+.card-header {
+    padding: var(--space-6);
+    border-bottom: 1px solid var(--gray-200);
+}
+
+.card-body {
+    padding: var(--space-6);
+}
+
+.card-footer {
+    padding: var(--space-6);
+    border-top: 1px solid var(--gray-200);
+    background: var(--gray-50);
+}
+
+/* ============================================
+   6. COMPONENT LIBRARY - BADGES & PILLS
+   ============================================ */
+
+.badge {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-1);
+    padding: var(--space-1) var(--space-3);
+    font-size: var(--text-xs);
+    font-weight: var(--font-semibold);
+    border-radius: var(--radius-full);
+    text-transform: uppercase;
+    letter-spacing: var(--tracking-wide);
+}
+
+.badge-primary {
+    background: var(--primary-100);
+    color: var(--primary-700);
+}
+
+.badge-success {
+    background: var(--success-light);
+    color: var(--success-dark);
+}
+
+.badge-error {
+    background: var(--error-light);
+    color: var(--error-dark);
+}
+
+.badge-warning {
+    background: var(--warning-light);
+    color: var(--warning-dark);
+}
+
+/* ============================================
+   7. LAYOUT - CONTAINERS
+   ============================================ */
+
+.container {
+    width: 100%;
+    max-width: 1280px;
+    margin-left: auto;
+    margin-right: auto;
+    padding-left: var(--space-4);
+    padding-right: var(--space-4);
+}
+
+.container-sm {
+    max-width: 640px;
+}
+
+.container-md {
+    max-width: 768px;
+}
+
+.container-lg {
+    max-width: 1024px;
+}
+
+/* ============================================
+   8. LAYOUT - GRID
+   ============================================ */
+
+.grid {
+    display: grid;
+    gap: var(--space-4);
+}
+
+.grid-cols-1 { grid-template-columns: repeat(1, 1fr); }
+.grid-cols-2 { grid-template-columns: repeat(2, 1fr); }
+.grid-cols-3 { grid-template-columns: repeat(3, 1fr); }
+.grid-cols-4 { grid-template-columns: repeat(4, 1fr); }
+.grid-cols-6 { grid-template-columns: repeat(6, 1fr); }
+
+/* Responsive Grid */
+@media (max-width: 768px) {
+    .grid-cols-2,
+    .grid-cols-3,
+    .grid-cols-4,
+    .grid-cols-6 {
+        grid-template-columns: repeat(1, 1fr);
+    }
+}
+
+/* ============================================
+   9. LAYOUT - FLEXBOX
+   ============================================ */
+
+.flex {
+    display: flex;
+}
+
+.flex-col {
+    flex-direction: column;
+}
+
+.flex-wrap {
+    flex-wrap: wrap;
+}
+
+.items-center {
+    align-items: center;
+}
+
+.items-start {
+    align-items: flex-start;
+}
+
+.items-end {
+    align-items: flex-end;
+}
+
+.justify-center {
+    justify-content: center;
+}
+
+.justify-between {
+    justify-content: space-between;
+}
+
+.justify-around {
+    justify-content: space-around;
+}
+
+.justify-end {
+    justify-content: flex-end;
+}
+
+/* Gap Utilities */
+.gap-1 { gap: var(--space-1); }
+.gap-2 { gap: var(--space-2); }
+.gap-3 { gap: var(--space-3); }
+.gap-4 { gap: var(--space-4); }
+.gap-6 { gap: var(--space-6); }
+.gap-8 { gap: var(--space-8); }
+
+/* ============================================
+   10. UTILITY CLASSES - SPACING
+   ============================================ */
+
+/* Margin utilities */
+.m-0 { margin: 0; }
+.mt-2 { margin-top: var(--space-2); }
+.mt-4 { margin-top: var(--space-4); }
+.mt-6 { margin-top: var(--space-6); }
+.mt-8 { margin-top: var(--space-8); }
+.mb-2 { margin-bottom: var(--space-2); }
+.mb-4 { margin-bottom: var(--space-4); }
+.mb-6 { margin-bottom: var(--space-6); }
+.mb-8 { margin-bottom: var(--space-8); }
+.mx-auto { margin-left: auto; margin-right: auto; }
+
+/* Padding utilities */
+.p-0 { padding: 0; }
+.p-2 { padding: var(--space-2); }
+.p-4 { padding: var(--space-4); }
+.p-6 { padding: var(--space-6); }
+.p-8 { padding: var(--space-8); }
+.pt-4 { padding-top: var(--space-4); }
+.pb-4 { padding-bottom: var(--space-4); }
+.px-4 { padding-left: var(--space-4); padding-right: var(--space-4); }
+.py-4 { padding-top: var(--space-4); padding-bottom: var(--space-4); }
+
+/* ============================================
+   11. UTILITY CLASSES - DISPLAY
+   ============================================ */
+
+.hidden {
+    display: none !important;
+}
+
+.block {
+    display: block;
+}
+
+.inline-block {
+    display: inline-block;
+}
+
+.inline {
+    display: inline;
+}
+
+/* ============================================
+   12. UTILITY CLASSES - TEXT
+   ============================================ */
+
+.text-xs { font-size: var(--text-xs); }
+.text-sm { font-size: var(--text-sm); }
+.text-base { font-size: var(--text-base); }
+.text-lg { font-size: var(--text-lg); }
+.text-xl { font-size: var(--text-xl); }
+.text-2xl { font-size: var(--text-2xl); }
+.text-3xl { font-size: var(--text-3xl); }
+
+.font-light { font-weight: var(--font-light); }
+.font-normal { font-weight: var(--font-normal); }
+.font-medium { font-weight: var(--font-medium); }
+.font-semibold { font-weight: var(--font-semibold); }
+.font-bold { font-weight: var(--font-bold); }
+
+.text-left { text-align: left; }
+.text-center { text-align: center; }
+.text-right { text-align: right; }
+
+.text-gray-500 { color: var(--gray-500); }
+.text-gray-600 { color: var(--gray-600); }
+.text-gray-700 { color: var(--gray-700); }
+.text-gray-900 { color: var(--gray-900); }
+
+.text-primary { color: var(--primary-500); }
+.text-success { color: var(--success); }
+.text-error { color: var(--error); }
+.text-warning { color: var(--warning); }
+
+/* ============================================
+   13. ACCESSIBILITY ENHANCEMENTS
+   ============================================ */
+
+/* Screen Reader Only */
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border-width: 0;
+}
+
+/* Focus Visible (keyboard navigation) */
+*:focus-visible {
+    outline: 3px solid var(--primary-500);
+    outline-offset: 2px;
+}
+
+/* Reduced Motion */
+@media (prefers-reduced-motion: reduce) {
+    * {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+}
+
+/* High Contrast Mode */
+@media (prefers-contrast: high) {
+    .btn,
+    .input,
+    .select,
+    .textarea {
+        border-width: 3px;
+    }
+}
+
+/* ============================================
+   14. RESPONSIVE BREAKPOINTS
+   ============================================ */
+
+/* Mobile First Approach */
+/* Base styles above are for mobile */
+
+/* Tablet and up */
+@media (min-width: 768px) {
+    .container {
+        padding-left: var(--space-6);
+        padding-right: var(--space-6);
+    }
+
+    h1 { font-size: var(--text-5xl); }
+    h2 { font-size: var(--text-4xl); }
+}
+
+/* Desktop and up */
+@media (min-width: 1024px) {
+    .container {
+        padding-left: var(--space-8);
+        padding-right: var(--space-8);
+    }
+}
+
+/* ============================================
+   15. PRINT STYLES
+   ============================================ */
+
+@media print {
+    body {
+        background: white;
+        color: black;
+        font-size: 12pt;
+    }
+
+    .btn,
+    .header,
+    .footer,
+    .no-print {
+        display: none !important;
+    }
+
+    .card {
+        box-shadow: none;
+        border: 1px solid #000;
+    }
+
+    a {
+        text-decoration: underline;
+        color: #000;
+    }
+
+    a[href]::after {
+        content: " (" attr(href) ")";
+    }
+}

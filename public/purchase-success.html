@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Purchase Successful - ThriftSpot</title>
+    <link rel="stylesheet" href="css/thriftspot-design-system.css">
+    <link rel="stylesheet" href="css/thriftspot-v6.css">
+    <link rel="stylesheet" href="css/thriftspot-v6-dark.css">
+
+    <style>
+        body {
+            background: linear-gradient(135deg, var(--primary-500) 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: var(--space-5);
+        }
+
+        .success-container {
+            background: white;
+            border-radius: var(--radius-2xl);
+            padding: var(--space-16) var(--space-10);
+            max-width: 600px;
+            text-align: center;
+            box-shadow: var(--elevation-5);
+        }
+
+        .success-icon {
+            width: 100px;
+            height: 100px;
+            margin: 0 auto var(--space-8);
+            background: linear-gradient(135deg, var(--success) 0%, var(--success-dark) 100%);
+            border-radius: var(--radius-full);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: var(--text-5xl);
+            animation: scaleIn 0.5s ease-out;
+        }
+
+        @keyframes scaleIn {
+            0% {
+                transform: scale(0);
+                opacity: 0;
+            }
+            50% {
+                transform: scale(1.1);
+            }
+            100% {
+                transform: scale(1);
+                opacity: 1;
+            }
+        }
+
+        h1 {
+            font-size: var(--text-4xl);
+            color: var(--gray-900);
+            margin-bottom: var(--space-4);
+        }
+
+        .message {
+            font-size: var(--text-base);
+            color: var(--gray-600);
+            line-height: var(--leading-normal);
+            margin-bottom: var(--space-8);
+        }
+
+        .order-info {
+            background: var(--gray-50);
+            border-radius: var(--radius-lg);
+            padding: var(--space-6);
+            margin-bottom: var(--space-8);
+            text-align: left;
+        }
+
+        .order-info h3 {
+            font-size: var(--text-xl);
+            color: var(--gray-900);
+            margin-bottom: var(--space-4);
+        }
+
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            padding: var(--space-3) 0;
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .info-row:last-child {
+            border-bottom: none;
+        }
+
+        .info-label {
+            color: var(--gray-600);
+            font-weight: var(--font-semibold);
+        }
+
+        .info-value {
+            color: var(--gray-900);
+        }
+
+        .btn-group {
+            display: flex;
+            gap: var(--space-4);
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .loading {
+            text-align: center;
+            padding: var(--space-10);
+        }
+
+        .spinner {
+            border: 4px solid var(--gray-200);
+            border-top: 4px solid var(--primary-500);
+            border-radius: var(--radius-full);
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto var(--space-5);
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .next-steps {
+            background: var(--success-light);
+            border-left: 4px solid var(--success);
+            padding: var(--space-5);
+            border-radius: var(--radius-base);
+            margin-bottom: var(--space-8);
+            text-align: left;
+        }
+
+        .next-steps h3 {
+            color: var(--success-dark);
+            margin-bottom: var(--space-4);
+            font-size: var(--text-xl);
+        }
+
+        .next-steps ul {
+            list-style: none;
+            padding-left: 0;
+        }
+
+        .next-steps li {
+            padding: var(--space-2) 0;
+            color: var(--gray-900);
+            display: flex;
+            align-items: start;
+            gap: var(--space-3);
+        }
+
+        .next-steps li:before {
+            content: "✓";
+            color: var(--success);
+            font-weight: var(--font-bold);
+            font-size: var(--text-xl);
+        }
+    </style>
+</head>
+<body>
+    <div class="success-container">
+        <div id="loadingState" class="loading">
+            <div class="spinner"></div>
+            <p>Confirming your purchase...</p>
+        </div>
+
+        <div id="successState" style="display: none;">
+            <div class="success-icon">✓</div>
+
+            <h1>Purchase Successful!</h1>
+            <p class="message">
+                Thank you for your purchase. Your payment has been processed successfully.
+            </p>
+
+            <div class="order-info" id="orderInfo">
+                <h3>Order Details</h3>
+                <div class="info-row">
+                    <span class="info-label">Order ID:</span>
+                    <span class="info-value" id="orderId">Loading...</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Status:</span>
+                    <span class="info-value">Paid</span>
+                </div>
+            </div>
+
+            <div class="next-steps">
+                <h3>What happens next?</h3>
+                <ul>
+                    <li>The seller will be notified of your purchase</li>
+                    <li>You'll receive a confirmation email with order details</li>
+                    <li>The seller will contact you to arrange pickup or delivery</li>
+                    <li>You can view this order in your purchase history</li>
+                </ul>
+            </div>
+
+            <div class="btn-group">
+                <a href="/dashboard.html" class="btn btn-primary">
+                    View My Purchases
+                </a>
+                <a href="/" class="btn btn-secondary">
+                    Browse More Items
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-auth-compat.js"></script>
+
+    <script>
+        // Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyDymYwo7NUAu7lhoPfS9KLQmckvVgky7PU",
+            authDomain: "treasurehunter-sdk.firebaseapp.com",
+            projectId: "treasurehunter-sdk",
+            storageBucket: "treasurehunter-sdk.firebasestorage.app",
+            messagingSenderId: "328804663359",
+            appId: "1:328804663359:web:eb124f150c4853c123788a",
+            measurementId: "G-YNJ58GLX3T"
+        };
+
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+
+        // Get session ID from URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const sessionId = urlParams.get('session_id');
+
+        if (!sessionId) {
+            showError();
+        } else {
+            // Wait for auth to be ready, then show success
+            auth.onAuthStateChanged(user => {
+                if (user) {
+                    showSuccess(sessionId);
+                } else {
+                    // Still show success even if not logged in
+                    showSuccess(sessionId);
+                }
+            });
+        }
+
+        function showSuccess(sessionId) {
+            setTimeout(() => {
+                document.getElementById('loadingState').style.display = 'none';
+                document.getElementById('successState').style.display = 'block';
+
+                // Display session ID as order reference
+                document.getElementById('orderId').textContent = sessionId.substring(0, 20) + '...';
+            }, 1500);
+        }
+
+        function showError() {
+            document.getElementById('loadingState').innerHTML = `
+                <h2 style="color: var(--error-dark);">Unable to confirm purchase</h2>
+                <p style="margin-top: var(--space-5);">Please check your email for confirmation or contact support.</p>
+                <a href="/" class="btn btn-primary" style="margin-top: var(--space-8); display: inline-block;">Return to Home</a>
+            `;
+        }
+    </script>
+</body>
+</html>

@@ -264,8 +264,21 @@ function getVehicleEstimateRange(result) {
  */
 const VEHICLE_AWARE_ANALYSIS_PROMPT = `You are an expert product identification assistant specializing in marketplace resale analysis. Pay special attention to vehicle identification and automotive items.
 
+CRITICAL: FALSE POSITIVE PREVENTION
+Some items contain vehicle-related words but are NOT vehicles:
+- "Car seat" / "Carseat" = BABY PRODUCT (Brands: Doona, Graco, Chicco, Britax, Evenflo, Safety 1st, UPPAbaby, Nuna, Cybex)
+- "Toy car" / "Remote control car" = TOY (Brands: Hot Wheels, Matchbox, RC brands)
+- "Stroller" / "Baby carrier" / "Bassinet" = BABY PRODUCT
+DO NOT classify these as vehicles. They are baby/child products or toys.
+
+BRAND RECOGNITION - READ ALL VISIBLE TEXT:
+- Look carefully for brand names, logos, and text on the item
+- Common baby product brands: Doona, Graco, Chicco, Britax, Evenflo, Safety 1st, Baby Jogger, UPPAbaby, Nuna, Cybex, Maxi-Cosi
+- If you see these brands, the item is a BABY PRODUCT, not a vehicle
+- Always include visible brand text in the "visible_text" field
+
 CRITICAL: VEHICLE DETECTION PRIORITY
-If you see ANY of these, classify as a vehicle or automotive item:
+If you see ANY of these (and ONLY these), classify as a vehicle or automotive item:
 - Cars, trucks, SUVs, sedans, coupes, convertibles, wagons
 - Motorcycles, scooters, mopeds, dirt bikes
 - Boats, yachts, jet skis, watercraft
@@ -331,6 +344,17 @@ PRICING GUIDANCE FOR VEHICLES:
 - Condition is critical for value
 - Rare/discontinued parts can be valuable
 
+MULTIPLE ITEM DETECTION:
+If you see multiple SEPARATE items of the same type (e.g., 2 chairs, 3 lamps), indicate this:
+- Set "itemCount": 2 (or appropriate number)
+- Set "isSet": true if items are meant to be sold together
+- Include in description: "Set of 2 chairs" or "2 separate chairs"
+
+Examples:
+- Photo shows 2 matching chairs side by side → "itemCount": 2, "isSet": true
+- Photo shows 1 chair with attached ottoman → "itemCount": 1, "isSet": false (it's ONE item with accessories)
+- Photo shows 1 chair only → "itemCount": 1, "isSet": false
+
 JSON STRUCTURE - Return this exact format:
 
 {
@@ -340,6 +364,8 @@ JSON STRUCTURE - Return this exact format:
   "year": "model year if determinable from styling/plates/stickers, or 'Unknown'",
   "bodyStyle": "for vehicles: 'sedan', 'coupe', 'SUV', 'pickup', 'hatchback', etc.",
   "materials": ["primary material", "secondary material"],
+  "itemCount": 1,
+  "isSet": false,
   "condition": {
     "rating": "excellent|good|fair|poor",
     "description": "detailed condition with specific observations about wear, damage, functionality",

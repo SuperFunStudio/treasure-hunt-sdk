@@ -192,11 +192,12 @@ async function getEbayMotorsPricing(enhancedItemData, ebayConfig) {
     source: 'ebay_motors_api',
     isVehicle: true,
     note: `Based on ${priceAnalysis.sampleSize} eBay Motors listings`,
-    comparableItems: items.slice(0, 3).map(item => ({
+    comparableItems: items.slice(0, 10).map(item => ({
       title: item.title,
       price: parseFloat(item.price?.value || 0),
       url: item.itemWebUrl,
-      condition: item.condition || 'Not specified'
+      condition: item.condition || 'Not specified',
+      image: item.image?.imageUrl || item.thumbnailImages?.[0]?.imageUrl || null
     }))
   };
 }
@@ -563,11 +564,12 @@ async function getEbayMarketPricing(enhancedItemData, ebayConfig) {
     source: 'ebay_api_enhanced',
     detectedCategory: enhancedItemData.detectedCategory,
     note: `Based on ${priceAnalysis.sampleSize} eBay listings for ${enhancedItemData.detectedCategory}`,
-    comparableItems: items.slice(0, 3).map(item => ({
+    comparableItems: items.slice(0, 10).map(item => ({
       title: item.title,
       price: parseFloat(item.price?.value || 0),
       url: item.itemWebUrl,
-      condition: item.condition || 'Not specified'
+      condition: item.condition || 'Not specified',
+      image: item.image?.imageUrl || item.thumbnailImages?.[0]?.imageUrl || null
     }))
   };
   

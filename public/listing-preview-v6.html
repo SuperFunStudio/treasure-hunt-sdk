@@ -1,0 +1,1157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <title>ThriftSpot - Preview Listing</title>
+
+    <!-- v6 Design System -->
+    <link rel="stylesheet" href="css/thriftspot-v6.css">
+    <link rel="stylesheet" href="css/thriftspot-v6-dark.css">
+
+    <!-- Firebase -->
+    <script src="/__/firebase/10.7.1/firebase-app-compat.js"></script>
+    <script src="/__/firebase/10.7.1/firebase-auth-compat.js"></script>
+    <script src="/__/firebase/10.7.1/firebase-firestore-compat.js"></script>
+    <script src="/__/firebase/10.7.1/firebase-storage-compat.js"></script>
+    <script src="/__/firebase/init.js"></script>
+
+    <style>
+        .page-container {
+            min-height: 100vh;
+            padding-top: 60px;
+            background: var(--gray-50);
+        }
+
+        .page-content {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: var(--space-8) var(--space-6) 100px;
+        }
+
+        .preview-header {
+            text-align: center;
+            margin-bottom: var(--space-8);
+        }
+
+        .preview-header h1 {
+            font-size: var(--font-3xl);
+            font-weight: 700;
+            color: var(--gray-900);
+            margin-bottom: var(--space-2);
+        }
+
+        .preview-header p {
+            color: var(--gray-600);
+        }
+
+        /* Image Preview */
+        .image-preview-section {
+            margin-bottom: var(--space-8);
+        }
+
+        .image-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: var(--space-4);
+        }
+
+        .preview-image {
+            width: 100%;
+            aspect-ratio: 1;
+            object-fit: cover;
+            border-radius: var(--radius-md);
+            border: 2px solid var(--gray-200);
+        }
+
+        /* Form Section */
+        .form-section {
+            background: var(--white);
+            border-radius: var(--radius-lg);
+            padding: var(--space-6);
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            border: 1px solid var(--gray-200);
+            margin-bottom: var(--space-6);
+        }
+
+        .section-title {
+            font-size: var(--font-xl);
+            font-weight: 700;
+            color: var(--gray-900);
+            margin-bottom: var(--space-4);
+            padding-bottom: var(--space-3);
+            border-bottom: 2px solid var(--gray-200);
+        }
+
+        .form-group {
+            margin-bottom: var(--space-5);
+        }
+
+        .form-label {
+            display: block;
+            margin-bottom: var(--space-2);
+            font-size: var(--font-base);
+            font-weight: 600;
+            color: var(--gray-700);
+        }
+
+        .form-input,
+        .form-select,
+        .form-textarea {
+            width: 100%;
+            padding: var(--space-3) var(--space-4);
+            border: 2px solid var(--gray-300);
+            border-radius: var(--radius-md);
+            font-size: var(--font-base);
+            font-family: inherit;
+            color: var(--gray-900);
+            background: var(--white);
+            transition: all 0.2s ease;
+        }
+
+        .form-input:focus,
+        .form-select:focus,
+        .form-textarea:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+        }
+
+        .form-textarea {
+            resize: vertical;
+            min-height: 120px;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: var(--space-4);
+        }
+
+        /* Toggle Switches */
+        .toggle-group {
+            display: flex;
+            gap: var(--space-4);
+            margin-bottom: var(--space-6);
+        }
+
+        .toggle-option {
+            flex: 1;
+            position: relative;
+        }
+
+        .toggle-input {
+            position: absolute;
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .toggle-label {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: var(--space-4);
+            border: 2px solid var(--gray-300);
+            border-radius: var(--radius-md);
+            cursor: pointer;
+            transition: all 0.2s ease;
+            background: var(--white);
+            gap: var(--space-2);
+            font-weight: 600;
+        }
+
+        .toggle-input:checked + .toggle-label {
+            border-color: var(--primary);
+            background: rgba(99, 102, 241, 0.1);
+            color: var(--primary);
+        }
+
+        .toggle-label:hover {
+            border-color: var(--primary);
+        }
+
+        /* Action Buttons */
+        .action-buttons {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: var(--white);
+            border-top: 1px solid var(--gray-200);
+            padding: var(--space-4) var(--space-6);
+            box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.05);
+            z-index: 100;
+        }
+
+        .action-buttons-inner {
+            max-width: 800px;
+            margin: 0 auto;
+            display: flex;
+            gap: var(--space-3);
+        }
+
+        .action-buttons .btn {
+            flex: 1;
+        }
+
+        /* AI Badge */
+        .ai-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: var(--space-2);
+            padding: var(--space-2) var(--space-3);
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+            color: var(--white);
+            border-radius: var(--radius-full);
+            font-size: 0.75rem;
+            font-weight: 600;
+            margin-left: var(--space-2);
+        }
+
+        /* Success Modal */
+        .success-modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.8);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10000;
+            padding: var(--space-4);
+        }
+
+        .success-modal {
+            background: var(--white);
+            border-radius: var(--radius-xl);
+            max-width: 500px;
+            max-height: 90vh;
+            overflow-y: auto;
+            width: 100%;
+            position: relative;
+            animation: modalSlideIn 0.3s ease;
+        }
+
+        @keyframes modalSlideIn {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .success-modal-close {
+            position: sticky;
+            top: var(--space-4);
+            float: right;
+            margin-right: var(--space-4);
+            margin-top: var(--space-4);
+            background: rgba(0, 0, 0, 0.7);
+            border: none;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            font-size: 24px;
+            font-weight: bold;
+            cursor: pointer;
+            z-index: 10;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--white);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+            transition: all 0.2s ease;
+        }
+
+        .success-modal-close:hover {
+            background: rgba(0, 0, 0, 0.9);
+            transform: scale(1.1);
+        }
+
+        .success-modal-edit {
+            position: absolute;
+            top: var(--space-4);
+            right: var(--space-14);
+            background: transparent;
+            border: none;
+            font-size: var(--font-sm);
+            font-weight: 600;
+            color: var(--primary);
+            cursor: pointer;
+            text-decoration: underline;
+        }
+
+        .success-modal-content {
+            padding: var(--space-8);
+            padding-bottom: var(--space-12);
+            text-align: center;
+        }
+
+        .success-title {
+            font-size: var(--font-3xl);
+            font-weight: 700;
+            color: var(--gray-900);
+            margin: 0 0 var(--space-2) 0;
+            letter-spacing: 2px;
+        }
+
+        .success-subtitle {
+            font-size: var(--font-base);
+            color: var(--gray-600);
+            margin: 0 0 var(--space-8) 0;
+        }
+
+        .success-card {
+            background: var(--gray-50);
+            border-radius: var(--radius-lg);
+            overflow: hidden;
+            margin-bottom: var(--space-6);
+            border: 1px solid var(--gray-200);
+        }
+
+        .success-card-image {
+            width: 100%;
+            height: 250px;
+            background: var(--gray-200);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .success-card-image img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .success-card-content {
+            padding: var(--space-6);
+            text-align: left;
+        }
+
+        .success-item-title {
+            font-size: var(--font-xl);
+            font-weight: 700;
+            color: var(--gray-900);
+            margin: 0 0 var(--space-4) 0;
+        }
+
+        .success-meta {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: var(--space-4);
+            padding-bottom: var(--space-4);
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .success-price {
+            font-size: var(--font-3xl);
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .success-condition {
+            display: flex;
+            align-items: center;
+            gap: var(--space-2);
+        }
+
+        .condition-label {
+            font-size: var(--font-sm);
+            color: var(--gray-600);
+        }
+
+        .condition-badge {
+            background: var(--success);
+            color: var(--white);
+            padding: var(--space-2) var(--space-4);
+            border-radius: var(--radius-full);
+            font-size: var(--font-xs);
+            font-weight: 600;
+            text-transform: uppercase;
+            white-space: nowrap;
+            display: inline-block;
+            min-width: 60px;
+            text-align: center;
+        }
+
+        .success-platforms {
+            display: flex;
+            gap: var(--space-2);
+            margin-bottom: var(--space-4);
+        }
+
+        .platform-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: var(--space-2);
+            padding: var(--space-2) var(--space-3);
+            background: var(--primary);
+            color: var(--white);
+            border-radius: var(--radius-md);
+            font-size: var(--font-xs);
+            font-weight: 600;
+        }
+
+        .platform-badge.ebay {
+            background: #e53238;
+        }
+
+        .platform-badge.local {
+            background: #22c55e;
+        }
+
+        .success-description {
+            font-size: var(--font-sm);
+            color: var(--gray-600);
+            line-height: 1.6;
+            margin: 0;
+        }
+
+        @media (max-width: 768px) {
+            .page-content {
+                padding: var(--space-6) var(--space-4) 100px;
+            }
+
+            .preview-header h1 {
+                font-size: var(--font-2xl);
+            }
+
+            .form-row {
+                grid-template-columns: 1fr;
+            }
+
+            .action-buttons {
+                padding: var(--space-3) var(--space-4);
+            }
+
+            .action-buttons-inner {
+                flex-direction: column;
+            }
+
+            .success-modal {
+                max-width: 100%;
+                max-height: 95vh;
+                border-radius: var(--radius-lg);
+                margin: var(--space-2);
+            }
+
+            .success-modal-content {
+                padding: var(--space-6) var(--space-4);
+                padding-bottom: var(--space-10);
+            }
+
+            .success-modal-close {
+                width: 36px;
+                height: 36px;
+                font-size: 20px;
+                margin-right: var(--space-2);
+                margin-top: var(--space-2);
+            }
+
+            .success-card-image {
+                height: 200px;
+            }
+
+            .success-title {
+                font-size: var(--font-2xl);
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <header class="app-header">
+        <a href="index-v6.html" class="header-logo">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"/>
+                <path d="M12 6v12M6 12h12"/>
+            </svg>
+            <span>ThriftSpot</span>
+        </a>
+
+        <div id="authSection"></div>
+    </header>
+
+    <!-- Main Content -->
+    <div class="page-container">
+        <div class="page-content">
+            <!-- Header -->
+            <div class="preview-header">
+                <h1>Preview Your Listing</h1>
+                <p>Review and edit the details before publishing</p>
+            </div>
+
+            <!-- Image Preview -->
+            <div class="image-preview-section">
+                <div class="image-grid" id="imageGrid">
+                    <!-- Images will be populated here -->
+                </div>
+            </div>
+
+            <!-- Item Details -->
+            <div class="form-section">
+                <h2 class="section-title">
+                    Item Details
+                    <span class="ai-badge">🤖 AI Generated</span>
+                </h2>
+
+                <div class="form-group">
+                    <label class="form-label" for="itemTitle">Title *</label>
+                    <input type="text" id="itemTitle" class="form-input" placeholder="Item title">
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" for="itemDescription">Description *</label>
+                    <textarea id="itemDescription" class="form-textarea" placeholder="Detailed description of the item"></textarea>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label" for="category">Category</label>
+                        <input type="text" id="category" class="form-input" placeholder="Category">
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label" for="brand">Brand</label>
+                        <input type="text" id="brand" class="form-input" placeholder="Brand name">
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label" for="condition">Condition *</label>
+                        <select id="condition" class="form-select">
+                            <option value="excellent">Excellent</option>
+                            <option value="good" selected>Good</option>
+                            <option value="fair">Fair</option>
+                            <option value="poor">Poor</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label" for="color">Color</label>
+                        <input type="text" id="color" class="form-input" placeholder="Color">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Pricing -->
+            <div class="form-section">
+                <h2 class="section-title">Pricing</h2>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label" for="price">
+                            <span id="priceLabel">Sale Price *</span>
+                        </label>
+                        <input type="number" id="price" class="form-input" placeholder="0.00" min="0" step="0.01">
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label" for="estimatedValue">AI Estimated Value</label>
+                        <input type="text" id="estimatedValue" class="form-input" disabled>
+                    </div>
+                </div>
+
+                <!-- Rental-specific fields (hidden by default) -->
+                <div id="rentalFields" style="display: none;">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label" for="rentalPeriod">Rental Period</label>
+                            <select id="rentalPeriod" class="form-select">
+                                <option value="hourly">Hourly</option>
+                                <option value="daily" selected>Daily</option>
+                                <option value="weekly">Weekly</option>
+                                <option value="monthly">Monthly</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label" for="securityDeposit">Security Deposit</label>
+                            <input type="number" id="securityDeposit" class="form-input" placeholder="0.00" min="0" step="0.01">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Location (for local listings) -->
+            <div class="form-section" id="locationSection">
+                <h2 class="section-title">Location</h2>
+
+                <div class="form-group">
+                    <label class="form-label" for="location">Where did you find this?</label>
+                    <input type="text" id="location" class="form-input" placeholder="Enter address or location">
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" for="locationNotes">Location Notes (optional)</label>
+                    <input type="text" id="locationNotes" class="form-input" placeholder="e.g., Behind building, near parking lot">
+                </div>
+            </div>
+
+            <!-- Listing Type -->
+            <div class="form-section">
+                <h2 class="section-title">Listing Type</h2>
+                <div class="toggle-group">
+                    <div class="toggle-option">
+                        <input type="radio" id="listingTypeSale" name="listingType" class="toggle-input" value="sale" checked>
+                        <label for="listingTypeSale" class="toggle-label">
+                            <span>💰</span>
+                            <span>For Sale</span>
+                        </label>
+                    </div>
+                    <div class="toggle-option">
+                        <input type="radio" id="listingTypeRent" name="listingType" class="toggle-input" value="rent">
+                        <label for="listingTypeRent" class="toggle-label">
+                            <span>📅</span>
+                            <span>For Rent</span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Listing Platforms -->
+            <div class="form-section">
+                <h2 class="section-title">List Your Thrift</h2>
+                <div class="toggle-group">
+                    <div class="toggle-option">
+                        <input type="checkbox" id="listLocal" class="toggle-input" checked>
+                        <label for="listLocal" class="toggle-label">
+                            <span>📍</span>
+                            <span>Local Map</span>
+                        </label>
+                    </div>
+                    <div class="toggle-option">
+                        <input type="checkbox" id="listEbay" class="toggle-input">
+                        <label for="listEbay" class="toggle-label">
+                            <span>🛒</span>
+                            <span>eBay</span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Fixed Action Buttons -->
+    <div class="action-buttons">
+        <div class="action-buttons-inner">
+            <button class="btn btn-secondary" onclick="window.history.back()">
+                ← Back to Results
+            </button>
+            <button class="btn btn-primary" id="createListingBtn">
+                Create Listing
+            </button>
+        </div>
+    </div>
+
+    <!-- Success Modal -->
+    <div class="success-modal-overlay" id="successModal" style="display: none;">
+        <div class="success-modal">
+            <button class="success-modal-close" onclick="document.getElementById('successModal').style.display='none'">✕</button>
+            <button class="success-modal-edit" id="editListingBtn">edit</button>
+
+            <div class="success-modal-content">
+                <h2 class="success-title">SUCCESS!</h2>
+                <p class="success-subtitle">Your listing is live.</p>
+
+                <div class="success-card">
+                    <div class="success-card-image" id="successCardImage">
+                        <!-- Image will be populated -->
+                    </div>
+
+                    <div class="success-card-content">
+                        <h3 class="success-item-title" id="successItemTitle">Item Title</h3>
+
+                        <div class="success-meta">
+                            <div class="success-price" id="successPrice">$0</div>
+                            <div class="success-condition" id="successCondition">
+                                <span class="condition-label">Condition:</span>
+                                <span class="condition-badge" id="successConditionBadge">Good</span>
+                            </div>
+                        </div>
+
+                        <div class="success-platforms" id="successPlatforms">
+                            <!-- Platform badges will be populated -->
+                        </div>
+
+                        <p class="success-description" id="successDescription">
+                            Description will appear here...
+                        </p>
+                    </div>
+                </div>
+
+                <button class="btn btn-primary btn-lg btn-full" id="viewOnMapBtn">
+                    VIEW ON MAP
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- JavaScript -->
+    <script src="shared/api-client.js"></script>
+    <script src="js/token-system.js"></script>
+    <script>
+        class ListingPreviewApp {
+            constructor() {
+                this.currentUser = null;
+                this.listingData = null;
+                this.photoDataUrls = [];
+            }
+
+            async init() {
+                console.log('🚀 Listing Preview initializing...');
+
+                // Initialize Firebase Auth
+                await this.initAuth();
+
+                // Load listing data from localStorage
+                this.loadListingData();
+
+                // Setup event listeners
+                this.setupEventListeners();
+
+                console.log('✅ Listing Preview ready!');
+            }
+
+            async initAuth() {
+                return new Promise((resolve) => {
+                    firebase.auth().onAuthStateChanged((user) => {
+                        this.currentUser = user;
+                        this.updateAuthUI();
+
+                        if (!user) {
+                            window.location.href = 'signin.html';
+                        }
+
+                        resolve();
+                    });
+                });
+            }
+
+            updateAuthUI() {
+                const authSection = document.getElementById('authSection');
+                if (this.currentUser) {
+                    const displayName = this.currentUser.displayName || this.currentUser.email;
+                    const initials = this.getUserInitials(displayName);
+
+                    authSection.innerHTML = `
+                        <div class="user-menu-container">
+                            <div class="user-avatar">${initials}</div>
+                            <div class="user-dropdown">
+                                <a href="profile-v6.html" class="dropdown-item">Profile</a>
+                                <a href="dashboard-v6.html" class="dropdown-item">Dashboard</a>
+                                <button class="dropdown-item" onclick="firebase.auth().signOut()">Sign Out</button>
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    authSection.innerHTML = `
+                        <a href="signin.html" class="btn btn-primary">Sign In</a>
+                    `;
+                }
+            }
+
+            getUserInitials(name) {
+                if (!name) return 'U';
+                if (name.includes('@')) {
+                    return name.substring(0, 2).toUpperCase();
+                }
+                const parts = name.trim().split(' ');
+                if (parts.length >= 2) {
+                    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+                }
+                return name.substring(0, 2).toUpperCase();
+            }
+
+            loadListingData() {
+                // Load data from sessionStorage (passed from results screen)
+                const pendingAnalysis = sessionStorage.getItem('pendingAnalysis') || localStorage.getItem('pendingAnalysis');
+
+                if (pendingAnalysis) {
+                    this.listingData = JSON.parse(pendingAnalysis);
+
+                    // Get image URLs from listing data (now stored as Firebase URLs)
+                    if (this.listingData.imageUrls && this.listingData.imageUrls.length > 0) {
+                        this.photoDataUrls = this.listingData.imageUrls;
+                    }
+                }
+
+                // Fallback: check for old base64 format in sessionStorage
+                const pendingImages = sessionStorage.getItem('pendingImages') || localStorage.getItem('pendingImages');
+                if (pendingImages && this.photoDataUrls.length === 0) {
+                    this.photoDataUrls = JSON.parse(pendingImages);
+                }
+
+                this.populateForm();
+            }
+
+            populateForm() {
+                // Populate images
+                const imageGrid = document.getElementById('imageGrid');
+                if (this.photoDataUrls.length > 0) {
+                    imageGrid.innerHTML = this.photoDataUrls.map(url =>
+                        `<img src="${url}" alt="Item photo" class="preview-image">`
+                    ).join('');
+                }
+
+                // Populate form fields from analysis
+                const prepopulated = this.listingData?.prepopulatedData || {};
+
+                document.getElementById('itemTitle').value = this.listingData?.analysis?.category || '';
+                document.getElementById('itemDescription').value = prepopulated.description || '';
+                document.getElementById('category').value = prepopulated.category || '';
+                document.getElementById('brand').value = prepopulated.brand || '';
+                document.getElementById('price').value = prepopulated.estimatedPrice || '';
+                document.getElementById('estimatedValue').value = `$${prepopulated.estimatedPrice || 0}`;
+                document.getElementById('condition').value = prepopulated.condition?.rating || 'good';
+            }
+
+            setupEventListeners() {
+                // Toggle visibility of location section based on local listing checkbox
+                document.getElementById('listLocal').addEventListener('change', (e) => {
+                    const locationSection = document.getElementById('locationSection');
+                    if (e.target.checked) {
+                        locationSection.style.display = 'block';
+                    } else {
+                        locationSection.style.display = 'none';
+                    }
+                });
+
+                // Toggle rental fields based on listing type
+                document.querySelectorAll('input[name="listingType"]').forEach(radio => {
+                    radio.addEventListener('change', (e) => {
+                        const rentalFields = document.getElementById('rentalFields');
+                        const priceLabel = document.getElementById('priceLabel');
+
+                        if (e.target.value === 'rent') {
+                            rentalFields.style.display = 'block';
+                            priceLabel.textContent = 'Rental Price *';
+                        } else {
+                            rentalFields.style.display = 'none';
+                            priceLabel.textContent = 'Sale Price *';
+                        }
+                    });
+                });
+
+                // Create listing button
+                document.getElementById('createListingBtn').addEventListener('click', () => {
+                    this.createListing();
+                });
+            }
+
+            async createListing() {
+                try {
+                    const button = document.getElementById('createListingBtn');
+                    button.disabled = true;
+                    button.textContent = 'Creating...';
+
+                    // Get form data
+                    const listingType = document.querySelector('input[name="listingType"]:checked').value;
+                    const listingData = {
+                        title: document.getElementById('itemTitle').value,
+                        description: document.getElementById('itemDescription').value,
+                        category: document.getElementById('category').value,
+                        brand: document.getElementById('brand').value,
+                        condition: document.getElementById('condition').value,
+                        color: document.getElementById('color').value,
+                        price: parseFloat(document.getElementById('price').value),
+
+                        // Listing type
+                        listingType: listingType,
+
+                        // Rental-specific fields
+                        ...(listingType === 'rent' && {
+                            rentalPeriod: document.getElementById('rentalPeriod').value,
+                            securityDeposit: parseFloat(document.getElementById('securityDeposit').value) || 0
+                        }),
+
+                        // Platform flags
+                        listLocal: document.getElementById('listLocal').checked,
+                        listEbay: document.getElementById('listEbay').checked,
+
+                        // Location data (if local listing)
+                        location: document.getElementById('location').value,
+                        locationNotes: document.getElementById('locationNotes').value,
+
+                        // User and metadata
+                        userId: this.currentUser.uid,
+                        userEmail: this.currentUser.email,
+                        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                        status: 'active',
+
+                        // Analysis data
+                        analysisData: this.listingData
+                    };
+
+                    console.log('Creating listing:', listingData);
+
+                    // Upload images to Firebase Storage
+                    const imageUrls = await this.uploadImages();
+                    listingData.images = imageUrls;
+
+                    // Create listing based on selected platforms
+                    let createdPinId = null;
+
+                    if (listingData.listLocal) {
+                        // Create map pin
+                        const pinId = await this.createMapPin(listingData);
+                        createdPinId = pinId;
+                        console.log('✅ Map pin created:', pinId);
+
+                        // Award tokens for creating a pin (8 tokens)
+                        const tokenReward = await window.tokenSystem.awardTokens('pin_created', null, { relatedId: pinId });
+                        if (tokenReward.success) {
+                            console.log(`✅ Earned ${tokenReward.amount} tokens for pinning item. New balance: ${tokenReward.balance}`);
+                        }
+                    }
+
+                    if (listingData.listEbay) {
+                        // TODO: Create eBay listing via API
+                        console.log('📦 eBay listing creation pending...');
+                    }
+
+                    // Clear storage
+                    sessionStorage.removeItem('pendingAnalysis');
+                    sessionStorage.removeItem('pendingImages');
+                    localStorage.removeItem('pendingAnalysis');
+                    localStorage.removeItem('pendingImages');
+
+                    // Show success modal
+                    this.showSuccessModal(listingData, createdPinId);
+
+                    // Re-enable button in case user closes modal
+                    button.disabled = false;
+                    button.textContent = 'Create Listing';
+
+                } catch (error) {
+                    console.error('Error creating listing:', error);
+                    alert('Failed to create listing: ' + error.message);
+
+                    const button = document.getElementById('createListingBtn');
+                    button.disabled = false;
+                    button.textContent = 'Create Listing';
+                }
+            }
+
+            async uploadImages() {
+                // Check if images are already uploaded (Firebase URLs from app-v6.js)
+                if (this.photoDataUrls.length > 0 && this.photoDataUrls[0].startsWith('https://')) {
+                    console.log('✅ Images already uploaded to Firebase Storage, using existing URLs');
+                    return this.photoDataUrls;
+                }
+
+                // Fallback: upload base64 images if needed (old flow)
+                const urls = [];
+                const storageRef = firebase.storage().ref();
+
+                for (let i = 0; i < this.photoDataUrls.length; i++) {
+                    const dataUrl = this.photoDataUrls[i];
+                    const blob = await this.dataUrlToBlob(dataUrl);
+                    const filename = `scans/${this.currentUser.uid}/${Date.now()}_${i}.jpg`;
+                    const imageRef = storageRef.child(filename);
+
+                    console.log(`📤 Uploading image ${i + 1}/${this.photoDataUrls.length} to Firebase...`);
+                    await imageRef.put(blob);
+                    const url = await imageRef.getDownloadURL();
+                    urls.push(url);
+                }
+
+                return urls;
+            }
+
+            async dataUrlToBlob(dataUrl) {
+                const response = await fetch(dataUrl);
+                return await response.blob();
+            }
+
+            async createMapPin(listingData) {
+                const db = firebase.firestore();
+
+                // Get user's current location
+                let lat = null;
+                let lng = null;
+                let geohash = null;
+
+                try {
+                    const position = await this.getCurrentPosition();
+                    lat = position.coords.latitude;
+                    lng = position.coords.longitude;
+                    geohash = this.encodeGeohash(lat, lng, 9);
+                    console.log('📍 Got user location:', { lat, lng, geohash });
+                } catch (error) {
+                    console.warn('Could not get location:', error);
+                    // Continue without location - will be added manually or geocoded later
+                }
+
+                const pinData = {
+                    title: listingData.title,
+                    description: listingData.description,
+                    category: listingData.category,
+                    brand: listingData.brand,
+                    condition: listingData.condition,
+                    price: listingData.price,
+                    listingType: listingData.listingType,
+
+                    // Rental-specific fields (only include if defined)
+                    ...(listingData.rentalPeriod && { rentalPeriod: listingData.rentalPeriod }),
+                    ...(listingData.securityDeposit !== undefined && { securityDeposit: listingData.securityDeposit }),
+
+                    images: listingData.images,
+                    location: listingData.location,
+                    locationNotes: listingData.locationNotes,
+
+                    // User info
+                    userId: this.currentUser.uid,
+                    userEmail: this.currentUser.email,
+
+                    // Status
+                    status: 'active',
+                    claimedBy: null,
+                    reservedBy: null,
+                    reservedUntil: null,
+
+                    // Timestamps
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+
+                    // Geolocation
+                    lat: lat,
+                    lng: lng,
+                    geohash: geohash
+                };
+
+                const docRef = await db.collection('pins').add(pinData);
+                return docRef.id;
+            }
+
+            getCurrentPosition() {
+                return new Promise((resolve, reject) => {
+                    if (!navigator.geolocation) {
+                        reject(new Error('Geolocation not supported'));
+                        return;
+                    }
+
+                    navigator.geolocation.getCurrentPosition(resolve, reject, {
+                        enableHighAccuracy: true,
+                        timeout: 5000,
+                        maximumAge: 0
+                    });
+                });
+            }
+
+            // Simple geohash encoding (precision 9 ~= 5m)
+            encodeGeohash(latitude, longitude, precision = 9) {
+                const BASE32 = '0123456789bcdefghjkmnpqrstuvwxyz';
+                let isEven = true;
+                let lat = [-90.0, 90.0];
+                let lon = [-180.0, 180.0];
+                let geohash = '';
+                let bit = 0;
+                let ch = 0;
+
+                while (geohash.length < precision) {
+                    if (isEven) {
+                        const mid = (lon[0] + lon[1]) / 2;
+                        if (longitude > mid) {
+                            ch |= (1 << (4 - bit));
+                            lon[0] = mid;
+                        } else {
+                            lon[1] = mid;
+                        }
+                    } else {
+                        const mid = (lat[0] + lat[1]) / 2;
+                        if (latitude > mid) {
+                            ch |= (1 << (4 - bit));
+                            lat[0] = mid;
+                        } else {
+                            lat[1] = mid;
+                        }
+                    }
+
+                    isEven = !isEven;
+
+                    if (bit < 4) {
+                        bit++;
+                    } else {
+                        geohash += BASE32[ch];
+                        bit = 0;
+                        ch = 0;
+                    }
+                }
+
+                return geohash;
+            }
+
+            showSuccessModal(listingData, pinId) {
+                // Populate modal with listing data
+                document.getElementById('successItemTitle').textContent = listingData.title;
+                document.getElementById('successPrice').textContent = `$${listingData.price}`;
+                document.getElementById('successConditionBadge').textContent = listingData.condition;
+                document.getElementById('successDescription').textContent = listingData.description;
+
+                // Set image
+                const imageContainer = document.getElementById('successCardImage');
+                if (this.photoDataUrls.length > 0) {
+                    imageContainer.innerHTML = `<img src="${this.photoDataUrls[0]}" alt="${listingData.title}">`;
+                }
+
+                // Add platform badges
+                const platformsContainer = document.getElementById('successPlatforms');
+                platformsContainer.innerHTML = '';
+
+                if (listingData.listLocal) {
+                    platformsContainer.innerHTML += `
+                        <span class="platform-badge local">
+                            📍 Local Map
+                        </span>
+                    `;
+                }
+
+                if (listingData.listEbay) {
+                    platformsContainer.innerHTML += `
+                        <span class="platform-badge ebay">
+                            🛒 eBay
+                        </span>
+                    `;
+                }
+
+                // Set up View on Map button
+                document.getElementById('viewOnMapBtn').onclick = () => {
+                    if (pinId) {
+                        window.location.href = `pin-map.html?pin=${pinId}`;
+                    } else {
+                        window.location.href = 'dashboard-v6.html';
+                    }
+                };
+
+                // Set up Edit button
+                document.getElementById('editListingBtn').onclick = () => {
+                    document.getElementById('successModal').style.display = 'none';
+                    // User can edit and re-submit
+                };
+
+                // Show modal
+                document.getElementById('successModal').style.display = 'flex';
+            }
+        }
+
+        // Initialize app when DOM is ready
+        document.addEventListener('DOMContentLoaded', () => {
+            window.app = new ListingPreviewApp();
+            window.app.init();
+        });
+    </script>
+</body>
+</html>

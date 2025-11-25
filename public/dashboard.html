@@ -2,149 +2,618 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Treasure Hunter - Dashboard</title>
-    
-    <!-- CSS Files -->
-    <link rel="stylesheet" href="css/shared.css">
-    <link rel="stylesheet" href="css/dashboard.css">
-    <link rel="stylesheet" href="css/mobile.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <title>ThriftSpot - Dashboard</title>
+
+    <!-- v6 Design System -->
+    <link rel="stylesheet" href="css/thriftspot-v6.css">
+    <link rel="stylesheet" href="css/thriftspot-v6-dark.css">
+
+    <!-- Firebase -->
+    <script src="/__/firebase/10.7.1/firebase-app-compat.js"></script>
+    <script src="/__/firebase/10.7.1/firebase-auth-compat.js"></script>
+    <script src="/__/firebase/10.7.1/firebase-firestore-compat.js"></script>
+    <script src="/__/firebase/init.js"></script>
+
+    <style>
+        /* Dashboard-specific styles */
+        .page-container {
+            min-height: 100vh;
+            padding-top: 60px;
+            background: var(--gray-50);
+        }
+
+        .page-content {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: var(--space-8) var(--space-6);
+        }
+
+        .dashboard-header {
+            margin-bottom: var(--space-8);
+        }
+
+        .dashboard-title {
+            font-size: var(--font-3xl);
+            font-weight: 700;
+            color: var(--gray-900);
+            margin-bottom: var(--space-2);
+        }
+
+        .dashboard-subtitle {
+            font-size: var(--font-base);
+            color: var(--gray-600);
+        }
+
+        /* Stats Grid */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: var(--space-4);
+            margin-bottom: var(--space-8);
+        }
+
+        .stat-card {
+            background: var(--white);
+            border-radius: var(--radius-lg);
+            padding: var(--space-6);
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            border: 1px solid var(--gray-200);
+        }
+
+        .stat-label {
+            font-size: 0.875rem;
+            color: var(--gray-600);
+            margin-bottom: var(--space-2);
+        }
+
+        .stat-value {
+            font-size: var(--font-3xl);
+            font-weight: 700;
+            color: var(--gray-900);
+        }
+
+        .stat-value.success {
+            color: var(--success);
+        }
+
+        /* Listings Grid */
+        .listings-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: var(--space-6);
+        }
+
+        .listings-header h2 {
+            font-size: var(--font-2xl);
+            font-weight: 700;
+            color: var(--gray-900);
+        }
+
+        .listings-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: var(--space-6);
+        }
+
+        .listing-card {
+            background: var(--white);
+            border-radius: var(--radius-lg);
+            overflow: hidden;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            border: 1px solid var(--gray-200);
+            transition: all 0.2s ease;
+        }
+
+        .listing-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+
+        .listing-image {
+            width: 100%;
+            height: 200px;
+            background: var(--gray-200);
+            object-fit: cover;
+        }
+
+        .listing-content {
+            padding: var(--space-4);
+        }
+
+        .listing-title {
+            font-size: var(--font-base);
+            font-weight: 600;
+            color: var(--gray-900);
+            margin-bottom: var(--space-3);
+            line-height: 1.4;
+        }
+
+        .listing-meta {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: var(--space-3);
+        }
+
+        .listing-price {
+            font-size: var(--font-lg);
+            font-weight: 700;
+            color: var(--success);
+        }
+
+        .listing-status {
+            display: inline-block;
+            padding: var(--space-2) var(--space-3);
+            border-radius: var(--radius-md);
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .listing-status.active {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .listing-status.sold {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .listing-actions {
+            display: flex;
+            gap: var(--space-2);
+        }
+
+        .listing-actions .btn {
+            flex: 1;
+            font-size: 0.875rem;
+            padding: var(--space-2) var(--space-4);
+        }
+
+        /* Empty State */
+        .empty-state {
+            text-align: center;
+            padding: var(--space-10) var(--space-4);
+            background: var(--white);
+            border-radius: var(--radius-lg);
+            border: 2px dashed var(--gray-300);
+        }
+
+        .empty-state-icon {
+            font-size: 64px;
+            margin-bottom: var(--space-4);
+        }
+
+        .empty-state h3 {
+            font-size: var(--font-xl);
+            font-weight: 700;
+            color: var(--gray-900);
+            margin-bottom: var(--space-2);
+        }
+
+        .empty-state p {
+            color: var(--gray-600);
+            margin-bottom: var(--space-6);
+        }
+
+        /* eBay Integration Status */
+        .ebay-status-card {
+            background: var(--white);
+            border-radius: var(--radius-lg);
+            padding: var(--space-6);
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            border: 1px solid var(--gray-200);
+            margin-bottom: var(--space-8);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: var(--space-4);
+        }
+
+        .ebay-status-content {
+            flex: 1;
+        }
+
+        .ebay-status-header {
+            display: flex;
+            align-items: center;
+            gap: var(--space-3);
+            margin-bottom: var(--space-2);
+        }
+
+        .ebay-status-icon {
+            font-size: 32px;
+        }
+
+        .ebay-status-title {
+            font-size: var(--font-lg);
+            font-weight: 700;
+            color: var(--gray-900);
+        }
+
+        .ebay-status-description {
+            color: var(--gray-600);
+            font-size: 0.875rem;
+            margin-bottom: var(--space-3);
+        }
+
+        .ebay-status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: var(--space-2);
+            padding: var(--space-2) var(--space-3);
+            border-radius: var(--radius-md);
+            font-size: 0.875rem;
+            font-weight: 600;
+        }
+
+        .ebay-status-badge.connected {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .ebay-status-badge.disconnected {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .ebay-status-badge svg {
+            width: 16px;
+            height: 16px;
+        }
+
+        .ebay-account-info {
+            margin-top: var(--space-3);
+            padding: var(--space-3);
+            background: var(--gray-50);
+            border-radius: var(--radius-md);
+            font-size: 0.875rem;
+            color: var(--gray-700);
+        }
+
+        /* Mobile adjustments */
+        @media (max-width: 768px) {
+            .page-content {
+                padding: var(--space-6) var(--space-4);
+            }
+
+            .dashboard-title {
+                font-size: var(--font-2xl);
+            }
+
+            .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .listings-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .listings-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: var(--space-4);
+            }
+        }
+    </style>
 </head>
 <body>
     <!-- Header -->
-    <div class="header">
-        <div class="header-content">
-            <div class="logo">
-                📍 ThriftSpot
-            </div>
-            
-            <div class="user-menu">
-                <div class="dropdown">
-                    <div class="user-avatar" id="userAvatar">
-                        TH
-                    </div>
-                    <div class="dropdown-content">
-                        <a href="/profile.html" class="dropdown-item">👤 Profile</a>
-                        <a href="/scan-editor.html" class="dropdown-item">📸 New Scan</a>
-                        <a href="#" class="dropdown-item" id="signoutBtn">🚪 Sign Out</a>
-                    </div>
-                </div>
-            </div>
+    <header class="app-header">
+        <a href="index-v6.html" class="header-logo">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"/>
+                <path d="M12 6v12M6 12h12"/>
+            </svg>
+            <span>ThriftSpot</span>
+        </a>
+
+        <div id="authSection">
+            <!-- Will be populated with user menu or sign in button -->
         </div>
-    </div>
+    </header>
 
     <!-- Main Content -->
-    <div class="container">
-        <!-- Success/Error Messages -->
-        <div id="successMessage" class="success"></div>
-        <div id="errorMessage" class="error"></div>
-
-        <!-- Welcome Section -->
-        <div class="welcome-section fade-in">
-            <h1 id="welcomeMessage">Welcome back, Treasure Hunter!</h1>
-            <p>Ready to discover your next treasure and turn it into profit?</p>
-        </div>
-
-        <!-- Stats Grid -->
-        <div class="stats-grid" id="statsGrid">
-            <div class="stat-card">
-                <div class="stat-icon">📱</div>
-                <div class="stat-value" id="totalScans">0</div>
-                <div class="stat-label">Total Scans</div>
-            </div>
-            
-            <div class="stat-card">
-                <div class="stat-icon">💰</div>
-                <div class="stat-value" id="totalEarnings">$0</div>
-                <div class="stat-label">Total Earnings</div>
-            </div>
-            
-            <div class="stat-card">
-                <div class="stat-icon">📍</div>
-                <div class="stat-value" id="pinsCreated">0</div>
-                <div class="stat-label">Pins Created</div>
-            </div>
-            
-            <div class="stat-card">
-                <div class="stat-icon">⭐</div>
-                <div class="stat-value" id="communityRating">0.0</div>
-                <div class="stat-label">Community Rating</div>
-            </div>
-        </div>
-
-        <!-- Quick Actions -->
-        <div class="actions-section">
-            <!-- Scan Item -->
-            <div class="action-card">
-                <div class="action-icon">📸</div>
-                <h3>Scan New Item</h3>
-                <p>Take photos of an item to get AI analysis and market pricing</p>
-                <button class="action-btn" onclick="window.location.href='/scan-editor.html'">
-                    Start Scanning
-                </button>
+    <div class="page-container">
+        <div class="page-content">
+            <!-- Dashboard Header -->
+            <div class="dashboard-header">
+                <h1 class="dashboard-title">Dashboard</h1>
+                <p class="dashboard-subtitle">Track your thrift finds and listings</p>
             </div>
 
-            <!-- Location Setup -->
-            <div class="action-card priority" id="locationSetupCard" style="display: none;">
-                <div class="action-icon">📍</div>
-                <h3>Set Up Shipping Location</h3>
-                <p>Required for eBay listings - set up once, use everywhere</p>
-                <button class="action-btn secondary" onclick="window.location.href='/shipping-locations.html'">
-                    Set Up Location
-                </button>
+            <!-- Stats Grid -->
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-label">Total Scans</div>
+                    <div class="stat-value" id="totalScans">0</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Active Listings</div>
+                    <div class="stat-value" id="activeListings">0</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Items Sold</div>
+                    <div class="stat-value" id="itemsSold">0</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Total Earnings</div>
+                    <div class="stat-value success" id="totalEarnings">$0</div>
+                </div>
             </div>
-            
-            <!-- eBay Connection -->
-            <div class="action-card">
-                <div class="action-icon">🛒</div>
-                <h3>eBay Integration</h3>
-                <div id="ebayStatusContainer">
-                    <div class="status-disconnected">
-                        <span>⚠️</span>
-                        <span>eBay account not connected</span>
+
+            <!-- eBay Integration Status -->
+            <div class="ebay-status-card" id="ebayStatusCard">
+                <div class="ebay-status-content">
+                    <div class="ebay-status-header">
+                        <span class="ebay-status-icon">🛒</span>
+                        <h3 class="ebay-status-title">eBay Integration</h3>
+                    </div>
+                    <p class="ebay-status-description" id="ebayStatusDescription">
+                        Connect your eBay account to list items directly from ThriftSpot
+                    </p>
+                    <div id="ebayStatusBadge">
+                        <!-- Status badge will be populated here -->
+                    </div>
+                    <div id="ebayAccountInfo" class="ebay-account-info hidden">
+                        <!-- Account info will be populated here -->
                     </div>
                 </div>
-                <p>Connect your eBay account to create listings directly from scans</p>
-                <button class="action-btn secondary" id="ebayConnectBtn">
-                    Connect eBay Account
-                </button>
-            </div>
-            
-            <!-- View History -->
-            <div class="action-card">
-                <div class="action-icon">📋</div>
-                <h3>Scan History</h3>
-                <p>Review your previous scans, drafts, and listings</p>
-                <button class="action-btn secondary" onclick="scrollToRecentScans()">
-                    View All Scans
-                </button>
-            </div>
-        </div>
-
-        <!-- Recent Scans -->
-        <div class="recent-scans">
-            <h3>Recent Scans</h3>
-            <div id="recentScansContainer">
-                <div class="loading">
-                    <div class="spinner"></div>
-                    <p>Loading your recent scans...</p>
+                <div>
+                    <a href="profile-v6.html" class="btn btn-primary" id="ebayActionButton">
+                        Connect eBay
+                    </a>
                 </div>
+            </div>
+
+            <!-- Listings Section -->
+            <div class="listings-header">
+                <h2>Your Listings</h2>
+                <a href="index-v6.html" class="btn btn-primary">
+                    <span>📸</span>
+                    <span>Scan New Item</span>
+                </a>
+            </div>
+
+            <div class="listings-grid" id="listingsGrid">
+                <!-- Listings will be populated here -->
+            </div>
+
+            <!-- Empty State (shown when no listings) -->
+            <div class="empty-state hidden" id="emptyState">
+                <div class="empty-state-icon">📦</div>
+                <h3>No listings yet</h3>
+                <p>Start scanning items to create your first listing</p>
+                <a href="index-v6.html" class="btn btn-primary btn-lg">Scan Your First Item</a>
             </div>
         </div>
     </div>
 
-    <!-- Firebase SDKs -->
-    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-auth-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-firestore-compat.js"></script>
-
-    <!-- App Scripts -->
-    <script src="js/firebase-config.js"></script>
+    <!-- JavaScript -->
     <script src="shared/api-client.js"></script>
-    <script src="shared/ui-helpers.js"></script>
-    <script src="js/dashboard.js"></script>
-    <script src="js/pin-manager.js"></script>
-    <script src="js/global-fixes.js"></script>
+    <script>
+        class DashboardApp {
+            constructor() {
+                this.currentUser = null;
+                this.listings = [];
+            }
 
+            async init() {
+                console.log('🚀 Dashboard initializing...');
+
+                // Initialize Firebase Auth
+                await this.initAuth();
+
+                // Load dashboard data
+                if (this.currentUser) {
+                    await this.loadDashboardData();
+                }
+
+                console.log('✅ Dashboard ready!');
+            }
+
+            async initAuth() {
+                return new Promise((resolve) => {
+                    firebase.auth().onAuthStateChanged((user) => {
+                        this.currentUser = user;
+                        this.updateAuthUI();
+
+                        if (!user) {
+                            // Redirect to signin if not authenticated
+                            window.location.href = 'signin.html';
+                        }
+
+                        resolve();
+                    });
+                });
+            }
+
+            updateAuthUI() {
+                const authSection = document.getElementById('authSection');
+                if (this.currentUser) {
+                    const displayName = this.currentUser.displayName || this.currentUser.email;
+                    const initials = this.getUserInitials(displayName);
+
+                    authSection.innerHTML = `
+                        <div class="user-menu-container">
+                            <div class="user-avatar">${initials}</div>
+                            <div class="user-dropdown">
+                                <a href="profile-v6.html" class="dropdown-item">Profile</a>
+                                <a href="dashboard-v6.html" class="dropdown-item">Dashboard</a>
+                                <button class="dropdown-item" onclick="firebase.auth().signOut()">Sign Out</button>
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    authSection.innerHTML = `
+                        <a href="signin.html" class="btn btn-primary">Sign In</a>
+                    `;
+                }
+            }
+
+            getUserInitials(name) {
+                if (!name) return 'U';
+                if (name.includes('@')) {
+                    return name.substring(0, 2).toUpperCase();
+                }
+                const parts = name.trim().split(' ');
+                if (parts.length >= 2) {
+                    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+                }
+                return name.substring(0, 2).toUpperCase();
+            }
+
+            async loadDashboardData() {
+                try {
+                    console.log('Loading dashboard data for user:', this.currentUser.uid);
+
+                    // Load user stats
+                    const userDoc = await firebase.firestore()
+                        .collection('users')
+                        .doc(this.currentUser.uid)
+                        .get();
+
+                    if (userDoc.exists) {
+                        const userData = userDoc.data();
+                        this.updateStats(userData.stats || {});
+                        this.updateEbayStatus(userData);
+                    }
+
+                    // Load user pins/listings
+                    const pinsSnapshot = await firebase.firestore()
+                        .collection('pins')
+                        .where('userId', '==', this.currentUser.uid)
+                        .orderBy('createdAt', 'desc')
+                        .limit(20)
+                        .get();
+
+                    this.listings = pinsSnapshot.docs.map(doc => ({
+                        id: doc.id,
+                        ...doc.data()
+                    }));
+
+                    this.renderListings();
+
+                } catch (error) {
+                    console.error('Error loading dashboard data:', error);
+                }
+            }
+
+            updateEbayStatus(userData) {
+                const statusBadge = document.getElementById('ebayStatusBadge');
+                const statusDescription = document.getElementById('ebayStatusDescription');
+                const accountInfo = document.getElementById('ebayAccountInfo');
+                const actionButton = document.getElementById('ebayActionButton');
+
+                const ebayConnected = userData.ebayIntegration?.connected || false;
+                const ebayAccount = userData.ebayIntegration?.accountName || userData.ebayIntegration?.username;
+
+                if (ebayConnected) {
+                    // Connected state
+                    statusBadge.innerHTML = `
+                        <span class="ebay-status-badge connected">
+                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                            </svg>
+                            <span>Connected</span>
+                        </span>
+                    `;
+
+                    statusDescription.textContent = 'Your eBay account is connected and ready to use';
+
+                    if (ebayAccount) {
+                        accountInfo.innerHTML = `<strong>Account:</strong> ${ebayAccount}`;
+                        accountInfo.classList.remove('hidden');
+                    }
+
+                    actionButton.textContent = 'Manage eBay';
+                    actionButton.className = 'btn btn-outline';
+                } else {
+                    // Disconnected state
+                    statusBadge.innerHTML = `
+                        <span class="ebay-status-badge disconnected">
+                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                            </svg>
+                            <span>Not Connected</span>
+                        </span>
+                    `;
+
+                    statusDescription.textContent = 'Connect your eBay account to list items directly from ThriftSpot';
+                    accountInfo.classList.add('hidden');
+                    actionButton.textContent = 'Connect eBay';
+                    actionButton.className = 'btn btn-primary';
+                }
+            }
+
+            updateStats(stats) {
+                document.getElementById('totalScans').textContent = stats.totalScans || 0;
+                document.getElementById('activeListings').textContent = stats.pinsCreated || 0;
+                document.getElementById('itemsSold').textContent = stats.itemsSold || 0;
+                document.getElementById('totalEarnings').textContent = `$${(stats.totalEarnings || 0).toFixed(2)}`;
+            }
+
+            renderListings() {
+                const grid = document.getElementById('listingsGrid');
+                const emptyState = document.getElementById('emptyState');
+
+                if (this.listings.length === 0) {
+                    grid.classList.add('hidden');
+                    emptyState.classList.remove('hidden');
+                    return;
+                }
+
+                grid.classList.remove('hidden');
+                emptyState.classList.add('hidden');
+
+                grid.innerHTML = this.listings.map(listing => this.createListingCard(listing)).join('');
+            }
+
+            createListingCard(listing) {
+                const imageUrl = listing.images?.[0] || listing.imageUrl || '';
+                const title = listing.title || listing.itemName || 'Untitled Item';
+                const price = listing.price || listing.estimatedValue || 0;
+                const status = listing.status || 'active';
+
+                return `
+                    <div class="listing-card">
+                        ${imageUrl ? `<img src="${imageUrl}" alt="${title}" class="listing-image">` : '<div class="listing-image"></div>'}
+                        <div class="listing-content">
+                            <div class="listing-title">${title}</div>
+                            <div class="listing-meta">
+                                <div class="listing-price">$${price}</div>
+                                <span class="listing-status ${status}">${status}</span>
+                            </div>
+                            <div class="listing-actions">
+                                <button class="btn btn-outline" onclick="app.viewListing('${listing.id}')">View</button>
+                                <button class="btn btn-secondary" onclick="app.editListing('${listing.id}')">Edit</button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            viewListing(listingId) {
+                // Navigate to listing detail page
+                window.location.href = `listing.html?id=${listingId}`;
+            }
+
+            editListing(listingId) {
+                // Navigate to edit page
+                window.location.href = `scan-editor.html?id=${listingId}`;
+            }
+        }
+
+        // Initialize app when DOM is ready
+        document.addEventListener('DOMContentLoaded', () => {
+            window.app = new DashboardApp();
+            window.app.init();
+        });
+    </script>
 </body>
 </html>

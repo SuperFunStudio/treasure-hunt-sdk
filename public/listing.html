@@ -1,0 +1,938 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Item Listing - ThriftSpot</title>
+
+    <!-- Design System CSS -->
+    <link rel="stylesheet" href="css/thriftspot-design-system.css">
+    <link rel="stylesheet" href="css/thriftspot-v6.css">
+    <link rel="stylesheet" href="css/thriftspot-v6-dark.css">
+
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+    <style>
+        /* Design system handles base reset and typography */
+
+        /* Page-specific styles using design system tokens */
+        .header {
+            background: linear-gradient(135deg, var(--primary-500) 0%, #764ba2 100%);
+            color: white;
+            padding: 0 var(--space-6);
+            position: sticky;
+            top: 0;
+            z-index: var(--z-sticky);
+            box-shadow: var(--elevation-2);
+        }
+
+        .header-content {
+            max-width: 1200px;
+            margin: 0 auto;
+            height: 70px;
+        }
+
+        .logo {
+            font-size: var(--text-2xl);
+            font-weight: var(--font-bold);
+            letter-spacing: var(--tracking-wide);
+        }
+
+        .nav-btn {
+            padding: var(--space-3) var(--space-5);
+            border: 2px solid rgba(255,255,255,0.3);
+            background: rgba(255,255,255,0.1);
+            border-radius: var(--radius-lg);
+            color: white;
+            font-size: var(--text-sm);
+            font-weight: var(--font-semibold);
+            transition: all var(--transition-fast);
+            backdrop-filter: blur(10px);
+        }
+
+        .nav-btn:hover {
+            background: rgba(255,255,255,0.2);
+            border-color: rgba(255,255,255,0.5);
+            text-decoration: none;
+        }
+
+        .loading {
+            text-align: center;
+            padding: var(--space-16) var(--space-6);
+            color: var(--gray-600);
+        }
+
+        .spinner {
+            border: 4px solid var(--gray-200);
+            border-top: 4px solid var(--primary-500);
+            border-radius: var(--radius-full);
+            width: 60px;
+            height: 60px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto var(--space-5);
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .listing-grid {
+            display: grid;
+            grid-template-columns: 1fr 400px;
+            gap: var(--space-8);
+            margin-bottom: var(--space-10);
+        }
+
+        .main-content {
+            background: white;
+            border-radius: var(--radius-2xl);
+            padding: var(--space-8);
+            box-shadow: var(--elevation-2);
+        }
+
+        .image-gallery {
+            margin-bottom: var(--space-8);
+        }
+
+        .main-image {
+            width: 100%;
+            height: 500px;
+            object-fit: cover;
+            border-radius: var(--radius-xl);
+            margin-bottom: var(--space-4);
+            border: 2px solid var(--gray-200);
+        }
+
+        .thumbnail-strip {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+            gap: var(--space-3);
+        }
+
+        .thumbnail {
+            width: 100%;
+            height: 80px;
+            object-fit: cover;
+            border-radius: var(--radius-base);
+            cursor: pointer;
+            border: 2px solid transparent;
+            transition: all var(--transition-fast);
+        }
+
+        .thumbnail:hover,
+        .thumbnail.active {
+            border-color: var(--primary-500);
+            transform: scale(1.05);
+        }
+
+        .item-details h1 {
+            font-size: var(--text-4xl);
+            color: var(--gray-900);
+            margin-bottom: var(--space-4);
+            line-height: var(--leading-tight);
+            font-weight: var(--font-semibold);
+        }
+
+        .item-meta {
+            display: flex;
+            gap: var(--space-4);
+            flex-wrap: wrap;
+            margin-bottom: var(--space-6);
+        }
+
+        .meta-badge {
+            padding: var(--space-2) var(--space-4);
+            background: var(--primary-100);
+            color: var(--primary-700);
+            border-radius: var(--radius-full);
+            font-size: var(--text-sm);
+            font-weight: var(--font-semibold);
+        }
+
+        .meta-badge.condition-excellent {
+            background: var(--success-light);
+            color: var(--success-dark);
+        }
+
+        .meta-badge.condition-good {
+            background: var(--warning-light);
+            color: var(--warning-dark);
+        }
+
+        .description-section {
+            margin-bottom: var(--space-8);
+        }
+
+        .description-section h3 {
+            font-size: var(--text-xl);
+            color: var(--gray-900);
+            margin-bottom: var(--space-4);
+            font-weight: var(--font-semibold);
+        }
+
+        .description-text {
+            color: var(--gray-600);
+            line-height: var(--leading-relaxed);
+            white-space: pre-line;
+        }
+
+        .location-map {
+            margin-top: var(--space-8);
+        }
+
+        .location-map h3 {
+            font-size: var(--text-xl);
+            color: var(--gray-900);
+            margin-bottom: var(--space-4);
+            font-weight: var(--font-semibold);
+        }
+
+        #miniMap {
+            width: 100%;
+            height: 300px;
+            border-radius: var(--radius-xl);
+            border: 2px solid var(--gray-200);
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 100px;
+            height: fit-content;
+        }
+
+        .price-card {
+            background: white;
+            border-radius: var(--radius-2xl);
+            padding: var(--space-8);
+            box-shadow: var(--elevation-2);
+            margin-bottom: var(--space-5);
+        }
+
+        .price-main {
+            font-size: var(--text-5xl);
+            font-weight: var(--font-bold);
+            color: var(--success-dark);
+            margin-bottom: var(--space-3);
+        }
+
+        .price-label {
+            color: var(--gray-600);
+            font-size: var(--text-sm);
+            margin-bottom: var(--space-5);
+        }
+
+        .purchase-btn {
+            width: 100%;
+            padding: var(--space-5);
+            background: linear-gradient(135deg, var(--primary-500) 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: var(--radius-lg);
+            font-size: var(--text-lg);
+            font-weight: var(--font-semibold);
+            cursor: pointer;
+            transition: all var(--transition-base);
+            margin-bottom: var(--space-3);
+            font-family: var(--font-primary);
+        }
+
+        .purchase-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--elevation-4);
+        }
+
+        .purchase-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .offer-btn {
+            width: 100%;
+            padding: var(--space-5);
+            background: white;
+            color: var(--primary-500);
+            border: 2px solid var(--primary-500);
+            border-radius: var(--radius-lg);
+            font-size: var(--text-base);
+            font-weight: var(--font-semibold);
+            cursor: pointer;
+            transition: all var(--transition-fast);
+            font-family: var(--font-primary);
+        }
+
+        .offer-btn:hover {
+            background: var(--primary-50);
+        }
+
+        .seller-card {
+            background: white;
+            border-radius: var(--radius-2xl);
+            padding: var(--space-6);
+            box-shadow: var(--elevation-2);
+        }
+
+        .seller-card h3 {
+            font-size: var(--text-lg);
+            color: var(--gray-900);
+            margin-bottom: var(--space-4);
+            font-weight: var(--font-semibold);
+        }
+
+        .seller-info {
+            display: flex;
+            align-items: center;
+            gap: var(--space-4);
+            margin-bottom: var(--space-4);
+        }
+
+        .seller-avatar {
+            width: 50px;
+            height: 50px;
+            border-radius: var(--radius-full);
+            background: linear-gradient(135deg, var(--primary-500) 0%, #764ba2 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: var(--font-bold);
+            font-size: var(--text-lg);
+        }
+
+        .seller-details {
+            flex: 1;
+        }
+
+        .seller-name {
+            font-weight: var(--font-semibold);
+            color: var(--gray-900);
+            margin-bottom: var(--space-1);
+        }
+
+        .seller-rating {
+            color: var(--gray-600);
+            font-size: var(--text-sm);
+        }
+
+        .contact-seller-btn {
+            width: 100%;
+            padding: var(--space-3);
+            background: var(--gray-100);
+            color: var(--gray-900);
+            border: none;
+            border-radius: var(--radius-lg);
+            font-size: var(--text-sm);
+            font-weight: var(--font-semibold);
+            cursor: pointer;
+            transition: all var(--transition-fast);
+            font-family: var(--font-primary);
+        }
+
+        .contact-seller-btn:hover {
+            background: var(--gray-200);
+        }
+
+        .item-stats {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: var(--space-4);
+            margin-top: var(--space-5);
+            padding-top: var(--space-5);
+            border-top: 1px solid var(--gray-200);
+        }
+
+        .stat-item {
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: var(--text-2xl);
+            font-weight: var(--font-bold);
+            color: var(--primary-500);
+            margin-bottom: var(--space-1);
+        }
+
+        .stat-label {
+            font-size: var(--text-xs);
+            color: var(--gray-600);
+            text-transform: uppercase;
+            letter-spacing: var(--tracking-wide);
+        }
+
+        .error {
+            background: var(--error-light);
+            color: var(--error-dark);
+            padding: var(--space-6);
+            border-radius: var(--radius-xl);
+            margin: var(--space-5) 0;
+            border-left: 4px solid var(--error);
+            text-align: center;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 968px) {
+            .listing-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .main-image {
+                height: 300px;
+            }
+
+            .header-content {
+                padding: 0 var(--space-4);
+            }
+
+            .item-details h1 {
+                font-size: var(--text-2xl);
+            }
+
+            .price-main {
+                font-size: var(--text-4xl);
+            }
+        }
+
+        @media (max-width: 768px) {
+            .nav-actions {
+                gap: var(--space-2);
+            }
+
+            .nav-btn {
+                padding: var(--space-2) var(--space-3);
+                font-size: var(--text-xs);
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <div class="header">
+        <div class="header-content flex items-center justify-between">
+            <a href="/" class="logo flex items-center gap-2">
+                📍 ThriftSpot
+            </a>
+
+            <div class="nav-actions flex items-center">
+                <a href="/" class="nav-btn">🗺️ Map</a>
+                <a href="/dashboard.html" class="nav-btn">🏠 Dashboard</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="container-lg py-8">
+        <!-- Loading State -->
+        <div class="loading" id="loadingState">
+            <div class="spinner"></div>
+            <p>Loading listing...</p>
+        </div>
+
+        <!-- Error State -->
+        <div id="errorState" class="error" style="display: none;">
+            <h2>Listing Not Found</h2>
+            <p id="errorMessage">This listing may have been removed or is no longer available.</p>
+            <a href="/" class="nav-btn" style="display: inline-block; margin-top: 15px;">← Back to Map</a>
+        </div>
+
+        <!-- Listing Content -->
+        <div id="listingContent" style="display: none;">
+            <div class="listing-grid">
+                <!-- Main Content -->
+                <div class="main-content">
+                    <!-- Image Gallery -->
+                    <div class="image-gallery">
+                        <img id="mainImage" class="main-image" src="" alt="Item photo">
+                        <div class="thumbnail-strip" id="thumbnailStrip">
+                            <!-- Thumbnails will be populated dynamically -->
+                        </div>
+                    </div>
+
+                    <!-- Item Details -->
+                    <div class="item-details">
+                        <h1 id="itemTitle">Loading...</h1>
+
+                        <div class="item-meta" id="itemMeta">
+                            <!-- Meta badges will be populated dynamically -->
+                        </div>
+
+                        <div class="description-section">
+                            <h3>Description</h3>
+                            <div class="description-text" id="itemDescription">
+                                Loading description...
+                            </div>
+                        </div>
+
+                        <!-- Item Stats -->
+                        <div class="item-stats">
+                            <div class="stat-item">
+                                <div class="stat-value" id="viewCount">0</div>
+                                <div class="stat-label">Views</div>
+                            </div>
+                            <div class="stat-item">
+                                <div class="stat-value" id="favoriteCount">0</div>
+                                <div class="stat-label">Favorites</div>
+                            </div>
+                            <div class="stat-item">
+                                <div class="stat-value" id="timeAgo">-</div>
+                                <div class="stat-label">Posted</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Location Map -->
+                    <div class="location-map">
+                        <h3>📍 Location</h3>
+                        <div id="miniMap"></div>
+                    </div>
+                </div>
+
+                <!-- Sidebar -->
+                <div class="sidebar">
+                    <!-- Price Card -->
+                    <div class="price-card">
+                        <div class="price-main" id="itemPrice">$0.00</div>
+                        <div class="price-label" id="priceLabel">Fixed Price</div>
+
+                        <button class="purchase-btn" id="purchaseBtn">
+                            💳 Buy Now
+                        </button>
+                        <button class="offer-btn" id="offerBtn">
+                            💬 Make Offer
+                        </button>
+                    </div>
+
+                    <!-- Seller Card -->
+                    <div class="seller-card">
+                        <h3>Seller Information</h3>
+                        <div class="seller-info">
+                            <div class="seller-avatar" id="sellerAvatar">?</div>
+                            <div class="seller-details">
+                                <div class="seller-name" id="sellerName">Loading...</div>
+                                <div class="seller-rating" id="sellerRating">⭐ New Seller</div>
+                            </div>
+                        </div>
+                        <button class="contact-seller-btn" id="contactBtn">
+                            ✉️ Contact Seller
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-functions-compat.js"></script>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <!-- Stripe JS -->
+    <script src="https://js.stripe.com/v3/"></script>
+
+    <script>
+        // Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyDymYwo7NUAu7lhoPfS9KLQmckvVgky7PU",
+            authDomain: "treasurehunter-sdk.firebaseapp.com",
+            projectId: "treasurehunter-sdk",
+            storageBucket: "treasurehunter-sdk.firebasestorage.app",
+            messagingSenderId: "328804663359",
+            appId: "1:328804663359:web:eb124f150c4853c123788a",
+            measurementId: "G-YNJ58GLX3T"
+        };
+
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+        const functions = firebase.functions();
+
+        // Initialize Stripe
+        const stripe = Stripe('pk_live_51MW0QWHE7cN3ucnNcTLAxITLFBVy2kM6VUS2sae0fXZ6sNqmTuQPSVhhMgcWRJbJ9ADhcOY5LhWKkbNLt7Cy1CRj00POK1obSt');
+
+        // Global variables
+        let currentUser = null;
+        let listingData = null;
+        let listingId = null;
+        let map = null;
+
+        // UI Elements
+        const loadingState = document.getElementById('loadingState');
+        const errorState = document.getElementById('errorState');
+        const errorMessage = document.getElementById('errorMessage');
+        const listingContent = document.getElementById('listingContent');
+
+        // Get listing ID from URL
+        const urlParams = new URLSearchParams(window.location.search);
+        listingId = urlParams.get('id');
+
+        if (!listingId) {
+            showError('No listing ID provided');
+        } else {
+            loadListing();
+        }
+
+        // Load listing data
+        async function loadListing() {
+            try {
+                console.log('Loading listing:', listingId);
+
+                // Get the pin document directly by ID (much more efficient!)
+                console.log('Fetching Firestore document:', listingId);
+                const pinDoc = await db.collection('pins').doc(listingId).get();
+
+                console.log('Document fetch completed. Exists?', pinDoc.exists);
+
+                if (!pinDoc.exists) {
+                    console.warn('No pin found with id:', listingId);
+                    showError('Listing not found. This item may have been sold or removed.');
+                    return;
+                }
+
+                listingData = pinDoc.data();
+                listingData.id = pinDoc.id; // Add document ID to data
+                console.log('✅ Listing data loaded:', listingData);
+
+                // Check if listing is still active
+                if (listingData.status === 'sold') {
+                    showError('This item has already been sold.');
+                    return;
+                }
+
+                if (listingData.status !== 'active' && listingData.status !== 'sold') {
+                    showError('This listing is no longer available.');
+                    return;
+                }
+
+                // Track view
+                trackView();
+
+                // Display the listing
+                displayListing();
+
+            } catch (error) {
+                console.error('❌ Error loading listing:', error);
+                console.error('Error code:', error.code);
+                console.error('Error details:', error);
+
+                if (error.code === 'permission-denied') {
+                    showError('Unable to load listing. This item may be private or unavailable.');
+                } else {
+                    showError('Failed to load listing: ' + error.message);
+                }
+            }
+        }
+
+        // Display listing
+        function displayListing() {
+            // Show content, hide loading
+            loadingState.style.display = 'none';
+            listingContent.style.display = 'block';
+
+            const item = listingData.item || {};
+
+            // Set title
+            document.getElementById('itemTitle').textContent = item.title || 'Item for Sale';
+
+            // Set price - check multiple possible locations
+            const price = listingData.price || item.price || item.estimatedValue || listingData.value || 25;
+            document.getElementById('itemPrice').textContent = `$${price}`;
+
+            // Set meta badges
+            const metaContainer = document.getElementById('itemMeta');
+            metaContainer.innerHTML = '';
+
+            if (item.category) {
+                metaContainer.innerHTML += `<div class="meta-badge">${item.category}</div>`;
+            }
+
+            if (item.condition) {
+                // Handle both object format {rating: 'good', description: '...'} and string format
+                const conditionRating = typeof item.condition === 'object'
+                    ? (item.condition.rating || 'unknown')
+                    : item.condition;
+                const conditionClass = conditionRating.toLowerCase().replace(' ', '-');
+                const conditionDisplay = conditionRating.charAt(0).toUpperCase() + conditionRating.slice(1);
+                metaContainer.innerHTML += `<div class="meta-badge condition-${conditionClass}">${conditionDisplay}</div>`;
+            }
+
+            if (item.brand) {
+                metaContainer.innerHTML += `<div class="meta-badge">${item.brand}</div>`;
+            }
+
+            // Set description
+            document.getElementById('itemDescription').textContent =
+                item.description || 'No description available.';
+
+            // Display images
+            displayImages();
+
+            // Display seller info
+            displaySellerInfo();
+
+            // Display stats
+            displayStats();
+
+            // Display map
+            displayMap();
+
+            // Setup purchase buttons
+            setupPurchaseButtons();
+        }
+
+        // Display images
+        function displayImages() {
+            // Check multiple possible locations for images
+            const images = listingData.item?.imageUrls ||
+                          listingData.imageUrls ||
+                          listingData.images ||
+                          listingData.item?.images ||
+                          [];
+
+            console.log('📸 Images found:', images.length, images);
+
+            const mainImage = document.getElementById('mainImage');
+            const thumbnailStrip = document.getElementById('thumbnailStrip');
+
+            if (!images || images.length === 0) {
+                console.warn('No images available for listing');
+                mainImage.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNTAwIiBoZWlnaHQ9IjUwMCIgdmlld0JveD0iMCAwIDUwMCA1MDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSI1MDAiIGhlaWdodD0iNTAwIiBmaWxsPSIjRjVGNUY1Ii8+Cjx0ZXh0IHg9IjI1MCIgeT0iMjUwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjOTk5IiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMjQiPk5vIEltYWdlPC90ZXh0Pgo8L3N2Zz4K';
+                return;
+            }
+
+            // Set main image (first image)
+            mainImage.src = images[0];
+            console.log('Main image set to:', images[0]);
+
+            // Create thumbnails
+            thumbnailStrip.innerHTML = '';
+            images.forEach((imageUrl, index) => {
+                const thumbnail = document.createElement('img');
+                thumbnail.className = 'thumbnail';
+                thumbnail.src = imageUrl;
+                thumbnail.alt = `Item photo ${index + 1}`;
+
+                if (index === 0) thumbnail.classList.add('active');
+
+                thumbnail.addEventListener('click', () => {
+                    mainImage.src = imageUrl;
+                    document.querySelectorAll('.thumbnail').forEach(t => t.classList.remove('active'));
+                    thumbnail.classList.add('active');
+                });
+
+                thumbnailStrip.appendChild(thumbnail);
+            });
+        }
+
+        // Display seller info
+        function displaySellerInfo() {
+            const sellerId = listingData.userId || listingData.user_id;
+            const sellerAvatar = document.getElementById('sellerAvatar');
+            const sellerName = document.getElementById('sellerName');
+
+            if (sellerId) {
+                // Load seller data
+                db.collection('users').doc(sellerId).get().then(userDoc => {
+                    if (userDoc.exists) {
+                        const userData = userDoc.data();
+                        const displayName = userData.displayName || userData.email?.split('@')[0] || 'Seller';
+                        sellerName.textContent = displayName;
+                        sellerAvatar.textContent = displayName.substring(0, 2).toUpperCase();
+                    }
+                });
+            } else {
+                sellerName.textContent = 'Anonymous Seller';
+                sellerAvatar.textContent = 'AS';
+            }
+        }
+
+        // Display stats
+        function displayStats() {
+            // Views
+            document.getElementById('viewCount').textContent = listingData.views || 0;
+
+            // Favorites
+            document.getElementById('favoriteCount').textContent = listingData.favorites || 0;
+
+            // Time ago
+            const createdAt = listingData.created_at || listingData.timestamp;
+            if (createdAt) {
+                const timeAgo = getTimeAgo(createdAt.toDate ? createdAt.toDate() : new Date(createdAt));
+                document.getElementById('timeAgo').textContent = timeAgo;
+            }
+        }
+
+        // Display map
+        function displayMap() {
+            const location = listingData.location;
+            if (!location || !location.latitude || !location.longitude) {
+                document.querySelector('.location-map').style.display = 'none';
+                return;
+            }
+
+            // Initialize map
+            map = L.map('miniMap').setView([location.latitude, location.longitude], 14);
+
+            // Add tile layer
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap contributors'
+            }).addTo(map);
+
+            // Add marker
+            const markerIcon = L.divIcon({
+                className: 'custom-pin-marker',
+                html: '<div style="width: 40px; height: 40px; background: #667eea; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-size: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.3);">📍</div>',
+                iconSize: [40, 40],
+                iconAnchor: [20, 20]
+            });
+
+            L.marker([location.latitude, location.longitude], { icon: markerIcon }).addTo(map);
+        }
+
+        // Setup purchase buttons
+        function setupPurchaseButtons() {
+            const purchaseBtn = document.getElementById('purchaseBtn');
+            const offerBtn = document.getElementById('offerBtn');
+            const contactBtn = document.getElementById('contactBtn');
+
+            purchaseBtn.addEventListener('click', handlePurchase);
+            offerBtn.addEventListener('click', handleMakeOffer);
+            contactBtn.addEventListener('click', handleContactSeller);
+        }
+
+        // Handle purchase
+        async function handlePurchase() {
+            if (!currentUser) {
+                // Redirect to sign in
+                window.location.href = '/signin.html?redirect=' + encodeURIComponent(window.location.href);
+                return;
+            }
+
+            const purchaseBtn = document.getElementById('purchaseBtn');
+            purchaseBtn.disabled = true;
+            purchaseBtn.textContent = 'Processing...';
+
+            try {
+                // Get auth token
+                const idToken = await currentUser.getIdToken();
+
+                // Call backend API to create checkout session
+                const response = await fetch('https://us-central1-treasurehunter-sdk.cloudfunctions.net/app/api/purchases/create-checkout', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${idToken}`
+                    },
+                    body: JSON.stringify({
+                        pinId: listingId
+                    })
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || 'Failed to create checkout session');
+                }
+
+                const result = await response.json();
+
+                // Redirect to Stripe checkout
+                if (result.url) {
+                    window.location.href = result.url;
+                } else {
+                    throw new Error('No checkout URL returned');
+                }
+
+            } catch (error) {
+                console.error('Purchase error:', error);
+                alert(`Unable to process purchase: ${error.message}`);
+                purchaseBtn.disabled = false;
+                purchaseBtn.textContent = '💳 Buy Now';
+            }
+        }
+
+        // Handle make offer
+        function handleMakeOffer() {
+            if (!currentUser) {
+                window.location.href = '/signin.html?redirect=' + encodeURIComponent(window.location.href);
+                return;
+            }
+
+            const price = listingData.item?.price || listingData.value || 25;
+            const offer = prompt(`Make an offer (Current price: $${price}):`);
+
+            if (offer && !isNaN(offer) && parseFloat(offer) > 0) {
+                // TODO: Implement offer submission
+                alert('Offer functionality coming soon!');
+            }
+        }
+
+        // Handle contact seller
+        function handleContactSeller() {
+            if (!currentUser) {
+                window.location.href = '/signin.html?redirect=' + encodeURIComponent(window.location.href);
+                return;
+            }
+
+            // TODO: Implement messaging
+            alert('Messaging functionality coming soon!');
+        }
+
+        // Track view
+        async function trackView() {
+            try {
+                const pinRef = db.collection('pins').doc(listingData.id || listingId);
+                await pinRef.update({
+                    views: firebase.firestore.FieldValue.increment(1)
+                });
+            } catch (error) {
+                console.log('Failed to track view:', error);
+            }
+        }
+
+        // Utility: Get time ago
+        function getTimeAgo(date) {
+            const seconds = Math.floor((new Date() - date) / 1000);
+
+            let interval = seconds / 31536000;
+            if (interval > 1) return Math.floor(interval) + 'y';
+
+            interval = seconds / 2592000;
+            if (interval > 1) return Math.floor(interval) + 'mo';
+
+            interval = seconds / 86400;
+            if (interval > 1) return Math.floor(interval) + 'd';
+
+            interval = seconds / 3600;
+            if (interval > 1) return Math.floor(interval) + 'h';
+
+            interval = seconds / 60;
+            if (interval > 1) return Math.floor(interval) + 'm';
+
+            return Math.floor(seconds) + 's';
+        }
+
+        // Show error
+        function showError(message) {
+            loadingState.style.display = 'none';
+            errorState.style.display = 'block';
+            errorMessage.textContent = message;
+        }
+
+        // Auth state listener
+        auth.onAuthStateChanged(user => {
+            currentUser = user;
+        });
+
+        console.log('Listing page loaded for ID:', listingId);
+    </script>
+</body>
+</html>

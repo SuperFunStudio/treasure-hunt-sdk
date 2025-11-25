@@ -121,7 +121,11 @@ class PinModel {
         estimatedValue: item.estimatedValue || 0,
         confidence: Math.min(Math.max(item.confidence || 0, 0), 10), // 0-10 range
         imageUrls: Array.isArray(item.imageUrls) ? item.imageUrls.slice(0, 5) : [], // Max 5 images
-        analysisData: item.analysisData || null
+        // Flatten analysisData to avoid Firestore nested entity limits
+        analysisCategory: item.analysisData?.category || null,
+        analysisBrand: item.analysisData?.brand || null,
+        analysisConfidence: item.analysisData?.confidence || null,
+        analysisDescription: item.analysisData?.description || null
       },
 
       // Pin metadata

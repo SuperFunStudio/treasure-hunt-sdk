@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>ThriftSpot - Dashboard</title>
+
+    <link rel="stylesheet" href="css/thriftspot-mobile.css">
+
+    <!-- Firebase -->
+    <script src="/__/firebase/10.7.1/firebase-app-compat.js"></script>
+    <script src="/__/firebase/10.7.1/firebase-auth-compat.js"></script>
+    <script src="/__/firebase/10.7.1/firebase-firestore-compat.js"></script>
+    <script src="/__/firebase/init.js"></script>
+
+    <style>
+        .dashboard-header {
+            background: linear-gradient(135deg, var(--primary-500) 0%, var(--primary-700) 100%);
+            color: white;
+            padding: var(--space-8) var(--space-4);
+            text-align: center;
+        }
+
+        .dashboard-header h1 {
+            color: white;
+            margin-bottom: var(--space-2);
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: var(--space-4);
+            margin-top: var(--space-6);
+        }
+
+        .stat-card {
+            background: rgba(255, 255, 255, 0.2);
+            backdrop-filter: blur(10px);
+            padding: var(--space-4);
+            border-radius: var(--radius-lg);
+            text-align: center;
+        }
+
+        .stat-number {
+            font-size: var(--text-3xl);
+            font-weight: var(--font-bold);
+            margin-bottom: var(--space-1);
+        }
+
+        .stat-label {
+            font-size: var(--text-sm);
+            opacity: 0.9;
+        }
+
+        .listings-section {
+            padding: var(--space-6) var(--space-4);
+        }
+
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: var(--space-4);
+        }
+
+        .listing-card {
+            background: white;
+            border-radius: var(--radius-xl);
+            box-shadow: var(--shadow-md);
+            padding: var(--space-4);
+            margin-bottom: var(--space-4);
+            display: flex;
+            gap: var(--space-4);
+            position: relative;
+        }
+
+        .listing-image {
+            width: 80px;
+            height: 80px;
+            border-radius: var(--radius-md);
+            object-fit: cover;
+            flex-shrink: 0;
+        }
+
+        .listing-info {
+            flex: 1;
+        }
+
+        .listing-title {
+            font-weight: var(--font-semibold);
+            margin-bottom: var(--space-1);
+        }
+
+        .listing-meta {
+            font-size: var(--text-sm);
+            color: var(--gray-500);
+        }
+
+        .listing-price {
+            font-size: var(--text-xl);
+            font-weight: var(--font-bold);
+            color: var(--primary-500);
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: var(--space-12);
+            color: var(--gray-500);
+        }
+
+        .empty-state-icon {
+            font-size: 4rem;
+            margin-bottom: var(--space-4);
+        }
+
+        .filter-tabs {
+            display: flex;
+            gap: var(--space-2);
+            margin-bottom: var(--space-4);
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .filter-tab {
+            padding: var(--space-2) var(--space-4);
+            border-radius: var(--radius-full);
+            border: 2px solid var(--gray-300);
+            background: white;
+            font-size: var(--text-sm);
+            font-weight: var(--font-medium);
+            white-space: nowrap;
+            cursor: pointer;
+            transition: all var(--transition-base);
+        }
+
+        .filter-tab.active {
+            background: var(--primary-500);
+            color: white;
+            border-color: var(--primary-500);
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <!-- Header -->
+        <header class="dashboard-header">
+            <h1>My Dashboard</h1>
+            <p id="userName">Welcome back!</p>
+
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-number" id="activeListings">0</div>
+                    <div class="stat-label">Active</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="soldListings">0</div>
+                    <div class="stat-label">Sold</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="totalEarnings">$0</div>
+                    <div class="stat-label">Earned</div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Listings Section -->
+        <main class="listings-section">
+            <div class="section-header">
+                <h2>My Listings</h2>
+                <a href="index-v5.html" class="btn btn-primary btn-sm">+ New Listing</a>
+            </div>
+
+            <!-- Filter Tabs -->
+            <div class="filter-tabs">
+                <button class="filter-tab active" data-filter="all">All</button>
+                <button class="filter-tab" data-filter="active">Active</button>
+                <button class="filter-tab" data-filter="sold">Sold</button>
+                <button class="filter-tab" data-filter="draft">Drafts</button>
+            </div>
+
+            <!-- Listings Container -->
+            <div id="listingsContainer">
+                <!-- Will be populated dynamically -->
+            </div>
+
+            <!-- Empty State -->
+            <div class="empty-state hidden" id="emptyState">
+                <div class="empty-state-icon">📦</div>
+                <h3>No listings yet</h3>
+                <p>Start spotting thrifts to create your first listing</p>
+                <a href="index-v5.html" class="btn btn-primary mt-4">Spot a Thrift</a>
+            </div>
+        </main>
+
+        <!-- Bottom Navigation -->
+        <nav class="bottom-nav">
+            <a href="index-v5.html" class="bottom-nav-item">
+                <span class="bottom-nav-icon">📷</span>
+                <span>Spot</span>
+            </a>
+            <a href="index-v5.html#thrift" class="bottom-nav-item">
+                <span class="bottom-nav-icon">🗺️</span>
+                <span>Thrift</span>
+            </a>
+            <a href="profile-v5.html" class="bottom-nav-item">
+                <span class="bottom-nav-icon">👤</span>
+                <span>Profile</span>
+            </a>
+        </nav>
+    </div>
+
+    <script>
+        let currentUser = null;
+        let currentFilter = 'all';
+
+        // Initialize
+        firebase.auth().onAuthStateChanged(async (user) => {
+            if (!user) {
+                window.location.href = 'signin-v5.html';
+                return;
+            }
+
+            currentUser = user;
+
+            // Update welcome message
+            document.getElementById('userName').textContent = `Welcome, ${user.displayName || user.email}!`;
+
+            // Load listings
+            await loadListings();
+        });
+
+        // Filter Tabs
+        document.querySelectorAll('.filter-tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                currentFilter = tab.dataset.filter;
+
+                document.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+
+                loadListings();
+            });
+        });
+
+        // Load Listings
+        async function loadListings() {
+            const container = document.getElementById('listingsContainer');
+            const emptyState = document.getElementById('emptyState');
+
+            try {
+                let query = firebase.firestore()
+                    .collection('listings')
+                    .where('userId', '==', currentUser.uid);
+
+                if (currentFilter !== 'all') {
+                    query = query.where('status', '==', currentFilter);
+                }
+
+                const snapshot = await query.orderBy('createdAt', 'desc').get();
+
+                // Update stats
+                const stats = {
+                    active: 0,
+                    sold: 0,
+                    totalEarnings: 0
+                };
+
+                snapshot.forEach(doc => {
+                    const listing = doc.data();
+                    if (listing.status === 'active') stats.active++;
+                    if (listing.status === 'sold') {
+                        stats.sold++;
+                        stats.totalEarnings += listing.price || 0;
+                    }
+                });
+
+                document.getElementById('activeListings').textContent = stats.active;
+                document.getElementById('soldListings').textContent = stats.sold;
+                document.getElementById('totalEarnings').textContent = `$${stats.totalEarnings}`;
+
+                // Display listings
+                if (snapshot.empty) {
+                    container.innerHTML = '';
+                    emptyState.classList.remove('hidden');
+                } else {
+                    emptyState.classList.add('hidden');
+                    container.innerHTML = '';
+
+                    snapshot.forEach(doc => {
+                        const listing = doc.data();
+                        const listingEl = createListingCard(doc.id, listing);
+                        container.appendChild(listingEl);
+                    });
+                }
+
+            } catch (error) {
+                console.error('Error loading listings:', error);
+                container.innerHTML = '<p class="text-center text-muted">Error loading listings</p>';
+            }
+        }
+
+        function createListingCard(id, listing) {
+            const card = document.createElement('div');
+            card.className = 'listing-card';
+
+            const isSold = listing.status === 'sold';
+
+            card.innerHTML = `
+                ${isSold ? '<div class="sold-badge">SOLD</div>' : ''}
+                <img src="${listing.images?.[0] || 'https://via.placeholder.com/80'}" alt="${listing.title}" class="listing-image">
+                <div class="listing-info">
+                    <div class="listing-title">${listing.title}</div>
+                    <div class="listing-meta">
+                        <span class="badge badge-${isSold ? 'success' : 'primary'}">${listing.condition}</span>
+                        · ${listing.status}
+                    </div>
+                    <div class="listing-price mt-2">$${listing.price}</div>
+                </div>
+            `;
+
+            card.onclick = () => {
+                // Navigate to listing details
+                window.location.href = `listing.html?id=${id}`;
+            };
+
+            return card;
+        }
+    </script>
+</body>
+</html>

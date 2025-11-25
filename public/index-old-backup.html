@@ -1,0 +1,4256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ThriftSpot - Find & Scan</title>
+
+    <!-- Skip Links for Accessibility -->
+    <style>
+        .skip-link {
+            position: absolute;
+            left: -9999px;
+            z-index: var(--z-tooltip);
+            padding: var(--space-3) var(--space-5);
+            background: var(--primary-500);
+            color: white;
+            text-decoration: none;
+            border-radius: var(--radius-base);
+            font-weight: var(--font-semibold);
+        }
+        .skip-link:focus {
+            left: var(--space-3);
+            top: var(--space-3);
+        }
+    </style>
+
+    <!-- Image Compression Library -->
+    <script src="https://cdn.jsdelivr.net/npm/browser-image-compression@2.0.2/dist/browser-image-compression.min.js"></script>
+
+    <!-- Leaflet for map -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <!-- Design System CSS (must be loaded before theme) -->
+    <link rel="stylesheet" href="css/thriftspot-design-system.css">
+
+    <!--  ThriftSpot CSS Theme - Mode-specific styles -->
+    <link rel="stylesheet" href="css/thriftspot-theme.css">
+    
+    <style>
+        /* Page-specific overrides only - Design system provides base tokens */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: var(--font-primary);
+            height: 100vh;
+            overflow: hidden;
+            background: var(--gray-50);
+        }
+
+        /* Mode Toggle Header */
+        .mode-header {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 60px;
+            background: white;
+            box-shadow: var(--elevation-2);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            z-index: var(--z-fixed);
+            padding: 0 var(--space-5);
+        }
+
+        .header-logo {
+            font-size: var(--text-xl);
+            font-weight: var(--font-bold);
+            color: var(--primary-500);
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: var(--space-2);
+        }
+
+        .header-center {
+            flex: 1;
+        }
+
+        /* Bottom Mode Toggle */
+        .mode-toggle {
+            position: fixed;
+            bottom: var(--space-5);
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            background: white;
+            border-radius: var(--radius-full);
+            padding: var(--space-2);
+            gap: var(--space-2);
+            box-shadow: var(--elevation-3);
+            z-index: var(--z-fixed);
+            border: 2px solid var(--gray-200);
+        }
+
+        .mode-btn {
+            padding: var(--space-3) var(--space-8);
+            border: none;
+            border-radius: var(--radius-full);
+            font-size: var(--text-base);
+            font-weight: var(--font-semibold);
+            cursor: pointer;
+            transition: all var(--transition-base);
+            background: transparent;
+            color: var(--gray-600);
+            display: flex;
+            align-items: center;
+            gap: var(--space-2);
+        }
+
+        .mode-btn.active {
+            background: linear-gradient(135deg, var(--primary-500) 0%, #764ba2 100%);
+            color: white;
+            box-shadow: var(--elevation-2);
+        }
+
+        .mode-btn:hover:not(.active) {
+            background: var(--primary-50);
+            color: var(--primary-500);
+        }
+
+        /* User Menu */
+        .user-menu {
+            position: relative;
+            z-index: calc(var(--z-fixed) + 1);
+        }
+
+        .user-menu.hidden {
+            display: none;
+        }
+
+        .user-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: var(--radius-full);
+            background: linear-gradient(135deg, var(--primary-500) 0%, #764ba2 100%);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: var(--font-bold);
+            cursor: pointer;
+            box-shadow: var(--elevation-2);
+            border: none;
+            font-size: var(--text-sm);
+            transition: all var(--transition-fast);
+        }
+
+        .user-avatar:hover {
+            transform: scale(1.05);
+            box-shadow: var(--elevation-3);
+        }
+
+        .user-avatar:focus-visible {
+            outline: 3px solid var(--primary-500);
+            outline-offset: 2px;
+        }
+
+        .dropdown {
+            position: relative;
+        }
+
+        .dropdown-content {
+            display: block;
+            position: absolute;
+            right: 0;
+            top: 50px;
+            background: white;
+            min-width: 180px;
+            box-shadow: var(--elevation-3);
+            border-radius: var(--radius-lg);
+            overflow: hidden;
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            opacity: 0;
+            transform: translateY(-10px);
+            pointer-events: none;
+            transition: all var(--transition-fast);
+        }
+
+        .dropdown-content[hidden] {
+            display: none;
+        }
+
+        .dropdown-content:not([hidden]) {
+            opacity: 1;
+            transform: translateY(0);
+            pointer-events: auto;
+        }
+
+        .dropdown-content li {
+            margin: 0;
+            padding: 0;
+        }
+
+        @media (max-width: 768px) {
+            .dropdown-content {
+                position: fixed;
+                right: var(--space-3);
+                top: 60px;
+                z-index: var(--z-modal);
+            }
+        }
+
+        .dropdown-item {
+            display: block;
+            padding: var(--space-3) var(--space-5);
+            text-decoration: none;
+            color: var(--gray-900);
+            transition: background var(--transition-fast);
+            font-size: var(--text-sm);
+        }
+
+        .dropdown-item:hover {
+            background: var(--gray-100);
+        }
+
+        /* Auth Buttons */
+        .auth-buttons {
+            display: flex;
+            gap: var(--space-3);
+        }
+
+        .auth-buttons.hidden {
+            display: none;
+        }
+
+        .btn-signin {
+            padding: var(--space-3) var(--space-5);
+            background: linear-gradient(135deg, var(--primary-500) 0%, #764ba2 100%);
+            color: white;
+            text-decoration: none;
+            border-radius: var(--radius-base);
+            font-weight: var(--font-semibold);
+            font-size: var(--text-sm);
+            transition: all var(--transition-base);
+        }
+
+        .btn-signin:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--elevation-2);
+        }
+
+        /* Mode Content Areas */
+        .mode-content {
+            display: none !important;
+            height: calc(100vh - 60px);
+            margin-top: 60px;
+            padding-bottom: 100px;
+            overflow-y: auto;
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            width: 100%;
+            background: var(--gray-50);
+            z-index: var(--z-base);
+        }
+
+        .mode-content.active {
+            display: block !important;
+            z-index: 10;
+        }
+
+        /* SCAN MODE - Initial Upload View */
+        .scan-mode {
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+            padding: 20px 20px 120px 20px;
+            background: linear-gradient(135deg, var(--scan-hull-dark) 0%, var(--scan-hull-medium) 50%, var(--scan-hull-light) 100%);
+            color: white;
+            transition: background 0.3s ease, color 0.3s ease;
+        }
+
+        /* Light Mode for scan */
+        body.find-mode-active .scan-mode {
+            background: linear-gradient(135deg, var(--gray-50) 0%, #e8ecf1 50%, #dde3eb 100%);
+            color: var(--scan-hull-dark);
+        }
+
+        .scan-mode.active {
+            display: flex;
+        }
+
+        .scan-header {
+            text-align: center;
+            margin-bottom: 20px;
+            max-width: 600px;
+        }
+
+        .scan-header h1 {
+            font-size: 2rem;
+            color: var(--scan-neon-cyan);
+            margin-bottom: 10px;
+            font-family: Georgia, serif;
+            text-shadow: 0 0 20px rgba(0, 229, 255, 0.5);
+        }
+
+        body.find-mode-active .scan-header h1 {
+            color: var(--scan-hull-dark);
+            text-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .scan-header p {
+            font-size: 1rem;
+            color: rgba(255, 255, 255, 0.7);
+        }
+
+        body.find-mode-active .scan-header p {
+            color: rgba(26, 35, 50, 0.7);
+        }
+
+        .upload-circle-container {
+            margin: 20px 0;
+            position: relative;
+        }
+
+        /* Scan Container with Morphing Squares Animation */
+        .upload-circle {
+            width: 300px;
+            height: 300px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            filter: drop-shadow(0 4px 20px rgba(0, 0, 0, 0.3));
+        }
+
+        body.find-mode-active .upload-circle {
+            filter: drop-shadow(0 4px 20px rgba(0, 0, 0, 0.15));
+        }
+
+        .upload-circle::before {
+            content: '';
+            position: absolute;
+            width: 240px;
+            height: 240px;
+            background: radial-gradient(
+                circle at 30% 30%,
+                rgba(0, 229, 255, 0.08),
+                rgba(0, 229, 255, 0.02) 40%,
+                transparent 70%
+            );
+            border-radius: var(--radius-full);
+            pointer-events: none;
+            z-index: 15;
+        }
+
+        /* Inner shadow for depth */
+        .upload-circle::after {
+            content: '';
+            position: absolute;
+            width: 220px;
+            height: 220px;
+            border-radius: var(--radius-full);
+            box-shadow:
+                inset 0 4px 12px rgba(0, 0, 0, 0.3),
+                inset 0 -2px 8px rgba(255, 255, 255, 0.05);
+            pointer-events: none;
+            z-index: 5;
+        }
+
+        body.find-mode-active .upload-circle::after {
+            box-shadow:
+                inset 0 4px 12px rgba(0, 0, 0, 0.1),
+                inset 0 -2px 8px rgba(255, 255, 255, 0.5);
+        }
+
+        .upload-circle:hover {
+            transform: scale(1.05);
+            filter: drop-shadow(0 6px 25px rgba(0, 229, 255, 0.3));
+        }
+
+        body.find-mode-active .upload-circle:hover {
+            filter: drop-shadow(0 6px 25px rgba(0, 229, 255, 0.4));
+        }
+
+        .upload-circle:active {
+            transform: scale(0.97);
+            filter: drop-shadow(0 2px 10px rgba(0, 0, 0, 0.4));
+        }
+
+        body.find-mode-active .upload-circle:active {
+            filter: drop-shadow(0 2px 10px rgba(0, 0, 0, 0.2));
+        }
+
+        /* Simplified Upload Circle Border - Subtle Pulsing Ring */
+        .upload-circle-border {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            border-radius: var(--radius-full);
+            border: 4px dashed rgba(102, 126, 234, 0.3);
+            animation: pulseRing 3s ease-in-out infinite;
+            pointer-events: none;
+        }
+
+        body.find-mode-active .upload-circle-border {
+            border-color: rgba(102, 126, 234, 0.4);
+        }
+
+        @keyframes pulseRing {
+            0%, 100% {
+                transform: scale(1);
+                opacity: 0.6;
+                border-width: 4px;
+            }
+            50% {
+                transform: scale(1.05);
+                opacity: 0.3;
+                border-width: 2px;
+            }
+        }
+
+        /* Inner glow circle for depth */
+        .upload-circle-glow {
+            position: absolute;
+            width: 90%;
+            height: 90%;
+            border-radius: var(--radius-full);
+            background: radial-gradient(
+                circle at center,
+                rgba(102, 126, 234, 0.08) 0%,
+                rgba(102, 126, 234, 0.02) 50%,
+                transparent 100%
+            );
+            pointer-events: none;
+            animation: glowPulse 3s ease-in-out infinite;
+        }
+
+        @keyframes glowPulse {
+            0%, 100% {
+                opacity: 1;
+            }
+            50% {
+                opacity: 0.5;
+            }
+        }
+
+        /* Center Text Container */
+        .upload-inner {
+            position: absolute;
+            z-index: 20;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            pointer-events: none;
+        }
+
+        /* Simplified Single Prompt - No Rotation */
+        .prompt {
+            position: relative;
+            font-weight: var(--font-semibold);
+            opacity: 1;
+            white-space: nowrap;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: var(--space-3);
+        }
+
+        /* Question text - large and bold */
+        .prompt-text {
+            font-size: 1.3rem;
+            color: white;
+            text-shadow:
+                2px 2px 4px rgba(0, 0, 0, 0.8),
+                0 0 20px rgba(0, 0, 0, 0.6);
+            line-height: 1.2;
+            order: 1;
+        }
+
+        body.find-mode-active .prompt-text {
+            color: var(--scan-hull-dark);
+            text-shadow:
+                1px 1px 2px rgba(255, 255, 255, 0.8),
+                0 0 10px rgba(255, 255, 255, 0.6);
+        }
+
+        /* Emoji */
+        .emoji {
+            font-size: 2rem;
+            display: block;
+            animation: emoji-pulse 3s ease-in-out infinite;
+            order: 2;
+        }
+
+        @keyframes emoji-pulse {
+            0%, 100% {
+                transform: scale(1);
+            }
+            50% {
+                transform: scale(1.1);
+            }
+        }
+
+        /* Tap to Scan - Pill Button */
+        .tap-instruction {
+            font-size: 0.85rem;
+            color: var(--scan-hull-dark);
+            background: linear-gradient(135deg, var(--scan-neon-cyan) 0%, var(--scan-neon-purple) 100%);
+            padding: 8px 20px;
+            border-radius: var(--radius-xl);
+            font-weight: var(--font-semibold);
+            box-shadow: 0 2px 8px rgba(0, 229, 255, 0.4);
+            order: 3;
+        }
+
+        body.find-mode-active .tap-instruction {
+            color: white;
+            box-shadow: 0 2px 8px rgba(0, 184, 212, 0.3);
+        }
+
+        /* FIXED: Cleaner instruction cards */
+        .photo-instructions {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: var(--space-4);
+            max-width: 900px;
+            margin: 20px 0 20px 0;
+        }
+
+        .instruction-card {
+            background: transparent;
+            padding: 12px 15px;
+            border-radius: var(--radius-lg);
+            display: flex;
+            gap: var(--space-3);
+            border: 2px solid transparent;
+            transition: all var(--transition-base);
+        }
+
+        .instruction-card:hover {
+            background: rgba(255, 255, 255, 0.5);
+            border-color: rgba(102, 126, 234, 0.2);
+        }
+
+        .instruction-icon {
+            font-size: 28px;
+        }
+
+        .instruction-text {
+            flex: 1;
+        }
+
+        .instruction-text strong {
+            display: block;
+            margin-bottom: 3px;
+            color: var(--gray-900);
+            font-size: var(--text-sm);
+        }
+
+        .instruction-text {
+            font-size: 13px;
+            color: var(--gray-600);
+            line-height: 1.4;
+        }
+
+        /* SCAN MODE - Loading/Analysis View */
+        .scan-loading {
+            display: none;
+            padding: 40px 20px;
+            max-width: 1000px;
+            margin: 0 auto;
+            background: var(--gray-50);
+            min-height: calc(100vh - 60px);
+        }
+
+        .scan-loading.active {
+            display: block;
+        }
+
+        .loading-header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        .loading-header h2 {
+            font-size: 2rem;
+            color: var(--gray-900);
+            margin-bottom: 10px;
+        }
+
+        .loading-header p {
+            color: var(--gray-600);
+            font-size: 1.1rem;
+        }
+
+        .upload-preview {
+            margin-bottom: 30px;
+        }
+
+        .preview-images {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 180px));
+            gap: var(--space-4);
+            margin-bottom: 20px;
+            justify-content: center;
+            max-width: 800px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .preview-image {
+            aspect-ratio: 1;
+            border-radius: var(--radius-lg);
+            overflow: hidden;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            max-width: 180px;
+            max-height: 180px;
+        }
+
+        .preview-image img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .progress-container {
+            margin: 30px 0;
+        }
+
+        .progress-bar {
+            height: 8px;
+            background: var(--gray-300);
+            border-radius: var(--radius-lg);
+            overflow: hidden;
+            margin-bottom: 15px;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--primary-500) 0%, #764ba2 100%);
+            border-radius: var(--radius-lg);
+            transition: width 0.5s ease;
+            width: 0%;
+        }
+
+        .progress-info {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .progress-text {
+            font-size: 1.2rem;
+            font-weight: var(--font-bold);
+            color: var(--primary-500);
+        }
+
+        .progress-stage {
+            color: var(--gray-600);
+            font-size: 0.95rem;
+        }
+
+        /* FIXED: Vertical stage indicators with better spacing */
+        .analysis-container {
+            display: grid;
+            grid-template-columns: 200px 1fr;
+            gap: 40px;
+            margin: 40px 0;
+            align-items: start;
+        }
+
+        @media (max-width: 768px) {
+            .analysis-container {
+                grid-template-columns: 1fr;
+                gap: var(--space-5);
+            }
+        }
+
+        .stage-indicators {
+            display: flex;
+            flex-direction: row;
+            gap: var(--space-3);
+            position: relative;
+            padding: 10px 0;
+            justify-content: space-between;
+            align-items: flex-start;
+        }
+
+        .stage-dot {
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            gap: var(--space-3);
+            opacity: 0.25;
+            transition: all 0.5s cubic-bezier(0.4, 0.0, 0.2, 1);
+            transform: translateX(-5px);
+            flex: 1;
+            min-width: 0;
+        }
+
+        .stage-dot.revealed {
+            opacity: 0.5;
+            transform: translateX(0);
+        }
+
+        .stage-dot.active {
+            opacity: 1;
+            transform: translateX(3px) scale(1.02);
+        }
+
+        .stage-dot.complete {
+            opacity: 0.7;
+            transform: translateX(0);
+        }
+
+        .dot-icon {
+            width: 60px;
+            height: 60px;
+            min-width: 60px;
+            border-radius: var(--radius-full);
+            background: white;
+            border: 3px solid var(--gray-300);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: var(--text-2xl);
+            transition: all 0.5s ease;
+            position: relative;
+            z-index: 2;
+        }
+
+        .stage-dot.active .dot-icon {
+            border-color: var(--primary-500);
+            background: linear-gradient(135deg, var(--primary-500) 0%, #764ba2 100%);
+            box-shadow: 0 4px 20px rgba(102, 126, 234, 0.5);
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        .stage-dot.complete .dot-icon {
+            border-color: var(--success);
+            background: var(--success);
+            box-shadow: 0 4px 15px rgba(76, 175, 80, 0.3);
+        }
+
+        @keyframes pulse {
+            0%, 100% {
+                transform: scale(1);
+            }
+            50% {
+                transform: scale(1.08);
+            }
+        }
+
+        .dot-label {
+            font-size: 0.95rem;
+            color: #757575; /* Changed from #999 for better contrast (4.6:1) */
+            font-weight: var(--font-semibold);
+            flex: 1;
+            transition: all 0.5s ease;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .stage-dot.revealed .dot-label {
+            color: #616161; /* Improved contrast */
+        }
+
+        .stage-dot.active .dot-label {
+            color: var(--primary-500);
+            font-size: 1.05rem;
+            font-weight: var(--font-bold);
+        }
+
+        .stage-dot.complete .dot-label {
+            color: var(--success);
+        }
+
+        /* FIXED: Progressive Info Stages - All stay visible, stacked vertically */
+        .progressive-info {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: var(--space-4);
+        }
+
+        .info-stage {
+            background: white;
+            border-radius: var(--radius-lg);
+            padding: 24px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+            display: none;
+            transition: all 0.3s ease;
+            min-height: 120px;
+            max-width: 700px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .info-stage.active {
+            display: block;
+            animation: easeInStage 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+        }
+
+        @keyframes easeInStage {
+            0% {
+                opacity: 0;
+                transform: translateY(20px) scale(0.98);
+            }
+            100% {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+
+        /* Cascade animation for stage content */
+        .info-stage.active .stage-header {
+            animation: fadeInUp 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94) 0.1s backwards;
+        }
+
+        .info-stage.active .stage-content {
+            animation: fadeInUp 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94) 0.2s backwards;
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(15px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .stage-header {
+            display: flex;
+            align-items: center;
+            gap: var(--space-3);
+            margin-bottom: 12px;
+        }
+
+        .stage-icon {
+            font-size: var(--text-2xl);
+        }
+
+        .stage-header h3 {
+            color: var(--gray-900);
+            font-size: 1.1rem;
+            font-weight: var(--font-semibold);
+        }
+
+        .stage-content {
+            font-size: 0.95rem;
+            line-height: 1.5;
+            color: var(--gray-900);
+        }
+
+        .stage-content p {
+            color: var(--gray-600);
+        }
+
+        .category-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: var(--space-2);
+            padding: 8px 16px;
+            background: linear-gradient(135deg, var(--primary-500)15 0%, #764ba215 100%);
+            border-radius: var(--radius-xl);
+            font-size: 1rem;
+            font-weight: var(--font-semibold);
+            color: var(--primary-500);
+        }
+
+        .category-icon {
+            font-size: 1.3rem;
+        }
+
+        .confidence-indicator {
+            margin-top: 10px;
+            color: var(--gray-600);
+            font-size: 0.9rem;
+        }
+
+        .estimated-value-large {
+            font-size: 2.5rem;
+            font-weight: var(--font-bold);
+            color: var(--primary-500);
+            margin-bottom: 8px;
+        }
+
+        .value-details {
+            color: var(--gray-600);
+            font-size: 0.9rem;
+        }
+
+        .value-range {
+            margin-top: 8px;
+            padding: 8px 12px;
+            background: var(--gray-50);
+            border-radius: var(--radius-base);
+            font-weight: var(--font-semibold);
+            font-size: 0.9rem;
+        }
+
+        /* SCAN MODE - Results View */
+        .scan-results {
+            display: none;
+            padding: 40px 20px;
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        .scan-results.active {
+            display: block;
+            animation: fadeInResults 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+        }
+
+        @keyframes fadeInResults {
+            0% {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            100% {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .results-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+        }
+
+        .results-header h2 {
+            font-size: 2rem;
+            color: var(--gray-900);
+        }
+
+        .confidence-badge {
+            padding: 8px 16px;
+            background: linear-gradient(135deg, var(--success) 0%, #45a049 100%);
+            color: white;
+            border-radius: var(--radius-xl);
+            font-weight: var(--font-semibold);
+            font-size: 0.9rem;
+        }
+
+        .results-card {
+            background: white;
+            border-radius: var(--radius-xl);
+            overflow: hidden;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+        }
+
+        .card-image {
+            width: 100%;
+            height: 400px;
+            background: var(--gray-50);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .card-image img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+
+        .image-nav {
+            position: absolute;
+            bottom: 15px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: var(--space-2);
+            background: rgba(0,0,0,0.5);
+            padding: 8px 12px;
+            border-radius: var(--radius-xl);
+        }
+
+        .image-nav-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: var(--radius-full);
+            background: rgba(255,255,255,0.5);
+            cursor: pointer;
+            transition: all var(--transition-base);
+        }
+
+        .image-nav-dot.active {
+            background: white;
+            width: 24px;
+            border-radius: 4px;
+        }
+
+        .card-content {
+            padding: 30px;
+        }
+
+        .item-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: start;
+            gap: var(--space-5);
+            margin-bottom: 20px;
+        }
+
+        /* Screen reader only class */
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border-width: 0;
+        }
+
+        .editable-title {
+            flex: 1;
+            font-size: 1.8rem;
+            font-weight: var(--font-bold);
+            color: var(--gray-900);
+            border: 2px solid transparent;
+            padding: 5px;
+            border-radius: 5px;
+            transition: all var(--transition-base);
+            font-family: inherit;
+        }
+
+        .editable-title:hover {
+            border-color: var(--gray-300);
+            background: #fafafa;
+        }
+
+        .editable-title:focus {
+            outline: none;
+            border-color: var(--primary-500);
+            background: #f9f9f9;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .estimated-value {
+            font-size: 2rem;
+            font-weight: var(--font-bold);
+            color: var(--success);
+            white-space: nowrap;
+        }
+
+        .item-meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: var(--space-3);
+            margin-bottom: 25px;
+        }
+
+        .meta-pill {
+            display: flex;
+            align-items: center;
+            gap: var(--space-2);
+            padding: 8px 16px;
+            background: var(--gray-50);
+            border-radius: var(--radius-xl);
+            font-size: 0.9rem;
+        }
+
+        .meta-label {
+            color: var(--gray-600);
+            font-weight: var(--font-semibold);
+        }
+
+        .inline-select,
+        .inline-input {
+            border: none;
+            background: transparent;
+            font-weight: var(--font-semibold);
+            color: var(--gray-900);
+            cursor: pointer;
+            font-size: 0.9rem;
+        }
+
+        .inline-select:focus,
+        .inline-input:focus {
+            outline: none;
+            color: var(--primary-500);
+        }
+
+        .description-section {
+            margin-bottom: 25px;
+        }
+
+        .description-section label {
+            display: block;
+            font-weight: var(--font-semibold);
+            color: var(--gray-900);
+            margin-bottom: 10px;
+        }
+
+        .description-textarea {
+            width: 100%;
+            padding: 15px;
+            border: 2px solid var(--gray-300);
+            border-radius: var(--radius-lg);
+            font-family: inherit;
+            font-size: 1rem;
+            resize: vertical;
+            transition: all var(--transition-base);
+        }
+
+        .description-textarea:focus {
+            outline: none;
+            border-color: var(--primary-500);
+            background: #f9f9f9;
+        }
+
+        .pricing-section {
+            background: linear-gradient(135deg, var(--primary-500)08 0%, #764ba208 100%);
+            padding: 20px;
+            border-radius: var(--radius-lg);
+            margin-bottom: 25px;
+        }
+
+        .pricing-section h4 {
+            margin-bottom: 20px;
+            color: var(--gray-900);
+            font-size: 1.2rem;
+        }
+
+        .pricing-inputs {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: var(--space-4);
+            margin-bottom: 15px;
+        }
+
+        .price-input {
+            display: flex;
+            flex-direction: column;
+            gap: var(--space-2);
+        }
+
+        .price-input label {
+            font-weight: var(--font-semibold);
+            color: var(--gray-600);
+            font-size: 0.9rem;
+        }
+
+        .price-input input {
+            padding: 12px;
+            border: 2px solid var(--gray-300);
+            border-radius: var(--radius-base);
+            font-size: 1.1rem;
+            font-weight: var(--font-semibold);
+            transition: all var(--transition-base);
+        }
+
+        .price-input input:focus {
+            outline: none;
+            border-color: var(--primary-500);
+        }
+
+        .price-input input[aria-invalid="true"] {
+            border-color: var(--error);
+            background: white5f5;
+        }
+
+        .price-input input[aria-invalid="true"]:focus {
+            border-color: var(--error);
+            box-shadow: 0 0 0 3px rgba(244, 67, 54, 0.1);
+        }
+
+        .required-indicator {
+            color: var(--error);
+            font-weight: var(--font-bold);
+        }
+
+        .help-text {
+            font-size: 0.85rem;
+            color: var(--gray-600);
+            margin-top: 4px;
+            display: block;
+        }
+
+        .error-message {
+            font-size: 0.85rem;
+            color: var(--error);
+            margin-top: 4px;
+            display: block;
+            font-weight: var(--font-semibold);
+        }
+
+        .error-message[hidden] {
+            display: none;
+        }
+
+        .pricing-options {
+            margin-bottom: 15px;
+        }
+
+        .checkbox-option {
+            display: flex;
+            align-items: center;
+            gap: var(--space-3);
+            cursor: pointer;
+            font-size: 0.95rem;
+            color: var(--gray-900);
+        }
+
+        .checkbox-option input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+        }
+
+        .profit-preview {
+            padding: 15px;
+            background: white;
+            border-radius: var(--radius-lg);
+        }
+
+        .profit-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 1rem;
+        }
+
+        .profit-row strong {
+            color: var(--success);
+            font-size: 1.3rem;
+        }
+
+        /* Action Buttons */
+        .action-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: var(--space-4);
+            justify-content: center;
+        }
+
+        .btn {
+            padding: 15px 30px;
+            border: none;
+            border-radius: var(--radius-lg);
+            font-size: var(--text-base);
+            font-weight: var(--font-semibold);
+            cursor: pointer;
+            transition: all var(--transition-base);
+            flex: 1;
+            min-width: 200px;
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary-500) 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(102, 126, 234, 0.3);
+        }
+
+        .btn-secondary {
+            background: white;
+            color: var(--primary-500);
+            border: 2px solid var(--primary-500);
+        }
+
+        .btn-secondary:hover {
+            background: var(--primary-500);
+            color: white;
+        }
+
+        .btn-ghost {
+            background: transparent;
+            color: var(--gray-600);
+            border: 2px solid var(--gray-300);
+        }
+
+        .btn-ghost:hover {
+            background: var(--gray-100);
+        }
+
+        /* FIND MODE (Map) */
+        .find-mode {
+            display: none;
+            padding-bottom: 0 !important;
+            overflow: hidden !important;
+            margin-top: 0 !important;
+        }
+
+        .find-mode.active {
+            display: block;
+        }
+
+        #map {
+            position: absolute;
+            z-index: 1;
+            /* Mobile: 10px padding on sides/bottom, 70px top (60px header + 10px) */
+            top: 70px;
+            left: 10px;
+            right: 10px;
+            bottom: 10px;
+            width: calc(100% - 20px);
+            height: calc(100% - 80px);
+            border-radius: var(--radius-lg);
+            overflow: hidden;
+            box-shadow: 0 2px 15px rgba(0,0,0,0.1);
+        }
+
+        @media (min-width: 769px) {
+            #map {
+                /* Desktop: 20px padding on all sides, 80px top (60px header + 20px) */
+                top: 80px;
+                left: 20px;
+                right: 20px;
+                bottom: 20px;
+                width: calc(100% - 40px);
+                height: calc(100% - 100px);
+                margin: 0;
+                border-radius: var(--radius-lg);
+                box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            }
+        }
+
+        /* User Location Marker */
+        .user-location-marker {
+            position: relative;
+            z-index: 10000 !important;
+        }
+
+        .user-pin-container {
+            position: relative;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .user-pin-dot {
+            position: relative;
+            z-index: 10002;
+            filter: drop-shadow(0 2px 8px rgba(102, 126, 234, 0.8));
+        }
+
+        .user-pin-pulse {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 24px;
+            height: 24px;
+            border-radius: var(--radius-full);
+            background: rgba(102, 126, 234, 0.4);
+            animation: userPulse 2s ease-out infinite;
+            z-index: 10001;
+        }
+
+        .user-pin-pulse.delay-1 {
+            animation-delay: 1s;
+        }
+
+        @keyframes userPulse {
+            0% {
+                width: 24px;
+                height: 24px;
+                opacity: 0.8;
+            }
+            50% {
+                opacity: 0.4;
+            }
+            99% {
+                width: 60px;
+                height: 60px;
+                opacity: 0;
+            }
+            100% {
+                width: 24px;
+                height: 24px;
+                opacity: 0;
+            }
+        }
+
+        /* Category Markers */
+        .category-marker {
+            width: 44px;
+            height: 44px;
+            border-radius: var(--radius-full);
+            background: white;
+            border: 3px solid var(--primary-500);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: var(--text-2xl);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+            transition: all 0.3s ease;
+        }
+
+        .category-marker:hover {
+            transform: scale(1.1);
+            box-shadow: 0 6px 16px rgba(102, 126, 234, 0.5);
+        }
+
+        /* Yard Sale Markers */
+        .yard-sale-marker {
+            position: relative;
+            width: 50px;
+            height: 50px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(255, 255, 255, 0.8);
+            border-radius: var(--radius-full);
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.15);
+            border: 1px solid rgba(0, 0, 0, 0.3);
+            backdrop-filter: blur(5px);
+            transition: all var(--transition-base);
+        }
+
+        .yard-sale-marker::before {
+            content: '✖';
+            font-size: 28px;
+            font-weight: 900;
+            color: var(--gray-900);
+            position: absolute;
+            animation: xMarkPulse 2s ease-in-out infinite;
+        }
+
+        .yard-sale-badge {
+            position: absolute;
+            top: -8px;
+            right: -8px;
+            background: #d32f2f;
+            color: white;
+            font-weight: var(--font-bold);
+            font-size: 11px;
+            min-width: 22px;
+            height: 22px;
+            padding: 0 4px;
+            border-radius: 11px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 2px 10px rgba(211, 47, 47, 0.5);
+            z-index: 3;
+            border: 2px solid white;
+        }
+
+        .yard-sale-marker:hover {
+            transform: scale(1.1);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+        }
+
+        /* Mobile Responsiveness */
+        @media (max-width: 768px) {
+            .mode-header {
+                height: 50px;
+                padding: 0 12px;
+            }
+
+            .header-logo {
+                font-size: var(--text-base);
+            }
+
+            .mode-toggle {
+                padding: 4px;
+                bottom: 10px;
+            }
+
+            .mode-btn {
+                padding: 10px 20px;
+                font-size: var(--text-sm);
+                gap: 4px;
+            }
+
+            .user-avatar {
+                width: 36px;
+                height: 36px;
+                font-size: var(--text-sm);
+            }
+
+            .mode-content {
+                height: calc(100vh - 50px);
+                margin-top: 50px;
+                padding-bottom: 90px;
+            }
+
+            .scan-header h1 {
+                font-size: 1.5rem;
+            }
+
+            .scan-header p {
+                font-size: 0.9rem;
+            }
+
+            .upload-circle {
+                width: 260px;
+                height: 260px;
+            }
+
+            .upload-circle::before {
+                width: 210px;
+                height: 210px;
+            }
+
+            .upload-circle::after {
+                width: 190px;
+                height: 190px;
+            }
+
+            .square-morph:nth-child(1) {
+                width: 180px;
+                height: 180px;
+            }
+
+            .square-morph:nth-child(2) {
+                width: 160px;
+                height: 160px;
+            }
+
+            .square-morph:nth-child(3) {
+                width: 140px;
+                height: 140px;
+            }
+
+            .square-morph:first-child::before {
+                width: 220px;
+                height: 220px;
+            }
+
+            .prompt-text {
+                font-size: 1.1rem;
+            }
+
+            .emoji {
+                font-size: 1.8rem;
+            }
+
+            .tap-instruction {
+                font-size: 0.75rem;
+                padding: 6px 16px;
+            }
+
+            .photo-instructions {
+                grid-template-columns: 1fr;
+                gap: var(--space-3);
+                margin: 15px 0 15px 0;
+            }
+
+            .results-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: var(--space-4);
+            }
+
+            .card-image {
+                height: 300px;
+            }
+
+            .card-content {
+                padding: 20px;
+            }
+
+            .item-header {
+                flex-direction: column;
+                gap: var(--space-3);
+            }
+
+            .editable-title {
+                font-size: 1.4rem;
+            }
+
+            .estimated-value {
+                font-size: 1.5rem;
+            }
+
+            .pricing-inputs {
+                grid-template-columns: 1fr;
+            }
+
+            .action-buttons {
+                flex-direction: column;
+            }
+
+            .btn {
+                min-width: 100%;
+            }
+        }
+
+        /* Loading Spinner */
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .loading-spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid var(--primary-500);
+            border-radius: var(--radius-full);
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+        }
+
+        /* Location Status Indicator */
+        .location-status {
+            position: fixed;
+            bottom: 80px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 8px 16px;
+            border-radius: var(--radius-xl);
+            font-size: 0.85rem;
+            display: none;
+            z-index: 999;
+        }
+
+        .location-status.show {
+            display: block;
+        }
+
+        .location-status.success {
+            background: rgba(76, 175, 80, 0.9);
+        }
+
+        .location-status.error {
+            background: rgba(244, 67, 54, 0.9);
+        }
+
+        /* Toast Notification System */
+        .toast-container {
+            position: fixed;
+            top: 80px;
+            right: 20px;
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            gap: var(--space-3);
+            max-width: 400px;
+            pointer-events: none;
+        }
+
+        .toast {
+            background: white;
+            border-radius: var(--radius-lg);
+            padding: 16px 20px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+            display: flex;
+            align-items: flex-start;
+            gap: var(--space-3);
+            animation: toastSlideIn var(--motion-standard) var(--easing-decelerate);
+            pointer-events: auto;
+            border-left: 4px solid var(--primary-500);
+            max-width: 100%;
+        }
+
+        .toast.toast-success {
+            border-left-color: var(--success);
+        }
+
+        .toast.toast-error {
+            border-left-color: var(--error);
+        }
+
+        .toast.toast-warning {
+            border-left-color: #ff9800;
+        }
+
+        .toast.toast-info {
+            border-left-color: var(--primary-500);
+        }
+
+        .toast-icon {
+            font-size: var(--text-xl);
+            flex-shrink: 0;
+        }
+
+        .toast-content {
+            flex: 1;
+            font-size: 0.95rem;
+        }
+
+        .toast-title {
+            font-weight: var(--font-semibold);
+            color: var(--gray-900);
+            margin-bottom: 4px;
+        }
+
+        .toast-message {
+            color: var(--gray-600);
+            font-size: 0.9rem;
+            line-height: 1.4;
+        }
+
+        .toast-close {
+            background: none;
+            border: none;
+            color: #999;
+            cursor: pointer;
+            font-size: var(--text-xl);
+            padding: 0;
+            width: 20px;
+            height: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 4px;
+            transition: all var(--motion-fast);
+            flex-shrink: 0;
+        }
+
+        .toast-close:hover {
+            background: var(--gray-100);
+            color: var(--gray-900);
+        }
+
+        .toast.toast-exit {
+            animation: toastSlideOut var(--motion-standard) var(--easing-accelerate) forwards;
+        }
+
+        @keyframes toastSlideIn {
+            from {
+                opacity: 0;
+                transform: translateX(100%);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        @keyframes toastSlideOut {
+            from {
+                opacity: 1;
+                transform: translateX(0);
+            }
+            to {
+                opacity: 0;
+                transform: translateX(120%);
+            }
+        }
+
+        @media (max-width: 768px) {
+            .toast-container {
+                top: 60px;
+                right: 10px;
+                left: 10px;
+                max-width: none;
+            }
+
+            .toast {
+                padding: 14px 16px;
+            }
+        }
+
+        /* ============================================
+           LANDING PAGE (First-time users)
+           ============================================ */
+
+        .landing-page {
+            display: none;
+            background: linear-gradient(135deg, var(--gray-50) 0%, #c3cfe2 100%);
+        }
+
+        .landing-page.active {
+            display: block;
+        }
+
+        /* Hero Section */
+        .hero-section {
+            padding: 60px 20px 40px;
+            text-align: center;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .hero-badge {
+            display: inline-block;
+            padding: 8px 20px;
+            background: rgba(102, 126, 234, 0.1);
+            border: 2px solid rgba(102, 126, 234, 0.3);
+            border-radius: 30px;
+            color: var(--primary-500);
+            font-weight: var(--font-semibold);
+            font-size: 0.9rem;
+            margin-bottom: 20px;
+        }
+
+        .hero-title {
+            font-size: 3.5rem;
+            font-weight: 800;
+            line-height: 1.2;
+            margin-bottom: 20px;
+            color: #1a1a1a;
+        }
+
+        .hero-title .gradient-text {
+            background: linear-gradient(135deg, var(--primary-500) 0%, #764ba2 50%, #f093fb 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .hero-subtitle {
+            font-size: 1.3rem;
+            color: var(--gray-600);
+            margin-bottom: 40px;
+            max-width: 700px;
+            margin-left: auto;
+            margin-right: auto;
+            line-height: 1.6;
+        }
+
+        .hero-cta {
+            display: flex;
+            gap: var(--space-4);
+            justify-content: center;
+            margin-bottom: 60px;
+        }
+
+        .cta-button {
+            padding: 16px 40px;
+            border-radius: var(--radius-lg);
+            font-size: 1.1rem;
+            font-weight: var(--font-semibold);
+            text-decoration: none;
+            transition: all var(--transition-base);
+            cursor: pointer;
+            border: none;
+            display: flex;
+            align-items: center;
+            gap: var(--space-3);
+        }
+
+        .cta-primary {
+            background: linear-gradient(135deg, var(--primary-500) 0%, #764ba2 100%);
+            color: white;
+            box-shadow: 0 4px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .cta-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 25px rgba(102, 126, 234, 0.5);
+        }
+
+        .cta-secondary {
+            background: white;
+            color: var(--primary-500);
+            border: 2px solid var(--primary-500);
+        }
+
+        .cta-secondary:hover {
+            background: rgba(102, 126, 234, 0.05);
+        }
+
+        /* Social Proof Ticker */
+        .ticker-container {
+            background: white;
+            border-radius: var(--radius-xl);
+            padding: 20px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+            max-width: 800px;
+            margin: 0 auto 60px;
+            overflow: hidden;
+        }
+
+        .ticker-content {
+            display: flex;
+            align-items: center;
+            gap: var(--space-4);
+            animation: ticker 20s linear infinite;
+        }
+
+        @keyframes ticker {
+            0% {
+                transform: translateX(0);
+            }
+            100% {
+                transform: translateX(-50%);
+            }
+        }
+
+        .ticker-item {
+            display: flex;
+            align-items: center;
+            gap: var(--space-3);
+            white-space: nowrap;
+            padding: 10px 20px;
+            background: linear-gradient(135deg, var(--primary-500)08 0%, #764ba208 100%);
+            border-radius: 30px;
+            border: 1px solid rgba(102, 126, 234, 0.2);
+        }
+
+        .ticker-avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: var(--radius-full);
+            background: linear-gradient(135deg, var(--primary-500) 0%, #764ba2 100%);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: var(--font-semibold);
+            font-size: 0.85rem;
+        }
+
+        .ticker-text {
+            font-size: 0.95rem;
+            color: var(--gray-900);
+        }
+
+        .ticker-text .name {
+            color: var(--primary-500);
+            font-weight: var(--font-semibold);
+        }
+
+        .ticker-text .item {
+            font-weight: var(--font-semibold);
+        }
+
+        .ticker-text .price {
+            color: var(--success);
+            font-weight: var(--font-bold);
+        }
+
+        /* How It Works Section */
+        .how-it-works {
+            padding: 60px 20px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .section-header {
+            text-align: center;
+            margin-bottom: 50px;
+        }
+
+        .section-title {
+            font-size: 2.5rem;
+            font-weight: 800;
+            color: #1a1a1a;
+            margin-bottom: 15px;
+        }
+
+        .section-subtitle {
+            font-size: 1.1rem;
+            color: var(--gray-600);
+        }
+
+        .steps-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 40px;
+            margin-bottom: 60px;
+        }
+
+        .step-card {
+            background: white;
+            padding: 40px 30px;
+            border-radius: var(--radius-xl);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+            text-align: center;
+            transition: all var(--transition-base);
+            position: relative;
+        }
+
+        .step-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 30px rgba(0,0,0,0.12);
+        }
+
+        .step-number {
+            position: absolute;
+            top: -15px;
+            left: 30px;
+            width: 40px;
+            height: 40px;
+            border-radius: var(--radius-full);
+            background: linear-gradient(135deg, var(--primary-500) 0%, #764ba2 100%);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: var(--font-bold);
+            font-size: 1.1rem;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+        }
+
+        .step-icon {
+            width: 80px;
+            height: 80px;
+            margin: 0 auto 20px;
+            background: linear-gradient(135deg, var(--primary-500)15 0%, #764ba215 100%);
+            border-radius: var(--radius-xl);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2.5rem;
+        }
+
+        .step-title {
+            font-size: 1.5rem;
+            font-weight: var(--font-bold);
+            color: #1a1a1a;
+            margin-bottom: 15px;
+        }
+
+        .step-description {
+            font-size: 1rem;
+            color: var(--gray-600);
+            line-height: 1.6;
+        }
+
+        /* Categories Section */
+        .categories-section {
+            padding: 60px 20px;
+            background: white;
+        }
+
+        .categories-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: var(--space-5);
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .category-card {
+            background: linear-gradient(135deg, var(--gray-50) 0%, #e8ecf5 100%);
+            padding: 30px 20px;
+            border-radius: var(--radius-lg);
+            text-align: center;
+            transition: all var(--transition-base);
+            cursor: pointer;
+            border: 2px solid transparent;
+        }
+
+        .category-card:hover {
+            transform: translateY(-5px);
+            border-color: var(--primary-500);
+            box-shadow: 0 8px 25px rgba(102, 126, 234, 0.2);
+        }
+
+        .category-icon {
+            width: 60px;
+            height: 60px;
+            margin: 0 auto 15px;
+            background: linear-gradient(135deg, var(--primary-500) 0%, #764ba2 100%);
+            border-radius: var(--radius-lg);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2rem;
+        }
+
+        .category-name {
+            font-size: 1.1rem;
+            font-weight: var(--font-bold);
+            color: #1a1a1a;
+            margin-bottom: 8px;
+        }
+
+        .category-description {
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        /* Value Props Section */
+        .value-props {
+            padding: 60px 20px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .props-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 30px;
+        }
+
+        .prop-card {
+            background: white;
+            padding: 35px;
+            border-radius: var(--radius-xl);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+            text-align: center;
+        }
+
+        .prop-icon {
+            font-size: 3rem;
+            margin-bottom: 20px;
+        }
+
+        .prop-title {
+            font-size: 1.8rem;
+            font-weight: var(--font-bold);
+            margin-bottom: 10px;
+        }
+
+        .prop-title.free {
+            background: linear-gradient(135deg, #ffd700 0%, #ffed4e 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .prop-title.range {
+            background: linear-gradient(135deg, var(--primary-500) 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .prop-title.instant {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .prop-description {
+            font-size: 1rem;
+            color: var(--gray-600);
+            line-height: 1.6;
+        }
+
+        /* Final CTA Section */
+        .final-cta {
+            padding: 80px 20px;
+            text-align: center;
+            background: linear-gradient(135deg, var(--primary-500) 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .final-cta h2 {
+            font-size: 2.5rem;
+            font-weight: 800;
+            margin-bottom: 20px;
+        }
+
+        .final-cta p {
+            font-size: 1.2rem;
+            margin-bottom: 40px;
+            opacity: 0.9;
+        }
+
+        /* Mobile Responsiveness for Landing Page */
+        @media (max-width: 768px) {
+            .hero-title {
+                font-size: 2rem;
+            }
+
+            .hero-subtitle {
+                font-size: 1rem;
+            }
+
+            .hero-cta {
+                flex-direction: column;
+            }
+
+            .cta-button {
+                width: 100%;
+                justify-content: center;
+            }
+
+            .categories-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        /* Hide landing page for return users */
+        body.returning-user .landing-page {
+            display: none !important;
+        }
+
+        body.returning-user .scan-mode {
+            display: flex !important;
+        }
+
+        /* Reduced motion for accessibility */
+        @media (prefers-reduced-motion: reduce) {
+            .square-morph,
+            .prompt,
+            .emoji {
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+            }
+
+            .upload-circle:hover {
+                transform: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Skip Links for Accessibility -->
+    <a href="#main-content" class="skip-link">Skip to main content</a>
+    <a href="#scan-upload" class="skip-link">Skip to scan</a>
+
+    <!-- Header -->
+    <div class="mode-header" role="banner">
+        <a href="/" class="header-logo">
+            <span style="font-size: var(--text-2xl);">📸</span>
+            ThriftSpot
+        </a>
+        <div class="header-center"></div>
+
+        <!-- User Menu -->
+        <div class="user-menu hidden" id="userMenu">
+            <div class="dropdown">
+                <button class="user-avatar"
+                        id="userAvatar"
+                        aria-haspopup="true"
+                        aria-expanded="false"
+                        aria-controls="user-dropdown-menu"
+                        aria-label="User menu">
+                    TH
+                </button>
+                <ul class="dropdown-content"
+                    id="user-dropdown-menu"
+                    role="menu"
+                    aria-label="User account options"
+                    hidden>
+                    <li role="none">
+                        <a href="/dashboard.html" class="dropdown-item" role="menuitem">🏠 Dashboard</a>
+                    </li>
+                    <li role="none">
+                        <a href="/profile.html" class="dropdown-item" role="menuitem">⚙️ Settings</a>
+                    </li>
+                    <li role="none">
+                        <a href="#" class="dropdown-item" id="signoutBtn" role="menuitem">🚪 Sign Out</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Auth Buttons -->
+        <div class="auth-buttons" id="authButtons">
+            <a href="/signin.html" class="btn-signin">Sign In</a>
+        </div>
+    </div>
+
+    <!-- Location Status Indicator -->
+    <div class="location-status" id="locationStatus">📍 Getting location...</div>
+
+    <!-- Toast Notification Container -->
+    <div id="toast-container" class="toast-container"></div>
+
+    <!-- Bottom Mode Toggle -->
+    <div class="mode-toggle" role="tablist" aria-label="Application mode selector">
+        <button class="mode-btn active"
+                id="scanBtn"
+                role="tab"
+                aria-pressed="true"
+                aria-label="Scan mode: Take photos to find item value"
+                onclick="switchMode('scan')">
+            📸 SCAN
+        </button>
+        <button class="mode-btn"
+                id="findBtn"
+                role="tab"
+                aria-pressed="false"
+                aria-label="Find mode: Browse nearby items on map"
+                onclick="switchMode('find')">
+            🗺️ FIND
+        </button>
+    </div>
+
+    <!-- LANDING PAGE (First-time users) -->
+    <div class="mode-content landing-page active" id="landingPage">
+        <!-- Hero Section -->
+        <section class="hero-section">
+            <div class="hero-badge">Turn street finds into treasure</div>
+            <h1 class="hero-title">
+                Discover Hidden Value in<br>
+                <span class="gradient-text">Everyday Places</span>
+            </h1>
+            <p class="hero-subtitle">
+                Scan items from yard sales, stoop sales, and street finds. Get instant price estimates and know what's worth grabbing.
+            </p>
+            <div class="hero-cta">
+                <button class="cta-button cta-primary" onclick="startScanning()">
+                    📸 Start Scanning
+                </button>
+                <button class="cta-button cta-secondary" onclick="switchMode('find')">
+                    🗺️ Browse Finds
+                </button>
+            </div>
+        </section>
+
+        <!-- Social Proof Ticker -->
+        <div class="ticker-container">
+            <div class="ticker-content" id="tickerContent">
+                <div class="ticker-item">
+                    <div class="ticker-avatar">EM</div>
+                    <div class="ticker-text">
+                        <span class="name">Emma</span> found a <span class="item">vintage record player</span> for <span class="price">$45</span>
+                    </div>
+                </div>
+                <div class="ticker-item">
+                    <div class="ticker-avatar">DV</div>
+                    <div class="ticker-text">
+                        <span class="name">David</span> found a <span class="item">mountain bike</span> for <span class="price">$85</span>
+                    </div>
+                </div>
+                <div class="ticker-item">
+                    <div class="ticker-avatar">SK</div>
+                    <div class="ticker-text">
+                        <span class="name">Sarah</span> found a <span class="item">designer handbag</span> for <span class="price">$120</span>
+                    </div>
+                </div>
+                <div class="ticker-item">
+                    <div class="ticker-avatar">MJ</div>
+                    <div class="ticker-text">
+                        <span class="name">Mike</span> found a <span class="item">leather chair</span> for <span class="price">$60</span>
+                    </div>
+                </div>
+                <!-- Duplicate for seamless loop -->
+                <div class="ticker-item">
+                    <div class="ticker-avatar">EM</div>
+                    <div class="ticker-text">
+                        <span class="name">Emma</span> found a <span class="item">vintage record player</span> for <span class="price">$45</span>
+                    </div>
+                </div>
+                <div class="ticker-item">
+                    <div class="ticker-avatar">DV</div>
+                    <div class="ticker-text">
+                        <span class="name">David</span> found a <span class="item">mountain bike</span> for <span class="price">$85</span>
+                    </div>
+                </div>
+                <div class="ticker-item">
+                    <div class="ticker-avatar">SK</div>
+                    <div class="ticker-text">
+                        <span class="name">Sarah</span> found a <span class="item">designer handbag</span> for <span class="price">$120</span>
+                    </div>
+                </div>
+                <div class="ticker-item">
+                    <div class="ticker-avatar">MJ</div>
+                    <div class="ticker-text">
+                        <span class="name">Mike</span> found a <span class="item">leather chair</span> for <span class="price">$60</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- How It Works Section -->
+        <section class="how-it-works">
+            <div class="section-header">
+                <h2 class="section-title">How It Works</h2>
+                <p class="section-subtitle">Three simple steps to discover value</p>
+            </div>
+
+            <div class="steps-grid">
+                <div class="step-card">
+                    <div class="step-number">1</div>
+                    <div class="step-icon">🔍</div>
+                    <h3 class="step-title">Spot It</h3>
+                    <p class="step-description">
+                        Find items at yard sales, stoop sales, or on the street. Browse what others have found nearby on the map.
+                    </p>
+                </div>
+
+                <div class="step-card">
+                    <div class="step-number">2</div>
+                    <div class="step-icon">📸</div>
+                    <h3 class="step-title">Scan It</h3>
+                    <p class="step-description">
+                        Take a photo and get instant AI-powered price estimates. Know the value before you buy (or grab it free!).
+                    </p>
+                </div>
+
+                <div class="step-card">
+                    <div class="step-number">3</div>
+                    <div class="step-icon">💰</div>
+                    <h3 class="step-title">Score It</h3>
+                    <p class="step-description">
+                        List items for sale or keep track of your finds. Share discoveries with the community and help others score deals.
+                    </p>
+                </div>
+            </div>
+        </section>
+
+        <!-- What You Can Find Section -->
+        <section class="categories-section">
+            <div class="section-header">
+                <h2 class="section-title">What You Can Find</h2>
+                <p class="section-subtitle">From furniture to electronics, treasures are everywhere</p>
+            </div>
+
+            <div class="categories-grid">
+                <div class="category-card">
+                    <div class="category-icon">🪑</div>
+                    <div class="category-name">Furniture</div>
+                    <div class="category-description">Sofas, chairs, tables</div>
+                </div>
+
+                <div class="category-card">
+                    <div class="category-icon">👕</div>
+                    <div class="category-name">Clothing</div>
+                    <div class="category-description">Designer pieces, vintage</div>
+                </div>
+
+                <div class="category-card">
+                    <div class="category-icon">📱</div>
+                    <div class="category-name">Electronics</div>
+                    <div class="category-description">Laptops, phones, cameras</div>
+                </div>
+
+                <div class="category-card">
+                    <div class="category-icon">💍</div>
+                    <div class="category-name">Jewelry</div>
+                    <div class="category-description">Watches, rings, chains</div>
+                </div>
+
+                <div class="category-card">
+                    <div class="category-icon">🏡</div>
+                    <div class="category-name">Home Goods</div>
+                    <div class="category-description">Decor, kitchenware</div>
+                </div>
+
+                <div class="category-card">
+                    <div class="category-icon">💎</div>
+                    <div class="category-name">Collectibles</div>
+                    <div class="category-description">Vinyl, art, antiques</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Value Props Section -->
+        <section class="value-props">
+            <div class="props-grid">
+                <div class="prop-card">
+                    <div class="prop-icon">🎁</div>
+                    <h3 class="prop-title free">100% Free</h3>
+                    <p class="prop-description">
+                        Items found on the street cost nothing. Know before you grab!
+                    </p>
+                </div>
+
+                <div class="prop-card">
+                    <div class="prop-icon">💵</div>
+                    <h3 class="prop-title range">$5-$500</h3>
+                    <p class="prop-description">
+                        Average finds at yard sales and stoop sales. Huge savings!
+                    </p>
+                </div>
+
+                <div class="prop-card">
+                    <div class="prop-icon">⚡</div>
+                    <h3 class="prop-title instant">Instant</h3>
+                    <p class="prop-description">
+                        Get price estimates in seconds with AI-powered scanning
+                    </p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Final CTA -->
+        <section class="final-cta">
+            <h2>Ready to Start Finding?</h2>
+            <p>Join thousands discovering hidden value in everyday places</p>
+            <button class="cta-button cta-primary" style="background: white; color: var(--primary-500);" onclick="startScanning()">
+                📸 Start Scanning Now
+            </button>
+        </section>
+    </div>
+
+    <!-- SCAN MODE - Upload View -->
+    <div class="mode-content scan-mode" id="scanModeUpload">
+        <div class="scan-header">
+            <h1>📸 Scan Your Find</h1>
+            <p>Take clear photos to get instant AI analysis and market pricing</p>
+        </div>
+
+        <div class="upload-circle-container" id="main-content">
+            <div class="upload-circle" id="uploadCircle" role="button" tabindex="0" aria-label="Upload photos to scan item">
+                <div class="upload-circle-border"></div>
+                <div class="upload-circle-glow"></div>
+
+                <div class="upload-inner">
+                    <div class="prompt">
+                        <span class="prompt-text">Ready to find value?</span>
+                        <span class="emoji">📸</span>
+                        <span class="tap-instruction">Tap to Scan</span>
+                    </div>
+                </div>
+            </div>
+            <input type="file" id="fileInput" accept="image/*" multiple style="display: none;" aria-label="Upload item photos">
+        </div>
+
+        <div class="photo-instructions" id="photoInstructions">
+            <div class="instruction-card active">
+                <div class="instruction-icon">💡</div>
+                <div class="instruction-text">
+                    Use natural lighting to capture better detail
+                </div>
+            </div>
+            <div class="instruction-card">
+                <div class="instruction-icon">📸</div>
+                <div class="instruction-text">
+                    Take multiple photos and get all the angles
+                </div>
+            </div>
+            <div class="instruction-card">
+                <div class="instruction-icon">🏷️</div>
+                <div class="instruction-text">
+                    Capture any labels or logos clearly
+                </div>
+            </div>
+            <div class="instruction-card">
+                <div class="instruction-icon">🔍</div>
+                <div class="instruction-text">
+                    Show unique features, marks, or damage
+                </div>
+            </div>
+            <div class="instruction-card">
+                <div class="instruction-icon">✨</div>
+                <div class="instruction-text">
+                    Clean items photograph better and sell faster
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SCAN MODE - Loading/Analysis View -->
+    <div class="mode-content scan-loading" id="scanModeLoading">
+        <div class="loading-header">
+            <h2 id="loadingTitle">Analyzing your photos...</h2>
+            <p id="loadingMessage">Processing images</p>
+        </div>
+
+        <div class="upload-preview">
+            <div class="preview-images" id="previewImages"></div>
+        </div>
+
+        <div class="progress-container" role="region" aria-label="Analysis progress">
+            <div class="progress-bar" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100" aria-label="Upload and analysis progress">
+                <div class="progress-fill" id="progressFill"></div>
+            </div>
+            <div class="progress-info">
+                <div class="progress-text" id="progressText" aria-live="polite">0%</div>
+                <div class="progress-stage" id="progressStage" aria-live="polite" aria-atomic="true">Starting analysis...</div>
+            </div>
+        </div>
+
+        <!-- FIXED: Vertical stage indicators with stacked content cards -->
+        <div class="analysis-container">
+            <div class="stage-indicators" id="stageIndicators">
+                <div class="stage-dot" data-stage="upload">
+                    <div class="dot-icon">📤</div>
+                    <div class="dot-label">Upload</div>
+                </div>
+                <div class="stage-dot" data-stage="analyze">
+                    <div class="dot-icon">🤖</div>
+                    <div class="dot-label">AI Analysis</div>
+                </div>
+                <div class="stage-dot" data-stage="category">
+                    <div class="dot-icon">🏷️</div>
+                    <div class="dot-label">Category</div>
+                </div>
+                <div class="stage-dot" data-stage="pricing">
+                    <div class="dot-icon">💰</div>
+                    <div class="dot-label">Pricing</div>
+                </div>
+                <div class="stage-dot" data-stage="complete">
+                    <div class="dot-icon">✅</div>
+                    <div class="dot-label">Complete</div>
+                </div>
+            </div>
+
+            <div class="progressive-info" id="progressiveInfo">
+                <div class="info-stage" id="uploadStage">
+                    <div class="stage-header">
+                        <div class="stage-icon">📤</div>
+                        <h3>Images Uploaded</h3>
+                    </div>
+                    <div class="stage-content">
+                        <p>Processing <span id="imageCount">1</span> image(s)...</p>
+                    </div>
+                </div>
+
+                <div class="info-stage" id="analysisStage">
+                    <div class="stage-header">
+                        <div class="stage-icon">🤖</div>
+                        <h3>AI Analysis</h3>
+                    </div>
+                    <div class="stage-content">
+                        <p id="initialDescription">Analyzing item...</p>
+                    </div>
+                </div>
+
+                <div class="info-stage" id="categoryStage">
+                    <div class="stage-header">
+                        <div class="stage-icon">🏷️</div>
+                        <h3>Category Identified</h3>
+                    </div>
+                    <div class="stage-content">
+                        <div class="category-badge">
+                            <span class="category-icon" id="categoryIcon">📦</span>
+                            <span class="category-name" id="categoryName">General</span>
+                        </div>
+                        <div class="confidence-indicator" id="categoryConfidence">
+                            Confidence: <strong>95%</strong>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="info-stage" id="pricingStage">
+                    <div class="stage-header">
+                        <div class="stage-icon">💰</div>
+                        <h3>Market Value</h3>
+                    </div>
+                    <div class="stage-content">
+                        <div class="estimated-value-large" id="estimatedValueLarge">$25</div>
+                        <div class="value-details">
+                            <p><span id="comparableCount">Based on market data</span></p>
+                            <div class="value-range" id="valueRange">Range: $15 - $35</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="info-stage" id="completeStage">
+                    <div class="stage-header">
+                        <div class="stage-icon">✅</div>
+                        <h3>Analysis Complete</h3>
+                    </div>
+                    <div class="stage-content">
+                        <p>Ready for listing!</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SCAN MODE - Results View -->
+    <div class="mode-content scan-results" id="scanModeResults">
+        <div class="results-header">
+            <h2>Listing Preview</h2>
+            <div class="confidence-badge" id="confidenceBadge">95% Match</div>
+        </div>
+
+        <div class="results-card">
+            <div class="card-image" id="cardImage">
+                <div class="image-nav" id="imageNav"></div>
+            </div>
+
+            <div class="card-content">
+                <div class="item-header">
+                    <div style="flex: 1;">
+                        <label for="itemTitle" class="sr-only">Item Name</label>
+                        <input type="text"
+                               id="itemTitle"
+                               class="editable-title"
+                               value="Item Title"
+                               aria-required="true"
+                               placeholder="Enter item name"
+                               style="width: 100%; border: 2px solid transparent; font-size: 1.8rem; font-weight: var(--font-bold); color: var(--gray-900); padding: 5px; border-radius: 5px; background: transparent; transition: all var(--transition-base);">
+                    </div>
+                    <div class="estimated-value" id="estimatedValue">$25</div>
+                </div>
+
+                <div class="item-meta">
+                    <div class="meta-pill">
+                        <span class="meta-label">Condition:</span>
+                        <select id="itemCondition" class="inline-select">
+                            <option value="excellent">Excellent</option>
+                            <option value="good" selected>Good</option>
+                            <option value="fair">Fair</option>
+                            <option value="poor">Poor</option>
+                        </select>
+                    </div>
+                    <div class="meta-pill">
+                        <span class="meta-label">Category:</span>
+                        <input type="text" id="itemCategory" class="inline-input" value="Electronics">
+                    </div>
+                    <div class="meta-pill">
+                        <span class="meta-label">Brand:</span>
+                        <input type="text" id="itemBrand" class="inline-input" value="Unknown">
+                    </div>
+                </div>
+
+                <div class="description-section">
+                    <label for="itemDescription">Description:</label>
+                    <textarea id="itemDescription" class="description-textarea" rows="4" placeholder="AI-generated description will appear here..."></textarea>
+                </div>
+
+                <div class="pricing-section">
+                    <h4>Set Your Price</h4>
+                    <div class="pricing-inputs">
+                        <div class="price-input">
+                            <label for="startingPrice">
+                                Starting Price <span class="required-indicator" aria-label="required">*</span>
+                            </label>
+                            <input type="number"
+                                   id="startingPrice"
+                                   min="0.99"
+                                   step="0.01"
+                                   value="19.99"
+                                   aria-required="true"
+                                   aria-describedby="startingPrice-help startingPrice-error"
+                                   aria-invalid="false">
+                            <span id="startingPrice-help" class="help-text">Minimum $0.99</span>
+                            <span id="startingPrice-error" class="error-message" hidden role="alert">
+                                Please enter a price of at least $0.99
+                            </span>
+                        </div>
+                        <div class="price-input">
+                            <label for="buyItNowPrice">
+                                Buy It Now <span class="required-indicator" aria-label="required">*</span>
+                            </label>
+                            <input type="number"
+                                   id="buyItNowPrice"
+                                   min="0.99"
+                                   step="0.01"
+                                   value="29.99"
+                                   aria-required="true"
+                                   aria-describedby="buyItNowPrice-help buyItNowPrice-error"
+                                   aria-invalid="false">
+                            <span id="buyItNowPrice-help" class="help-text">Must be higher than starting price</span>
+                            <span id="buyItNowPrice-error" class="error-message" hidden role="alert">
+                                Please enter a price of at least $0.99
+                            </span>
+                        </div>
+                    </div>
+                    <div class="pricing-options">
+                        <label class="checkbox-option">
+                            <input type="checkbox" id="acceptOffers" checked>
+                            <span>Accept best offers</span>
+                        </label>
+                    </div>
+                    <div class="profit-preview">
+                        <div class="profit-row">
+                            <span>Your profit (after fees):</span>
+                            <strong id="profitAmount">$17.32</strong>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="action-buttons">
+            <button class="btn btn-primary" id="createEbayListingBtn">
+                🛒 Create eBay Listing
+            </button>
+            <button class="btn btn-secondary" id="createListingBtn">
+                📍 Add to Map
+            </button>
+            <button class="btn btn-ghost" id="scanAnotherBtn">
+                📸 Scan Another
+            </button>
+        </div>
+    </div>
+
+    <!-- FIND MODE (Map) -->
+    <div class="mode-content find-mode" id="findMode">
+        <div id="map"></div>
+    </div>
+
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-storage-compat.js"></script>
+
+    <script src="js/theme-switcher.js"></script>
+
+    <script src="js/firebase-config.js"></script>
+    <script src="shared/api-client.js"></script>
+    <script src="shared/ui-helpers.js"></script>
+    <script src="js/pin-manager.js"></script>
+
+    <script>
+        // ===========================
+        // GLOBAL STATE MANAGEMENT
+        // ===========================
+        let currentMode = 'scan';
+        let currentUser = null;
+        let map = null;
+        let userLocation = null;
+        let locationAcquired = false;
+        let currentScanData = {
+            images: [],
+            imageUrls: [],
+            analysis: null,
+            currentImageIndex: 0
+        };
+
+        // Global variables for listing creation
+        let scanAnalysisData = null;
+        let uploadedImageUrls = [];
+
+        // Initialize API Client
+        window.apiClient = new APIClient();
+
+        // ===========================
+        // TOAST NOTIFICATION SYSTEM
+        // ===========================
+        let toastIdCounter = 0;
+
+        function showToast(message, type = 'info', title = null, duration = 5000) {
+            const container = document.getElementById('toast-container');
+            const toastId = `toast-${toastIdCounter++}`;
+
+            const icons = {
+                success: '✓',
+                error: '✕',
+                warning: '⚠',
+                info: 'ℹ'
+            };
+
+            const toast = document.createElement('div');
+            toast.id = toastId;
+            toast.className = `toast toast-${type}`;
+            toast.setAttribute('role', 'alert');
+            toast.setAttribute('aria-live', 'polite');
+
+            toast.innerHTML = `
+                <div class="toast-icon">${icons[type] || 'ℹ'}</div>
+                <div class="toast-content">
+                    ${title ? `<div class="toast-title">${title}</div>` : ''}
+                    <div class="toast-message">${message}</div>
+                </div>
+                <button class="toast-close" aria-label="Close notification" onclick="dismissToast('${toastId}')">
+                    ×
+                </button>
+            `;
+
+            container.appendChild(toast);
+
+            // Auto dismiss after duration
+            if (duration > 0) {
+                setTimeout(() => {
+                    dismissToast(toastId);
+                }, duration);
+            }
+
+            return toastId;
+        }
+
+        function dismissToast(toastId) {
+            const toast = document.getElementById(toastId);
+            if (toast) {
+                toast.classList.add('toast-exit');
+                setTimeout(() => {
+                    toast.remove();
+                }, 300); // Match animation duration
+            }
+        }
+
+        // ===========================
+        // DROPDOWN MENU KEYBOARD NAVIGATION
+        // ===========================
+        function setupDropdownAccessibility() {
+            const avatar = document.getElementById('userAvatar');
+            const dropdown = document.getElementById('user-dropdown-menu');
+
+            if (!avatar || !dropdown) return;
+
+            // Toggle dropdown with click, Enter, or Space
+            avatar.addEventListener('click', toggleDropdown);
+            avatar.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    toggleDropdown();
+                }
+                if (e.key === 'Escape' && !dropdown.hidden) {
+                    closeDropdown();
+                }
+            });
+
+            // Close dropdown when clicking outside
+            document.addEventListener('click', (e) => {
+                if (!avatar.contains(e.target) && !dropdown.contains(e.target)) {
+                    closeDropdown();
+                }
+            });
+
+            // Close dropdown with Escape key
+            dropdown.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape') {
+                    e.preventDefault();
+                    closeDropdown();
+                    avatar.focus();
+                }
+            });
+
+            function toggleDropdown() {
+                const isHidden = dropdown.hidden;
+                if (isHidden) {
+                    openDropdown();
+                } else {
+                    closeDropdown();
+                }
+            }
+
+            function openDropdown() {
+                dropdown.removeAttribute('hidden');
+                avatar.setAttribute('aria-expanded', 'true');
+                // Focus first menu item
+                const firstItem = dropdown.querySelector('.dropdown-item');
+                if (firstItem) {
+                    setTimeout(() => firstItem.focus(), 100);
+                }
+            }
+
+            function closeDropdown() {
+                dropdown.setAttribute('hidden', '');
+                avatar.setAttribute('aria-expanded', 'false');
+            }
+        }
+
+        // ===========================
+        // LANDING PAGE STATE MANAGEMENT
+        // ===========================
+
+        // Check if returning user
+        const isReturningUser = localStorage.getItem('thriftspot_visited') === 'true';
+
+        // Initialize page state on load
+        if (isReturningUser) {
+            document.body.classList.add('returning-user');
+            document.getElementById('landingPage').classList.remove('active');
+            document.getElementById('scanModeUpload').classList.add('active');
+        }
+
+        // Function to start scanning (hide landing page, show scan mode)
+        function startScanning() {
+            localStorage.setItem('thriftspot_visited', 'true');
+            document.getElementById('landingPage').classList.remove('active');
+            document.getElementById('scanModeUpload').classList.add('active');
+            document.body.classList.add('returning-user');
+        }
+
+        // ===========================
+        // LOCATION ACQUISITION - FIXED
+        // ===========================
+        function showLocationStatus(message, type = 'info') {
+            const status = document.getElementById('locationStatus');
+            status.textContent = message;
+            status.className = 'location-status show';
+            if (type === 'success') status.classList.add('success');
+            if (type === 'error') status.classList.add('error');
+            
+            setTimeout(() => {
+                status.classList.remove('show');
+            }, 3000);
+        }
+
+        function acquireLocation() {
+            return new Promise((resolve, reject) => {
+                if (locationAcquired && userLocation) {
+                    console.log('✅ Using cached location:', userLocation);
+                    resolve(userLocation);
+                    return;
+                }
+
+                if (!navigator.geolocation) {
+                    console.error('❌ Geolocation not supported');
+                    reject(new Error('Geolocation not supported'));
+                    return;
+                }
+
+                console.log('📍 Requesting location...');
+                showLocationStatus('📍 Getting your location...', 'info');
+
+                navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                        userLocation = {
+                            latitude: position.coords.latitude,
+                            longitude: position.coords.longitude
+                        };
+                        locationAcquired = true;
+                        console.log('✅ Location acquired:', userLocation);
+                        showLocationStatus('✅ Location acquired', 'success');
+                        resolve(userLocation);
+                    },
+                    (error) => {
+                        console.error('❌ Location error:', error);
+                        
+                        // Use default NYC location as fallback
+                        userLocation = { 
+                            latitude: 40.7128, 
+                            longitude: -74.0060 
+                        };
+                        locationAcquired = true;
+                        
+                        showLocationStatus('⚠️ Using default location', 'error');
+                        console.log('⚠️ Using default location:', userLocation);
+                        
+                        resolve(userLocation);
+                    },
+                    {
+                        enableHighAccuracy: true,
+                        timeout: 10000,
+                        maximumAge: 300000 // Cache for 5 minutes
+                    }
+                );
+            });
+        }
+
+        // Start acquiring location immediately on page load
+        acquireLocation().catch(err => {
+            console.error('Initial location acquisition failed:', err);
+        });
+
+        // ===========================
+        // AUTHENTICATION
+        // ===========================
+        auth.onAuthStateChanged((user) => {
+            const userMenu = document.getElementById('userMenu');
+            const authButtons = document.getElementById('authButtons');
+
+            if (user) {
+                currentUser = user;
+                userMenu.classList.remove('hidden');
+                authButtons.classList.add('hidden');
+
+                const initials = user.displayName ?
+                    user.displayName.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2) :
+                    user.email.substring(0, 2).toUpperCase();
+                document.getElementById('userAvatar').textContent = initials;
+            } else {
+                currentUser = null;
+                userMenu.classList.add('hidden');
+                authButtons.classList.remove('hidden');
+            }
+        });
+
+        // Sign out
+        document.getElementById('signoutBtn')?.addEventListener('click', async (e) => {
+            e.preventDefault();
+            try {
+                await auth.signOut();
+            } catch (error) {
+                console.error('Sign out error:', error);
+            }
+        });
+
+        // Mobile dropdown handling
+        const userAvatar = document.getElementById('userAvatar');
+        const dropdownContent = document.querySelector('.dropdown-content');
+        if (userAvatar && dropdownContent) {
+            userAvatar.addEventListener('click', (e) => {
+                e.stopPropagation();
+                dropdownContent.classList.toggle('show');
+            });
+            document.addEventListener('click', (e) => {
+                if (!e.target.closest('.dropdown')) {
+                    dropdownContent.classList.remove('show');
+                }
+            });
+        }
+
+        // ===========================
+        // MODE SWITCHING
+        // ===========================
+        function switchMode(mode) {
+            currentMode = mode;
+
+            // Update buttons
+            document.getElementById('scanBtn').classList.toggle('active', mode === 'scan');
+            document.getElementById('findBtn').classList.toggle('active', mode === 'find');
+
+            updateThemeMode(mode);
+
+            if (mode === 'scan') {
+                // Hide find mode
+                document.getElementById('findMode').classList.remove('active');
+
+                // Determine which scan view to show
+                const isScanning = document.getElementById('scanModeLoading').classList.contains('active');
+                const hasResults = document.getElementById('scanModeResults').classList.contains('active');
+
+                // If already scanning or showing results, don't interrupt
+                if (isScanning || hasResults) {
+                    // Keep current scan view active, just hide others
+                    document.getElementById('landingPage').classList.remove('active');
+                    return;
+                }
+
+                // Otherwise, show appropriate initial view
+                document.getElementById('landingPage').classList.remove('active');
+                document.getElementById('scanModeUpload').classList.remove('active');
+                document.getElementById('scanModeLoading').classList.remove('active');
+                document.getElementById('scanModeResults').classList.remove('active');
+
+                // Check if first-time user
+                if (!isReturningUser && !document.body.classList.contains('returning-user')) {
+                    // Show landing page for first-time users
+                    document.getElementById('landingPage').classList.add('active');
+                } else {
+                    // Show appropriate scan view based on state for returning users
+                    if (currentScanData.analysis) {
+                        document.getElementById('scanModeResults').classList.add('active');
+                    } else {
+                        document.getElementById('scanModeUpload').classList.add('active');
+                    }
+                }
+            } else if (mode === 'find') {
+                // Hide all scan views when switching to find
+                document.getElementById('landingPage').classList.remove('active');
+                document.getElementById('scanModeUpload').classList.remove('active');
+                document.getElementById('scanModeLoading').classList.remove('active');
+                document.getElementById('scanModeResults').classList.remove('active');
+
+                // Show map
+                document.getElementById('findMode').classList.add('active');
+                if (!map) {
+                    setTimeout(() => initializeMap(), 100);
+                } else {
+                    setTimeout(() => {
+                        // Force map to recalculate its size
+                        map.invalidateSize(true);
+
+                        // Clear existing pin markers
+                        if (window.pinMarkers) {
+                            window.pinMarkers.forEach(marker => map.removeLayer(marker));
+                            window.pinMarkers = [];
+                        }
+
+                        // Reload pins when switching to map
+                        loadNearbyPins();
+                    }, 300);
+                }
+            }
+        }
+
+        // ===========================
+        // SCAN WORKFLOW
+        // ===========================
+        
+        // Upload circle click and keyboard handler
+        const uploadCircle = document.getElementById('uploadCircle');
+        const fileInput = document.getElementById('fileInput');
+
+        uploadCircle.addEventListener('click', () => {
+            fileInput.click();
+        });
+
+        uploadCircle.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                fileInput.click();
+            }
+        });
+
+        // File selection handler
+        document.getElementById('fileInput').addEventListener('change', async (e) => {
+            const files = e.target.files;
+            if (!files || files.length === 0) return;
+
+            try {
+                await processScanImages(files);
+            } catch (error) {
+                console.error('Scan error:', error);
+                alert('Failed to analyze images: ' + error.message);
+                resetScan();
+            }
+        });
+
+        // FIXED: Process and analyze images with vertical stage progression
+        async function processScanImages(files) {
+            // Ensure location is acquired
+            await acquireLocation();
+
+            // Reset scan data
+            currentScanData = {
+                images: Array.from(files),
+                imageUrls: [],
+                analysis: null,
+                currentImageIndex: 0
+            };
+
+            // Reset global variables
+            uploadedImageUrls = [];
+            scanAnalysisData = null;
+
+            // Switch to loading view
+            document.getElementById('scanModeUpload').classList.remove('active');
+            document.getElementById('scanModeLoading').classList.add('active');
+
+            try {
+                // Stage 1: Upload (0-20%)
+                await revealStage('upload', 0);
+                await updateProgress(0, 'upload', 'Preparing images...');
+                
+                // Convert files to data URLs and compress
+                for (let i = 0; i < files.length; i++) {
+                    const file = files[i];
+                    
+                    // Compress image
+                    const options = {
+                        maxSizeMB: 1,
+                        maxWidthOrHeight: 1920,
+                        useWebWorker: true
+                    };
+                    const compressedFile = await imageCompression(file, options);
+                    
+                    // Convert to data URL
+                    const dataUrl = await fileToDataURL(compressedFile);
+                    currentScanData.imageUrls.push(dataUrl);
+                    uploadedImageUrls.push(dataUrl);
+                    
+                    // Update preview
+                    addImagePreview(dataUrl);
+                    await updateProgress(10 + (i / files.length * 10), 'upload', `Processing image ${i + 1} of ${files.length}...`);
+                }
+
+                document.getElementById('imageCount').textContent = files.length;
+                await showStage('uploadStage');
+                await completeStage('upload');
+                await updateProgress(20, 'upload', 'Images uploaded successfully');
+                await sleep(800);
+
+                // Stage 2: AI Analysis (20-50%)
+                await revealStage('analyze', 20);
+                await updateProgress(20, 'analyze', 'Analyzing item with AI...');
+                const base64Images = await Promise.all(
+                    currentScanData.imageUrls.map(url => dataURLToBase64(url))
+                );
+
+                let analysisResult;
+                if (window.apiClient && window.apiClient.analyzeImages) {
+                    analysisResult = await window.apiClient.analyzeImages(base64Images, {
+                        imageCount: files.length,
+                        quality: 'balanced'
+                    });
+                    console.log('📊 Full API Response:', analysisResult);
+                } else {
+                    // Fallback mock analysis
+                    analysisResult = createMockAnalysis();
+                }
+
+                await updateProgress(40, 'analyze', 'Processing AI response...');
+                currentScanData.analysis = parseAnalysisResult(analysisResult);
+                scanAnalysisData = currentScanData.analysis;
+                
+                document.getElementById('initialDescription').textContent = 
+                    currentScanData.analysis.description || 'Item identified and analyzed';
+                await showStage('analysisStage');
+                await completeStage('analyze');
+                await updateProgress(50, 'analyze', 'Analysis complete');
+                await sleep(800);
+
+                // Stage 3: Category (50-70%)
+                await revealStage('category', 50);
+                await updateProgress(50, 'category', 'Identifying category...');
+                const categoryIcon = getCategoryIcon(currentScanData.analysis.category);
+                document.getElementById('categoryIcon').textContent = categoryIcon;
+                document.getElementById('categoryName').textContent = currentScanData.analysis.category || 'General';
+                document.getElementById('categoryConfidence').innerHTML = 
+                    `Confidence: <strong>${currentScanData.analysis.confidence || 95}%</strong>`;
+                
+                await showStage('categoryStage');
+                await completeStage('category');
+                await updateProgress(70, 'category', 'Category identified');
+                await sleep(800);
+
+                // Stage 4: Pricing (70-90%) - FIXED: Use actual eBay API data
+                await revealStage('pricing', 70);
+                await updateProgress(70, 'pricing', 'Analyzing market value...');
+                
+                // FIXED: Get the actual estimated value from the API response
+                const estimatedValue = getActualEstimatedValue(analysisResult, currentScanData.analysis);
+                const valueRange = {
+                    low: Math.floor(estimatedValue * 0.7),
+                    high: Math.ceil(estimatedValue * 1.4)
+                };
+                
+                // Update the display
+                document.getElementById('estimatedValueLarge').textContent = `$${estimatedValue}`;
+                document.getElementById('comparableCount').textContent = getComparableCountText(analysisResult);
+                document.getElementById('valueRange').textContent = 
+                    `Range: $${valueRange.low} - $${valueRange.high}`;
+                
+                // Store the actual estimated value
+                currentScanData.analysis.estimatedValue = estimatedValue;
+                scanAnalysisData.estimatedValue = estimatedValue;
+                
+                await showStage('pricingStage');
+                await completeStage('pricing');
+                await updateProgress(90, 'pricing', 'Pricing complete');
+                await sleep(800);
+
+                // Stage 5: Complete (90-100%)
+                await revealStage('complete', 95);
+                await updateProgress(95, 'complete', 'Finalizing...');
+                await showStage('completeStage');
+                await completeStage('complete');
+                await updateProgress(100, 'complete', 'Analysis complete!');
+                await sleep(2000); // 2 second delay before transitioning to editable listing
+
+                // Show results with fade transition
+                showResults();
+
+            } catch (error) {
+                console.error('Processing error:', error);
+                throw error;
+            }
+        }
+
+        // FIXED: Get actual estimated value from eBay API response
+        function getActualEstimatedValue(apiResponse, analysisData) {
+            console.log('💰 Extracting estimated value from:', {
+                hasRoutes: !!apiResponse?.routes,
+                hasMarketAnalysis: !!apiResponse?.routes?.marketAnalysis,
+                hasSuggestedPrice: !!apiResponse?.routes?.marketAnalysis?.estimatedValue?.suggested
+            });
+
+            // Priority 1: Check routes.marketAnalysis.estimatedValue.suggested (NEW API FORMAT)
+            if (apiResponse?.routes?.marketAnalysis?.estimatedValue?.suggested) {
+                const value = apiResponse.routes.marketAnalysis.estimatedValue.suggested;
+                console.log('✅ Using Market Analysis suggested price:', value);
+                return value;
+            }
+
+            // Priority 2: Check routes.recommendedRoute.details.listingPrice
+            if (apiResponse?.routes?.recommendedRoute?.details?.listingPrice) {
+                const value = apiResponse.routes.recommendedRoute.details.listingPrice;
+                console.log('✅ Using recommended route listing price:', value);
+                return value;
+            }
+
+            // Priority 3: Check routes.ebay_api_enhanced.suggested
+            if (apiResponse?.routes?.ebay_api_enhanced?.suggested) {
+                const value = apiResponse.routes.ebay_api_enhanced.suggested;
+                console.log('✅ Using eBay API Enhanced price:', value);
+                return value;
+            }
+
+            // Priority 4: Check routes.ebay.estimatedValue
+            if (apiResponse?.routes?.ebay?.estimatedValue) {
+                const value = apiResponse.routes.ebay.estimatedValue;
+                console.log('✅ Using eBay API price:', value);
+                return value;
+            }
+
+            // Priority 5: Check routes.resale.estimated_value
+            if (apiResponse?.routes?.resale?.estimated_value) {
+                const value = apiResponse.routes.resale.estimated_value;
+                console.log('✅ Using resale estimate:', value);
+                return value;
+            }
+
+            // Priority 6: Check analysis.resale.priceRange (use high value)
+            if (analysisData?.resale?.priceRange?.high) {
+                const value = analysisData.resale.priceRange.high;
+                console.log('✅ Using analysis resale price range (high):', value);
+                return value;
+            }
+
+            // Priority 7: Check analysis.estimated_value
+            if (analysisData?.estimated_value) {
+                const value = analysisData.estimated_value;
+                console.log('✅ Using analysis estimate:', value);
+                return value;
+            }
+
+            // Priority 8: Check analysis.price
+            if (analysisData?.price) {
+                const value = analysisData.price;
+                console.log('✅ Using analysis price:', value);
+                return value;
+            }
+
+            // Fallback
+            console.warn('⚠️ No price found in API response, using fallback: $25');
+            console.warn('Available paths checked:', {
+                marketAnalysis: apiResponse?.routes?.marketAnalysis,
+                recommendedRoute: apiResponse?.routes?.recommendedRoute,
+                analysis: analysisData
+            });
+            return 25;
+        }
+
+        // Helper to get comparable count text
+        function getComparableCountText(apiResponse) {
+            // Check new API format first
+            if (apiResponse?.routes?.marketAnalysis?.estimatedValue?.sampleSize) {
+                return `Based on ${apiResponse.routes.marketAnalysis.estimatedValue.sampleSize} similar items`;
+            }
+            if (apiResponse?.routes?.ebay_api_enhanced?.comparable_count) {
+                return `Based on ${apiResponse.routes.ebay_api_enhanced.comparable_count} similar items`;
+            }
+            if (apiResponse?.routes?.ebay?.comparableCount) {
+                return `Based on ${apiResponse.routes.ebay.comparableCount} similar items`;
+            }
+            return 'Based on market data';
+        }
+
+        // FIXED: Reveal stage with animation
+        async function revealStage(stageName, progress) {
+            const stage = document.querySelector(`.stage-dot[data-stage="${stageName}"]`);
+            if (stage && !stage.classList.contains('revealed')) {
+                stage.classList.add('revealed');
+                await sleep(300);
+            }
+        }
+
+        // FIXED: Complete stage
+        async function completeStage(stageName) {
+            const stage = document.querySelector(`.stage-dot[data-stage="${stageName}"]`);
+            if (stage) {
+                stage.classList.remove('active');
+                stage.classList.add('complete');
+            }
+        }
+
+        // Update progress bar and stage
+        async function updateProgress(percent, stage, message) {
+            document.getElementById('progressFill').style.width = `${percent}%`;
+            document.getElementById('progressText').textContent = `${Math.round(percent)}%`;
+            document.getElementById('progressStage').textContent = message;
+
+            // Update stage indicators
+            const currentStage = document.querySelector(`.stage-dot[data-stage="${stage}"]`);
+            if (currentStage && !currentStage.classList.contains('complete')) {
+                document.querySelectorAll('.stage-dot').forEach(dot => {
+                    if (dot === currentStage) {
+                        dot.classList.add('active');
+                    } else if (!dot.classList.contains('complete')) {
+                        dot.classList.remove('active');
+                    }
+                });
+            }
+        }
+
+        // FIXED: Show stage and keep previous stages visible
+        async function showStage(stageId) {
+            const stage = document.getElementById(stageId);
+            if (stage && !stage.classList.contains('active')) {
+                stage.classList.add('active');
+            }
+        }
+
+        // Add image preview
+        function addImagePreview(dataUrl) {
+            const previewContainer = document.getElementById('previewImages');
+            const imgDiv = document.createElement('div');
+            imgDiv.className = 'preview-image';
+            imgDiv.innerHTML = `<img src="${dataUrl}" alt="Preview">`;
+            previewContainer.appendChild(imgDiv);
+        }
+
+        // Show results view
+        function showResults() {
+            // Hide all other scan views
+            document.getElementById('scanModeUpload').classList.remove('active');
+            document.getElementById('scanModeLoading').classList.remove('active');
+            document.getElementById('landingPage').classList.remove('active');
+
+            // Show results
+            document.getElementById('scanModeResults').classList.add('active');
+
+            const data = currentScanData.analysis;
+
+            // Populate results
+            document.getElementById('itemTitle').textContent = data.title || 'Scanned Item';
+            document.getElementById('itemCategory').value = data.category || 'General';
+            document.getElementById('itemBrand').value = data.brand || 'Unknown';
+            document.getElementById('itemCondition').value = (data.condition || 'good').toLowerCase();
+            document.getElementById('itemDescription').value = data.description || '';
+            document.getElementById('estimatedValue').textContent = `$${data.estimatedValue || 25}`;
+            document.getElementById('confidenceBadge').textContent = `${data.confidence || 95}% Match`;
+
+            // Set pricing
+            const estimatedValue = data.estimatedValue || 25;
+            document.getElementById('startingPrice').value = (estimatedValue * 0.8).toFixed(2);
+            document.getElementById('buyItNowPrice').value = (estimatedValue * 1.2).toFixed(2);
+            updateProfitCalculation();
+
+            // Setup image carousel
+            setupImageCarousel();
+        }
+
+        // Setup image carousel
+        function setupImageCarousel() {
+            const cardImage = document.getElementById('cardImage');
+            const imageNav = document.getElementById('imageNav');
+            
+            // Clear existing
+            cardImage.querySelectorAll('img').forEach(img => img.remove());
+            imageNav.innerHTML = '';
+
+            if (currentScanData.imageUrls.length === 0) return;
+
+            // Add first image
+            const img = document.createElement('img');
+            img.src = currentScanData.imageUrls[0];
+            img.alt = 'Item image';
+            cardImage.insertBefore(img, imageNav);
+
+            // Add navigation dots
+            currentScanData.imageUrls.forEach((url, index) => {
+                const dot = document.createElement('div');
+                dot.className = 'image-nav-dot';
+                if (index === 0) dot.classList.add('active');
+                dot.addEventListener('click', () => switchImage(index));
+                imageNav.appendChild(dot);
+            });
+        }
+
+        // Switch carousel image
+        function switchImage(index) {
+            currentScanData.currentImageIndex = index;
+            const img = document.querySelector('#cardImage img');
+            img.src = currentScanData.imageUrls[index];
+
+            document.querySelectorAll('.image-nav-dot').forEach((dot, i) => {
+                dot.classList.toggle('active', i === index);
+            });
+        }
+
+        // Update profit calculation
+        function updateProfitCalculation() {
+            const buyItNow = parseFloat(document.getElementById('buyItNowPrice').value) || 0;
+            const fees = buyItNow * 0.13; // 13% fees
+            const profit = buyItNow - fees;
+            document.getElementById('profitAmount').textContent = `$${profit.toFixed(2)}`;
+        }
+
+        // Listen to price changes
+        document.getElementById('buyItNowPrice')?.addEventListener('input', updateProfitCalculation);
+        document.getElementById('startingPrice')?.addEventListener('input', updateProfitCalculation);
+
+        // Reset scan
+        function resetScan() {
+            currentScanData = {
+                images: [],
+                imageUrls: [],
+                analysis: null,
+                currentImageIndex: 0
+            };
+            
+            uploadedImageUrls = [];
+            scanAnalysisData = null;
+            
+            document.getElementById('scanModeLoading').classList.remove('active');
+            document.getElementById('scanModeResults').classList.remove('active');
+            document.getElementById('scanModeUpload').classList.add('active');
+            document.getElementById('fileInput').value = '';
+            document.getElementById('previewImages').innerHTML = '';
+            
+            // Reset progress
+            document.getElementById('progressFill').style.width = '0%';
+            document.querySelectorAll('.info-stage').forEach(stage => stage.classList.remove('active'));
+            document.querySelectorAll('.stage-dot').forEach(dot => {
+                dot.classList.remove('active', 'complete', 'revealed');
+            });
+        }
+
+        // Scan another button
+        document.getElementById('scanAnotherBtn')?.addEventListener('click', resetScan);
+
+        // FIXED: Create listing button with proper location and pricing
+        document.getElementById('createListingBtn')?.addEventListener('click', async () => {
+            if (!currentUser) {
+                alert('Please sign in to create listings');
+                window.location.href = '/signin.html';
+                return;
+            }
+
+            try {
+                console.log('🚀 Create listing clicked');
+                
+                // 1. Ensure location is acquired
+                if (!locationAcquired || !userLocation) {
+                    console.log('📍 Acquiring location...');
+                    showLocationStatus('📍 Getting location...', 'info');
+                    await acquireLocation();
+                }
+                
+                // 2. Validate location
+                if (!userLocation || !userLocation.latitude || !userLocation.longitude) {
+                    console.error('❌ No valid location after acquisition');
+                    alert('Unable to get your location. Please enable location services and try again.');
+                    return;
+                }
+                
+                console.log('✅ Location validated:', userLocation);
+                
+                // 3. Validate scan data
+                if (!scanAnalysisData) {
+                    console.error('❌ No scan data available');
+                    alert('No scan data found. Please scan an item first.');
+                    return;
+                }
+                
+                console.log('✅ Scan data available:', scanAnalysisData);
+
+                // 4. Build pin data EXACTLY like pin-manager.js does (lines 508-539)
+                const estimatedValue = parseFloat(document.getElementById('estimatedValue')?.textContent.replace('$', '')) || scanAnalysisData.estimatedValue || 0;
+const conditionValue = document.getElementById('itemCondition')?.value || scanAnalysisData.condition || 'good';
+const buyItNowPrice = parseFloat(document.getElementById('buyItNowPrice')?.value) || estimatedValue;
+
+const conditionObj = {
+    rating: String(conditionValue).toLowerCase(), // MUST be lowercase
+    description: String(scanAnalysisData?.description || ''),
+    issues: [] // MUST be array
+};               
+
+// Sanitize analysisData - remove circular references and large objects
+                const sanitizedAnalysis = {
+    category: String(scanAnalysisData?.category || 'item'),
+    brand: String(scanAnalysisData?.brand || 'Unknown'),
+    confidence: Number(scanAnalysisData?.confidence || 0),
+    description: String(scanAnalysisData?.description || '')
+};  
+
+              const pinData = {
+    location: {
+        latitude: Number(userLocation.latitude),
+        longitude: Number(userLocation.longitude),
+        address: userLocation.address || null
+    },
+    item: {
+        category: String(document.getElementById('itemCategory')?.value || scanAnalysisData.category || 'item').trim(),
+        title: String(document.getElementById('itemTitle')?.textContent || scanAnalysisData.title || 'Item').trim(),
+        description: String(document.getElementById('itemDescription')?.value || scanAnalysisData.description || '').trim(),
+        brand: String(document.getElementById('itemBrand')?.value || scanAnalysisData.brand || 'Unknown').trim(),
+        model: '', // Empty string, not undefined
+        condition: conditionObj, // Properly formed object
+        estimatedValue: Number(estimatedValue) || 0,
+        confidence: Number(scanAnalysisData.confidence || 0),
+        imageUrls: Array.isArray(uploadedImageUrls) ? uploadedImageUrls : [],
+        analysisData: sanitizedAnalysis // Clean object
+    },
+    dispositionType: 'sale',
+    isPublic: true,
+    claimRadius: Number(0.5),
+    price: Number(buyItNowPrice) || null,
+    notes: '',
+    expiresIn: null
+};
+
+                console.log('🔍 Pin data structure check:', {
+                    hasItem: !!pinData.item,
+                    itemKeys: Object.keys(pinData.item),
+                    conditionType: typeof pinData.item.condition,
+                    imageUrlsType: typeof pinData.item.imageUrls,
+                    imageUrlsLength: pinData.item.imageUrls?.length,
+                    analysisDataKeys: Object.keys(pinData.item.analysisData)
+                });
+
+                console.log('📦 Pin data prepared:', {
+                    hasLocation: !!pinData.location,
+                    lat: pinData.location?.latitude,
+                    lng: pinData.location?.longitude,
+                    hasItem: !!pinData.item,
+                    itemTitle: pinData.item?.title,
+                    estimatedValue: pinData.item?.estimatedValue,
+                    hasImages: pinData.images?.length > 0,
+                    imageCount: pinData.images?.length
+                });
+
+                // 5. Show loading state
+                const createBtn = document.getElementById('createListingBtn');
+                const originalText = createBtn.innerHTML;
+                createBtn.disabled = true;
+                createBtn.innerHTML = '⏳ Creating...';
+
+                try {
+                    // 6. Create pin using API client
+                    console.log('📡 Calling API to create pin...');
+                    const result = await window.apiClient.createPin(pinData);
+                    
+                    console.log('✅ Pin created successfully:', result);
+                    console.log('📍 New pin details:', {
+                        id: result.pin?.id,
+                        title: result.pin?.item?.title,
+                        location: result.pin?.location,
+                        geohash: result.pin?.geohash,
+                        status: result.pin?.status
+                    });
+
+                    // 7. Reset button state immediately after success
+                    createBtn.disabled = false;
+                    createBtn.innerHTML = originalText;
+
+                    // 8. Success!
+                    alert('🎉 Pin added to map successfully!\n\nYour item is now visible on the map.');
+
+                    // 9. Reset and switch to map view
+                    resetScan();
+                    // Give Firebase time to index the new pin, then refresh map
+                    setTimeout(async () => {
+                        console.log('🗺️ Switching to map to show new pin...');
+                        switchMode('find');
+                        // Force reload pins after switching
+                        setTimeout(() => {
+                            console.log('🔄 Force reloading pins after pin creation...');
+                            loadNearbyPins();
+                        }, 500);
+                    }, 1500);
+                    
+                } catch (apiError) {
+                    console.error('❌ API error:', apiError);
+                    
+                    // Restore button
+                    createBtn.disabled = false;
+                    createBtn.innerHTML = originalText;
+                    
+                    // Show user-friendly error
+                    if (apiError.message.includes('location')) {
+                        alert('⚠️ Location Error\n\nWe need your location to create a listing. Please:\n1. Allow location access\n2. Wait a moment\n3. Try again');
+                    } else if (apiError.message.includes('Authentication')) {
+                        alert('⚠️ Please sign in again');
+                        window.location.href = '/signin.html';
+                    } else {
+                        alert(`⚠️ Failed to create listing\n\n${apiError.message}\n\nPlease try again.`);
+                    }
+                }
+
+            } catch (error) {
+                console.error('💥 Create listing error:', error);
+                
+                // Reset button
+                const createBtn = document.getElementById('createListingBtn');
+                createBtn.disabled = false;
+                createBtn.innerHTML = '📍 Add to Map';
+                
+                alert('Failed to create listing. Please try again.');
+            }
+        });
+
+        // Create eBay Listing button
+        document.getElementById('createEbayListingBtn')?.addEventListener('click', () => {
+            console.log('📦 Navigating to eBay listing creation...');
+
+            // Store scan data in sessionStorage for the listing page
+            // FIX: Exclude large image data URLs to prevent QuotaExceededError
+            const itemDataWithoutImages = { ...currentScanData };
+            // Remove image arrays that might contain data URLs
+            delete itemDataWithoutImages.images;
+            delete itemDataWithoutImages.imageUrls;
+            delete itemDataWithoutImages.originalImages;
+
+            const listingData = {
+                item: itemDataWithoutImages,
+                images: uploadedImageUrls, // Only store Firebase Storage URLs
+                scanId: typeof currentScanId !== 'undefined' ? currentScanId : null, // Include scanId if available
+                estimatedValue: parseFloat(document.getElementById('estimatedValue')?.textContent.replace('$', '')) || 0,
+                buyItNowPrice: parseFloat(document.getElementById('buyItNowPrice')?.value) || 0,
+                category: document.getElementById('itemCategory')?.value || currentScanData.category,
+                title: document.getElementById('itemTitle')?.textContent || currentScanData.title,
+                description: document.getElementById('itemDescription')?.value || currentScanData.description,
+                brand: document.getElementById('itemBrand')?.value || currentScanData.brand,
+                condition: document.getElementById('itemCondition')?.value || currentScanData.condition
+            };
+
+            sessionStorage.setItem('ebayListingData', JSON.stringify(listingData));
+
+            // Navigate to listing preview page
+            window.location.href = 'listing-preview.html';
+        });
+
+        // Save to collection button
+        document.getElementById('saveToCollectionBtn')?.addEventListener('click', () => {
+            // Store in sessionStorage for later
+            sessionStorage.setItem('savedScan', JSON.stringify(currentScanData));
+            alert('Scan saved to your collection!');
+        });
+
+        // ===========================
+        // HELPER FUNCTIONS
+        // ===========================
+
+        function fileToDataURL(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = (e) => resolve(e.target.result);
+                reader.onerror = reject;
+                reader.readAsDataURL(file);
+            });
+        }
+
+        function dataURLToBase64(dataUrl) {
+            return dataUrl.split(',')[1];
+        }
+
+        function sleep(ms) {
+            return new Promise(resolve => setTimeout(resolve, ms));
+        }
+
+        function getCategoryIcon(category) {
+            const icons = {
+                'electronics': '📱',
+                'furniture': '🪑',
+                'clothing': '👕',
+                'tools': '🔧',
+                'books': '📚',
+                'toys': '🧸',
+                'jewelry': '💍',
+                'automotive': '🚗',
+                'sporting goods': '⚽',
+                'home & garden': '🏡',
+                'collectibles': '💎',
+                'other': '📦'
+            };
+            return icons[category?.toLowerCase()] || '📦';
+        }
+
+        function parseAnalysisResult(result) {
+            console.log('📊 Parsing analysis result:', result);
+            
+            if (result && result.success && result.analysis) {
+                const analysis = result.analysis;
+                const parsedData = {
+                    title: generateItemTitle(analysis),
+                    category: analysis.category || 'General',
+                    brand: analysis.brand || 'Unknown',
+                    condition: analysis.condition?.rating || 'Good',
+                    description: analysis.condition?.description || analysis.description || 'Item in good condition',
+                    estimatedValue: getActualEstimatedValue(result, analysis),
+                    confidence: analysis.confidence || 95,
+                    fullAnalysis: analysis,
+                    routes: result.routes
+                };
+                
+                console.log('✅ Parsed data:', parsedData);
+                return parsedData;
+            }
+            
+            console.warn('⚠️ Invalid result structure, using mock data');
+            return createMockAnalysis();
+        }
+
+        function generateItemTitle(analysis) {
+            if (analysis.title) return analysis.title;
+            const parts = [];
+            if (analysis.brand && analysis.brand !== 'Unknown') parts.push(analysis.brand);
+            if (analysis.model && analysis.model !== 'Unknown') parts.push(analysis.model);
+            else if (analysis.category) parts.push(analysis.category);
+            return parts.length > 0 ? parts.join(' ') : 'Item for Sale';
+        }
+
+        function createMockAnalysis() {
+            return {
+                title: 'Scanned Item',
+                category: 'General',
+                brand: 'Unknown',
+                condition: 'Good',
+                description: 'Item in good condition',
+                estimatedValue: 25,
+                confidence: 85
+            };
+        }
+
+        // ===========================
+        // MAP INITIALIZATION (FIND MODE)
+        // ===========================
+
+        async function initializeMap() {
+            try {
+                await acquireLocation();
+                createMap();
+            } catch (error) {
+                console.error('Map initialization error:', error);
+            }
+        }
+
+        function createMap() {
+            if (map) return;
+
+            map = L.map('map').setView([userLocation.latitude, userLocation.longitude], 13);
+
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+                attribution: '&copy; OpenStreetMap contributors',
+                maxZoom: 20
+            }).addTo(map);
+
+            // Add user location marker
+            const userLocationIcon = L.divIcon({
+                className: 'user-location-marker',
+                html: `
+                    <div class="user-pin-container">
+                        <div class="user-pin-pulse"></div>
+                        <div class="user-pin-pulse delay-1"></div>
+                        <div class="user-pin-dot">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                                <circle cx="12" cy="12" r="8" fill="var(--primary-500)" stroke="white" stroke-width="3"/>
+                                <circle cx="12" cy="12" r="4" fill="white"/>
+                            </svg>
+                        </div>
+                    </div>
+                `,
+                iconSize: [40, 40],
+                iconAnchor: [20, 20]
+            });
+
+            L.marker([userLocation.latitude, userLocation.longitude], {
+                icon: userLocationIcon,
+                zIndexOffset: 10000
+            }).addTo(map);
+
+            loadNearbyPins();
+        }
+
+        // FIXED: Better pin loading with enhanced debugging
+        async function loadNearbyPins() {
+            try {
+                if (!userLocation) {
+                    console.warn('⚠️ No user location available for loading pins');
+                    return;
+                }
+
+                // Use a larger radius to make sure we can see pins
+                const radius = 25; // miles
+                // Add cache buster to force fresh data
+                const cacheBuster = Date.now();
+                const apiUrl = `https://app-beprv7ll2q-uc.a.run.app/api/pins/nearby?lat=${userLocation.latitude}&lng=${userLocation.longitude}&radius=${radius}&limit=50&includeExpired=false&_=${cacheBuster}`;
+
+                console.log('🗺️ Loading nearby pins:', {
+                    userLat: userLocation.latitude,
+                    userLng: userLocation.longitude,
+                    radius: radius,
+                    cacheBuster: cacheBuster,
+                    url: apiUrl
+                });
+
+                const headers = { 'Content-Type': 'application/json' };
+                if (auth.currentUser) {
+                    try {
+                        const token = await auth.currentUser.getIdToken();
+                        headers['Authorization'] = `Bearer ${token}`;
+                    } catch (err) {
+                        console.log('Could not get auth token:', err);
+                    }
+                }
+
+                const response = await fetch(apiUrl, { headers });
+                if (!response.ok) {
+                    console.error('❌ Failed to load pins:', response.status, response.statusText);
+                    return;
+                }
+
+                const data = await response.json();
+                console.log('📍 Pins API response:', data);
+
+                if (!data.success) {
+                    console.error('❌ API returned success=false:', data);
+                    return;
+                }
+
+                if (!data.pins || data.pins.length === 0) {
+                    console.warn('⚠️ No pins found in response');
+                    return;
+                }
+
+                console.log(`✅ Found ${data.pins.length} pins`);
+                console.log('📌 Pin IDs:', data.pins.map(p => ({id: p.id, title: p.item?.title, status: p.status, created: p.createdAt})));
+
+                // Clear existing markers (except user location)
+                if (window.pinMarkers) {
+                    window.pinMarkers.forEach(marker => map.removeLayer(marker));
+                }
+                window.pinMarkers = [];
+
+                const groupedPins = groupPinsByProximity(data.pins, 0.1);
+                console.log(`📌 Grouped into ${groupedPins.length} markers`);
+
+                groupedPins.forEach((group, groupIndex) => {
+                    console.log(`Adding marker ${groupIndex + 1}:`, {
+                        pinCount: group.pins.length,
+                        lat: group.center.latitude,
+                        lng: group.center.longitude,
+                        firstItem: group.pins[0]?.item?.title
+                    });
+
+                    if (group.pins.length === 1) {
+                        const pin = group.pins[0];
+                        if (pin.location && pin.location.latitude && pin.location.longitude) {
+                            const icon = getCategoryIcon(pin.item?.category);
+                            const marker = L.marker([pin.location.latitude, pin.location.longitude], {
+                                icon: L.divIcon({
+                                    className: 'custom-pin-marker',
+                                    html: `<div class="category-marker">${icon}</div>`,
+                                    iconSize: [44, 44],
+                                    iconAnchor: [22, 44]
+                                }),
+                                zIndexOffset: 100
+                            }).addTo(map);
+
+                            window.pinMarkers.push(marker);
+
+                            const popupContent = `
+                                <div style="min-width: 180px; padding: 8px;">
+                                    <strong style="font-size: 15px; color: var(--gray-900);">${pin.item?.title || 'Item'}</strong><br>
+                                    <span style="color: var(--gray-600); font-size: 13px;">${pin.item?.category || ''}</span><br>
+                                    ${pin.price || pin.item?.estimatedValue ? `<span style="color: #2e7d32; font-weight: var(--font-bold); font-size: var(--text-base); display: block; margin: 8px 0;">$${pin.price || pin.item.estimatedValue}</span>` : ''}
+                                    <a href="/listing.html?id=${pin.id}"
+                                       style="display: inline-block; margin-top: 8px; padding: 8px 16px; background: linear-gradient(135deg, var(--primary-500) 0%, #764ba2 100%); color: white; text-decoration: none; border-radius: var(--radius-base); font-size: 13px; font-weight: var(--font-semibold);">
+                                        View Details →
+                                    </a>
+                                </div>
+                            `;
+                            marker.bindPopup(popupContent);
+                        }
+                    } else {
+                        // Yard sale marker
+                        const categoryCount = {};
+                        group.pins.forEach(pin => {
+                            const cat = pin.item?.category || 'other';
+                            categoryCount[cat] = (categoryCount[cat] || 0) + 1;
+                        });
+                        const topCategory = Object.keys(categoryCount).reduce((a, b) =>
+                            categoryCount[a] > categoryCount[b] ? a : b
+                        );
+                        const topIcon = getCategoryIcon(topCategory);
+
+                        const marker = L.marker([group.center.latitude, group.center.longitude], {
+                            icon: L.divIcon({
+                                className: 'custom-pin-marker multi-item',
+                                html: `
+                                    <div class="yard-sale-marker">
+                                        <div class="yard-sale-badge">${group.pins.length}</div>
+                                    </div>
+                                `,
+                                iconSize: [50, 50],
+                                iconAnchor: [25, 50]
+                            }),
+                            zIndexOffset: 100
+                        }).addTo(map);
+
+                        window.pinMarkers.push(marker);
+
+                        let popupContent = `
+                            <div style="min-width: 250px;">
+                                <h3 style="margin: 0 0 10px 0; color: var(--primary-500);">🪧 Yard Sale - ${group.pins.length} Items</h3>
+                                <div style="max-height: 200px; overflow-y: auto;">
+                        `;
+
+                        group.pins.forEach((pin, idx) => {
+                            const itemIcon = getCategoryIcon(pin.item?.category);
+                            const price = pin.price || pin.item?.estimatedValue;
+                            popupContent += `
+                                <div style="padding: 10px; background: ${idx % 2 === 0 ? '#f9f9f9' : 'white'}; margin: 6px 0; border-radius: var(--radius-base);">
+                                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                                        <div style="flex: 1;">${itemIcon} <strong>${pin.item?.title || 'Item'}</strong></div>
+                                        ${price ? `<div style="color: #2e7d32; font-weight: var(--font-bold); font-size: 15px;">$${price}</div>` : ''}
+                                    </div>
+                                    <a href="/listing.html?id=${pin.id}"
+                                       style="display: inline-block; padding: 6px 12px; background: var(--primary-500); color: white; text-decoration: none; border-radius: 6px; font-size: 12px; font-weight: var(--font-semibold);">
+                                        View →
+                                    </a>
+                                </div>
+                            `;
+                        });
+
+                        popupContent += `</div></div>`;
+                        marker.bindPopup(popupContent, { maxWidth: 350 });
+                    }
+                });
+
+                console.log(`✅ Added ${window.pinMarkers.length} markers to map`);
+
+            } catch (error) {
+                console.error('💥 Load pins error:', error);
+            }
+        }
+
+        function groupPinsByProximity(pins, radiusMiles) {
+            const groups = [];
+            const processed = new Set();
+
+            pins.forEach(pin => {
+                if (processed.has(pin.id)) return;
+
+                const group = {
+                    center: pin.location,
+                    pins: [pin]
+                };
+
+                pins.forEach(otherPin => {
+                    if (otherPin.id === pin.id || processed.has(otherPin.id)) return;
+
+                    const distance = calculateDistance(
+                        pin.location.latitude, pin.location.longitude,
+                        otherPin.location.latitude, otherPin.location.longitude
+                    );
+
+                    const shouldGroup = (pin.userId === otherPin.userId && distance <= radiusMiles) ||
+                                       (distance <= radiusMiles / 4);
+
+                    if (shouldGroup) {
+                        group.pins.push(otherPin);
+                        processed.add(otherPin.id);
+                    }
+                });
+
+                processed.add(pin.id);
+                groups.push(group);
+            });
+
+            return groups;
+        }
+
+        function calculateDistance(lat1, lng1, lat2, lng2) {
+            const R = 3959;
+            const dLat = toRadians(lat2 - lat1);
+            const dLng = toRadians(lng2 - lng1);
+
+            const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                      Math.cos(toRadians(lat1)) * Math.cos(toRadians(lat2)) *
+                      Math.sin(dLng / 2) * Math.sin(dLng / 2);
+
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+            return R * c;
+        }
+
+        function toRadians(degrees) {
+            return degrees * (Math.PI / 180);
+        }
+
+        // Rotating Photo Tips
+        function initPhotoTipsRotation() {
+            const instructionsContainer = document.getElementById('photoInstructions');
+            if (!instructionsContainer) return;
+
+            const cards = instructionsContainer.querySelectorAll('.instruction-card');
+            if (cards.length === 0) return;
+
+            let currentIndex = 0;
+
+            function showNextTip() {
+                // Remove active class from current card
+                cards[currentIndex].classList.remove('active');
+
+                // Move to next card
+                currentIndex = (currentIndex + 1) % cards.length;
+
+                // Add active class to new card after a brief delay
+                setTimeout(() => {
+                    cards[currentIndex].classList.add('active');
+                }, 100);
+            }
+
+            // Rotate tips every 8 seconds (matches animation duration)
+            setInterval(showNextTip, 8000);
+        }
+
+        // Initialize rotating tips when scan mode is active
+        if (document.getElementById('scanModeUpload').classList.contains('active')) {
+            initPhotoTipsRotation();
+        }
+
+        // Also initialize when switching to scan mode
+        const originalSwitchMode = switchMode;
+        switchMode = function(mode) {
+            originalSwitchMode(mode);
+            if (mode === 'scan') {
+                initPhotoTipsRotation();
+            }
+        };
+
+        // Check for URL parameters
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('mode') === 'find') {
+            switchMode('find');
+        }
+
+        // ===========================
+        // FORM VALIDATION
+        // ===========================
+        function validatePriceInput(input) {
+            const errorSpan = document.getElementById(`${input.id}-error`);
+            const minValue = parseFloat(input.min) || 0.99;
+            const value = parseFloat(input.value);
+
+            let isValid = true;
+            let errorMessage = '';
+
+            if (isNaN(value) || value < minValue) {
+                isValid = false;
+                errorMessage = `Please enter a price of at least $${minValue.toFixed(2)}`;
+            }
+
+            // Additional validation for Buy It Now
+            if (input.id === 'buyItNowPrice') {
+                const startingPrice = parseFloat(document.getElementById('startingPrice').value);
+                if (!isNaN(startingPrice) && value <= startingPrice) {
+                    isValid = false;
+                    errorMessage = 'Buy It Now must be higher than Starting Price';
+                }
+            }
+
+            // Update ARIA and visual state
+            input.setAttribute('aria-invalid', !isValid);
+
+            if (!isValid && errorSpan) {
+                errorSpan.textContent = errorMessage;
+                errorSpan.removeAttribute('hidden');
+            } else if (errorSpan) {
+                errorSpan.setAttribute('hidden', '');
+            }
+
+            return isValid;
+        }
+
+        function setupPriceValidation() {
+            const startingPrice = document.getElementById('startingPrice');
+            const buyItNowPrice = document.getElementById('buyItNowPrice');
+
+            if (startingPrice) {
+                startingPrice.addEventListener('blur', function() {
+                    validatePriceInput(this);
+                });
+                startingPrice.addEventListener('input', function() {
+                    // Clear error on input
+                    if (this.getAttribute('aria-invalid') === 'true') {
+                        validatePriceInput(this);
+                    }
+                });
+            }
+
+            if (buyItNowPrice) {
+                buyItNowPrice.addEventListener('blur', function() {
+                    validatePriceInput(this);
+                });
+                buyItNowPrice.addEventListener('input', function() {
+                    // Clear error on input
+                    if (this.getAttribute('aria-invalid') === 'true') {
+                        validatePriceInput(this);
+                    }
+                });
+            }
+        }
+
+        // ===========================
+        // INITIALIZE ACCESSIBILITY FEATURES
+        // ===========================
+        document.addEventListener('DOMContentLoaded', () => {
+            setupDropdownAccessibility();
+            setupPriceValidation();
+        });
+    </script>
+</body>
+</html>

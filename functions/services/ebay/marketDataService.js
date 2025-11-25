@@ -73,7 +73,8 @@ class EbayMarketDataService {
             query: strategy.query,
             condition,
             categoryId,
-            maxResults: Math.min(maxResults, 50)
+            maxResults: Math.min(maxResults, 50),
+            itemData: itemData
           });
 
           if (result.success && result.listings.length > 0) {
@@ -106,7 +107,8 @@ class EbayMarketDataService {
           query: searchQuery,
           condition,
           categoryId,
-          maxResults
+          maxResults,
+          itemData: itemData
         });
       }
 
@@ -126,7 +128,7 @@ class EbayMarketDataService {
   /**
    * Execute a single eBay search with given parameters
    */
-  async executeSearch(accessToken, { query, condition, categoryId, maxResults }) {
+  async executeSearch(accessToken, { query, condition, categoryId, maxResults, itemData = null }) {
     try {
       const fetch = (await import('node-fetch')).default;
 
@@ -154,7 +156,7 @@ class EbayMarketDataService {
       }
 
       const url = `${this.browseApiUrl}/item_summary/search?${apiParams.toString()}`;
-      
+
       const response = await fetch(url, {
         method: 'GET',
         headers: {
@@ -170,7 +172,7 @@ class EbayMarketDataService {
       }
 
       const data = await response.json();
-      return this.parseBrowseApiResponse(data, query);
+      return this.parseBrowseApiResponse(data, query, itemData);
 
     } catch (error) {
       console.error('eBay search execution failed:', error);
@@ -283,14 +285,19 @@ class EbayMarketDataService {
    */
   getMaxPriceForCategory(category) {
     const categoryLower = category?.toLowerCase() || '';
-    
+
     const categoryLimits = {
+      'tv': 3000,
+      'television': 3000,
+      'monitor': 2000,
       'furniture': 1000,
       'chair': 500,
       'table': 800,
       'electronics': 2000,
       'phone': 1200,
       'laptop': 3000,
+      'computer': 3000,
+      'gaming': 1500,
       'clothing': 200,
       'shoes': 300,
       'toys': 150,
@@ -304,7 +311,7 @@ class EbayMarketDataService {
       }
     }
 
-    return 1000; // Default category limit
+    return 1500; // Default category limit (increased from 1000)
   }
 
   /**
@@ -373,7 +380,7 @@ class EbayMarketDataService {
   /**
    * Parse Browse API response
    */
-  parseBrowseApiResponse(data, searchQuery = '') {
+  parseBrowseApiResponse(data, searchQuery = '', itemData = null) {
     try {
       if (!data || !data.itemSummaries) {
         return {
@@ -386,9 +393,9 @@ class EbayMarketDataService {
 
       const items = data.itemSummaries;
       const listings = items.map(item => this.parseListingItem(item)).filter(item => item);
-      
+
       // Apply quality filters to remove obvious outliers
-      const filteredListings = this.applyQualityFilters(listings, searchQuery);
+      const filteredListings = this.applyQualityFilters(listings, searchQuery, itemData);
       const statistics = this.calculateMarketStatistics(filteredListings);
 
       console.log(`Found ${listings.length} raw listings, ${filteredListings.length} after quality filtering`);
@@ -417,10 +424,21 @@ class EbayMarketDataService {
   /**
    * Apply quality filters to remove commercial listings and outliers
    */
-  applyQualityFilters(listings, searchQuery = '') {
+  applyQualityFilters(listings, searchQuery = '', itemData = null) {
     if (!listings || listings.length === 0) return listings;
 
+    // Check if user is searching for a set of items
+    const isSearchingForSet = itemData?.isSet || false;
+    const itemCount = itemData?.itemCount || 1;
+
+    // First pass: Calculate median for context-aware filtering
+    const validPrices = listings.filter(l => l.price > 0).map(l => l.price).sort((a, b) => a - b);
+    const medianPrice = validPrices[Math.floor(validPrices.length / 2)] || 100;
+
     return listings.filter(listing => {
+      const title = listing.title.toLowerCase();
+      const searchLower = searchQuery.toLowerCase();
+
       // Filter 1: Remove extremely high prices (likely commercial)
       if (listing.price > 10000) {
         console.log(`Filtered high price: ${listing.price} - ${listing.title.substring(0, 50)}`);
@@ -428,36 +446,144 @@ class EbayMarketDataService {
       }
 
       // Filter 2: Remove obvious wholesale/commercial listings
-      const title = listing.title.toLowerCase();
       const commercialKeywords = [
         'wholesale', 'bulk', 'lot of', 'pallet', 'case of',
         'dozen', 'commercial', 'restaurant', 'business',
         'industrial', 'professional grade'
       ];
-      
+
       if (commercialKeywords.some(keyword => title.includes(keyword))) {
         console.log(`Filtered commercial: ${listing.title.substring(0, 50)}`);
         return false;
       }
 
-      // Filter 3: Remove listings with suspiciously low prices (likely broken/parts)
+      // Filter 2.5: TV-specific accessories filter
+      if (searchLower.includes('tv') || searchLower.includes('television')) {
+        const tvAccessories = [
+          'mount', 'mounting', 'bracket', 'stand', 'holder',
+          'remote', 'control', 'cable', 'cord', 'adapter',
+          'screen protector', 'cover', 'case', 'hdmi',
+          'wall mount', 'tv stand', 'tv mount', 'antenna',
+          'streaming device', 'stick', 'box', 'dongle'
+        ];
+
+        // Check if this is an accessory listing
+        const isAccessory = tvAccessories.some(accessory => {
+          // Use word boundaries to avoid false positives
+          const pattern = new RegExp(`\\b${accessory}\\b`, 'i');
+          return pattern.test(title);
+        });
+
+        if (isAccessory) {
+          console.log(`Filtered TV accessory: ${listing.title.substring(0, 50)}`);
+          return false;
+        }
+
+        // Also filter if listing doesn't contain "tv" or "television" in the title
+        // (helps catch accessories that snuck through)
+        if (!title.includes('tv') && !title.includes('television') &&
+            !title.includes('hdtv') && !title.includes('smart tv')) {
+          console.log(`Filtered non-TV item: ${listing.title.substring(0, 50)}`);
+          return false;
+        }
+      }
+
+      // Filter 3: Detect and filter multi-item sets (ENHANCED)
+      const multiItemPatterns = [
+        /\b\d+\s*(x|chairs?|pieces?|items?)\b/i,                    // "2 x", "2 chairs", "3 pieces"
+        /\bset of \d+\b/i,                                           // "set of 2"
+        /\b\d+\s*piece set\b/i,                                      // "3 piece set"
+        /\b\d+\s*(chair|table|lamp|shelf)\b/i,                       // "2 chair", "3 table"
+        /\bpair of\b/i,                                              // "pair of"
+        /\blot of\b/i,                                               // "lot of"
+        /with (ottoman|cushion|table|stand|footstool|matching)/i,   // "with ottoman", "with matching"
+        /with matching (ottoman|cushion|footstool)/i,                // "with matching ottoman"
+        /\+ (ottoman|cushion|table|stand|footstool)/i,               // "+ ottoman"
+        /and (ottoman|cushion|table|stand|footstool)/i,              // "and ottoman"
+        /including (ottoman|cushion|table|stand)/i,                  // "including ottoman"
+        /w\/ (ottoman|cushion|table|stand)/i,                        // "w/ ottoman"
+        /& (ottoman|cushion|table|stand|footstool)/i,                // "& ottoman"
+        /\bchair and ottoman\b/i,                                    // "chair and ottoman"
+        /\barmchair with\b/i,                                        // "armchair with"
+        /\bcombo\b/i,                                                // "combo"
+        /\bbundle\b/i                                                // "bundle"
+      ];
+
+      const hasMultiItemIndicator = multiItemPatterns.some(pattern => pattern.test(title));
+
+      if (hasMultiItemIndicator) {
+        // SMART FILTERING: Only filter multi-item listings if user has a SINGLE item
+        // If user uploaded a set (isSet=true or itemCount>1), allow multi-item listings
+        if (isSearchingForSet || itemCount > 1) {
+          console.log(`✓ Keeping multi-item listing (user has set): ${listing.title.substring(0, 50)}`);
+          return true; // Keep this listing - user wants sets
+        }
+
+        // Exception: Don't filter if the search query specifically mentions the multi-item aspect
+        const searchLower = searchQuery.toLowerCase();
+        const searchIncludesMultiItem = searchLower.includes('with') ||
+                                        searchLower.includes('set') ||
+                                        searchLower.includes('ottoman') ||
+                                        searchLower.includes('cushion');
+
+        if (!searchIncludesMultiItem) {
+          console.log(`Filtered multi-item set: ${listing.price} - ${listing.title.substring(0, 50)}`);
+          return false;
+        }
+      }
+
+      // Filter 3.5: Number-only filtering for furniture
+      // Catches "2 IKEA chairs" but allows "IKEA Poang 2"
+      // SKIP if user has multiple items
+      if (!isSearchingForSet && itemCount === 1) {
+        if (searchLower.includes('chair') || searchLower.includes('table') ||
+            searchLower.includes('furniture')) {
+          // Look for numbers at the beginning indicating quantity
+          const quantityAtStart = /^\d+\s+/i.test(title);
+          const quantityPattern = /\b[2-9]\d*\s+(ikea|vintage|modern|wood|wooden|metal)\s+(chair|table|shelf)/i;
+
+          if (quantityAtStart || quantityPattern.test(title)) {
+            console.log(`Filtered quantity listing: ${listing.title.substring(0, 50)}`);
+            return false;
+          }
+        }
+      }
+
+      // Filter 4: Filter suspiciously low prices (likely broken/parts)
       if (listing.price < 1) {
         console.log(`Filtered low price: ${listing.price} - ${listing.title.substring(0, 50)}`);
         return false;
       }
 
-      // Filter 4: For IKEA items, apply specific filters
+      // Filter 5: Smart vintage filtering
+      // Vintage items are valuable but should match the item being scanned
+      const vintageKeywords = ['vintage', 'antique', 'retro', 'collectible', 'rare', 'original', 'classic'];
+      const isVintage = vintageKeywords.some(keyword => title.includes(keyword));
+
+      if (isVintage && listing.price > medianPrice * 3) {
+        // This is likely a genuinely valuable vintage item
+        // Only keep it if the search query suggests we're looking for vintage
+        const searchLower = searchQuery.toLowerCase();
+        const searchingForVintage = vintageKeywords.some(keyword => searchLower.includes(keyword));
+
+        if (!searchingForVintage) {
+          console.log(`Filtered vintage outlier: ${listing.price} (median: ${medianPrice}) - ${listing.title.substring(0, 50)}`);
+          return false;
+        }
+      }
+
+      // Filter 6: Brand-specific filters
       if (searchQuery.toLowerCase().includes('ikea')) {
-        // Remove listings that are clearly not the item we want
-        if (title.includes('instruction') || title.includes('manual') || 
+        // Remove IKEA parts/instructions
+        if (title.includes('instruction') || title.includes('manual') ||
             title.includes('replacement part') || title.includes('screw') ||
             title.includes('hardware only')) {
           console.log(`Filtered IKEA non-item: ${listing.title.substring(0, 50)}`);
           return false;
         }
 
-        // Cap IKEA prices at reasonable levels
-        if (listing.price > 300) {
+        // IKEA items rarely sell for >$300 used (unless vintage or large furniture sets)
+        if (listing.price > 300 && !title.includes('sectional') && !title.includes('sofa')) {
           console.log(`Filtered high IKEA price: ${listing.price} - ${listing.title.substring(0, 50)}`);
           return false;
         }

@@ -1,0 +1,923 @@
+/* ThriftSpot v6 - Dark Theme (Wireframe-Aligned) */
+/* This stylesheet overlays thriftspot-v6.css to create the black background aesthetic */
+
+/* ===== DARK THEME VARIABLES ===== */
+:root {
+    /* Dark Background Colors */
+    --bg-primary: #000000;
+    --bg-secondary: #0a0a0a;
+    --bg-card: #1a1a1a;
+    --bg-hover: #262626;
+
+    /* Text Colors */
+    --text-primary: #ffffff;
+    --text-secondary: #cccccc;
+    --text-tertiary: #888888;
+
+    /* Border Colors */
+    --border-primary: #333333;
+    --border-secondary: #222222;
+    --border-white: #ffffff;
+
+    /* Accent Colors - Keep vibrant for contrast */
+    --accent-primary: #6366f1;
+    --accent-success: #22c55e;
+    --accent-error: #ef4444;
+    --accent-warning: #f59e0b;
+}
+
+/* ===== BASE OVERRIDES ===== */
+body {
+    background: var(--bg-primary);
+    color: var(--text-primary);
+}
+
+/* ===== HEADER ===== */
+.app-header {
+    background: var(--bg-primary);
+    border-bottom: 1px solid var(--border-primary);
+}
+
+.header-logo {
+    color: var(--text-primary);
+}
+
+.hamburger-menu {
+    color: var(--text-secondary);
+}
+
+.hamburger-menu:hover {
+    background: var(--bg-hover);
+    color: var(--accent-primary);
+}
+
+.hamburger-dropdown {
+    background: var(--bg-card);
+    border-color: var(--border-primary);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.8);
+}
+
+.menu-item {
+    color: var(--text-secondary);
+}
+
+.menu-item:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+}
+
+.menu-divider {
+    background: var(--border-primary);
+}
+
+.user-dropdown {
+    background: var(--bg-card);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.8);
+}
+
+.dropdown-item {
+    color: var(--text-secondary);
+}
+
+.dropdown-item:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+}
+
+/* ===== TELESCOPE RINGS - White on Black ===== */
+.telescope-ring:nth-child(1)::before {
+    border-color: transparent rgba(255, 255, 255, 0.6) rgba(255, 255, 255, 0.6) transparent;
+}
+
+.telescope-ring:nth-child(2)::before {
+    border-color: transparent transparent rgba(255, 255, 255, 0.5) rgba(255, 255, 255, 0.5);
+}
+
+.telescope-ring:nth-child(3)::before {
+    border-color: rgba(255, 255, 255, 0.4) transparent transparent rgba(255, 255, 255, 0.4);
+}
+
+.telescope-progress circle {
+    stroke: var(--text-primary);
+}
+
+/* ===== CAMERA/UPLOAD AREA ===== */
+.upload-trigger {
+    border-color: var(--border-white);
+    background: transparent;
+}
+
+.upload-trigger:hover {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: var(--text-primary);
+}
+
+.upload-trigger p {
+    color: var(--text-primary);
+}
+
+.upload-trigger svg {
+    color: var(--text-primary);
+}
+
+.viewfinder-crosshair {
+    border-color: var(--border-white);
+    box-shadow: 0 0 20px rgba(255, 255, 255, 0.3);
+}
+
+/* ===== BUTTONS ===== */
+.capture-button {
+    background: var(--bg-primary);
+    border: 4px solid var(--border-white);
+    color: var(--text-primary);
+    box-shadow: 0 4px 20px rgba(255, 255, 255, 0.2);
+}
+
+.analyze-button {
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    border: 2px solid var(--border-white);
+    box-shadow: 0 4px 20px rgba(255, 255, 255, 0.2);
+}
+
+.analyze-button:hover:not(:disabled) {
+    background: var(--bg-hover);
+    border-color: var(--text-primary);
+    box-shadow: 0 4px 20px rgba(255, 255, 255, 0.3);
+}
+
+.analyze-button:disabled {
+    background: var(--bg-card);
+    color: var(--text-tertiary);
+    border-color: var(--border-primary);
+}
+
+/* Primary button styles */
+.btn-primary {
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    border: 2px solid var(--border-white);
+}
+
+.btn-primary:hover {
+    background: var(--bg-hover);
+    border-color: var(--text-primary);
+}
+
+/* Mobile action buttons */
+.capture-button-mobile,
+.upload-button-mobile,
+.upload-icon-button {
+    background: var(--bg-primary);
+    border-color: var(--border-white);
+    color: var(--text-primary);
+}
+
+.capture-button-mobile:hover,
+.upload-button-mobile:hover,
+.upload-icon-button:hover {
+    background: var(--bg-hover);
+    border-color: var(--text-primary);
+}
+
+/* ===== MODE TOGGLE ===== */
+.mode-toggle {
+    background: var(--bg-primary);
+    border-color: var(--border-primary);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.8);
+}
+
+.mode-toggle-slider {
+    background: var(--text-primary);
+}
+
+.mode-btn {
+    color: var(--text-primary);
+}
+
+.mode-btn.active {
+    color: var(--bg-primary);
+}
+
+.mode-btn:hover:not(.active) {
+    color: rgba(255, 255, 255, 0.7);
+}
+
+/* ===== PHOTO GALLERY ===== */
+.photo-gallery {
+    background: var(--bg-card);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.8);
+}
+
+.photo-thumbnail {
+    border-color: var(--border-primary);
+}
+
+.photo-delete-btn {
+    background: var(--accent-error);
+    border-color: var(--bg-primary);
+}
+
+/* ===== ANALYSIS SCREEN ===== */
+.analysis-screen {
+    background: rgba(0, 0, 0, 0.95);
+    backdrop-filter: blur(10px);
+}
+
+.analysis-heading {
+    color: var(--text-primary);
+}
+
+.analysis-stage h3 {
+    color: var(--text-primary);
+}
+
+.analysis-stage p {
+    color: var(--text-secondary);
+}
+
+.analysis-progress-text {
+    color: var(--text-primary);
+    text-shadow:
+        -2px -2px 0 var(--bg-primary),
+        2px -2px 0 var(--bg-primary),
+        -2px 2px 0 var(--bg-primary),
+        2px 2px 0 var(--bg-primary),
+        0 0 30px rgba(255, 255, 255, 0.9);
+}
+
+.telescope-progress circle {
+    stroke: var(--text-primary);
+    filter: drop-shadow(0 0 12px rgba(255, 255, 255, 0.8));
+}
+
+/* ===== RESULTS SCREEN ===== */
+.results-screen {
+    background: var(--bg-primary);
+}
+
+.results-header h2 {
+    color: var(--text-primary);
+}
+
+.results-item-card {
+    background: var(--bg-card);
+    border-color: var(--border-primary);
+}
+
+.results-item-name {
+    color: var(--text-primary);
+}
+
+.results-stat-label {
+    color: var(--text-secondary);
+}
+
+.results-stat-value {
+    background: linear-gradient(135deg, var(--text-primary) 0%, var(--text-secondary) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.condition-badge {
+    background: var(--accent-success);
+    color: var(--bg-primary);
+}
+
+/* AI Description */
+.ai-description-section {
+    border-top-color: var(--border-primary);
+}
+
+.ai-description-section h4 {
+    color: var(--text-primary);
+}
+
+.ai-description-text {
+    color: var(--text-secondary);
+    background: var(--bg-card);
+    border-left-color: var(--text-primary);
+}
+
+/* eBay Listings */
+.ebay-listings {
+    border-top-color: var(--border-primary);
+}
+
+.ebay-listings h4 {
+    color: var(--text-primary);
+}
+
+#ebayListingsContainer::-webkit-scrollbar-track {
+    background: var(--bg-card);
+}
+
+#ebayListingsContainer::-webkit-scrollbar-thumb {
+    background: var(--border-primary);
+}
+
+#ebayListingsContainer::-webkit-scrollbar-thumb:hover {
+    background: var(--text-tertiary);
+}
+
+.ebay-listing-item {
+    background: var(--bg-card);
+    border-color: var(--border-primary);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+.ebay-listing-item:hover {
+    background: var(--bg-hover);
+    border-color: var(--text-primary);
+    box-shadow: 0 4px 12px rgba(255, 255, 255, 0.1);
+}
+
+.ebay-listing-thumbnail {
+    border-color: var(--border-primary);
+}
+
+.ebay-listing-price {
+    background: linear-gradient(135deg, var(--text-primary) 0%, var(--text-secondary) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.ebay-listing-title {
+    color: var(--text-primary);
+}
+
+.ebay-listing-condition {
+    color: var(--text-secondary);
+    background: var(--bg-hover);
+}
+
+.ebay-listing-date {
+    color: var(--text-tertiary);
+}
+
+/* ===== YARD SALE COLLECTION POPUP ===== */
+/* Popup has white background, so keep light theme colors (black text) */
+
+/* ===== TOKEN COUNTER ===== */
+.token-counter {
+    color: var(--text-primary);
+    background: var(--bg-card);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+}
+
+.token-counter span {
+    color: var(--text-primary);
+}
+
+/* ===== DASHBOARD STYLES ===== */
+.dashboard-container {
+    background: var(--bg-primary);
+    color: var(--text-primary);
+}
+
+.dashboard-header {
+    background: var(--bg-primary);
+    border-bottom-color: var(--border-primary);
+}
+
+.stats-grid {
+    gap: var(--space-6);
+}
+
+.stat-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-primary);
+    color: var(--text-primary);
+}
+
+.stat-card:hover {
+    border-color: var(--text-primary);
+    box-shadow: 0 4px 12px rgba(255, 255, 255, 0.1);
+}
+
+.stat-label {
+    color: var(--text-secondary);
+}
+
+.stat-value {
+    color: var(--text-primary);
+}
+
+.listings-grid {
+    gap: var(--space-6);
+}
+
+.listing-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-primary);
+}
+
+.listing-card:hover {
+    border-color: var(--text-primary);
+    box-shadow: 0 4px 12px rgba(255, 255, 255, 0.1);
+}
+
+.listing-image {
+    border-bottom-color: var(--border-primary);
+}
+
+.listing-info {
+    color: var(--text-primary);
+}
+
+.listing-title {
+    color: var(--text-primary);
+}
+
+.listing-price {
+    color: var(--text-primary);
+}
+
+.listing-condition {
+    background: var(--bg-hover);
+    color: var(--text-secondary);
+}
+
+.listing-status {
+    background: var(--accent-success);
+    color: var(--bg-primary);
+}
+
+.listing-status.sold {
+    background: var(--accent-error);
+}
+
+/* ===== PROFILE STYLES ===== */
+.profile-container {
+    background: var(--bg-primary);
+    color: var(--text-primary);
+}
+
+.profile-header {
+    background: var(--bg-card);
+    border-color: var(--border-primary);
+}
+
+.profile-avatar {
+    border-color: var(--border-white);
+}
+
+.profile-name {
+    color: var(--text-primary);
+}
+
+.profile-email {
+    color: var(--text-secondary);
+}
+
+.profile-stats {
+    background: var(--bg-card);
+    border-color: var(--border-primary);
+}
+
+.profile-section {
+    background: var(--bg-card);
+    border-color: var(--border-primary);
+}
+
+.profile-section h3 {
+    color: var(--text-primary);
+}
+
+/* ===== MAP STYLES ===== */
+.map-container {
+    background: var(--bg-primary);
+}
+
+.leaflet-container {
+    background: var(--bg-primary);
+}
+
+/* CARTO Dark Matter tiles have native dark theme - no filter needed */
+
+.pin-detail-panel {
+    background: var(--bg-card);
+    border-color: var(--border-primary);
+    box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.8);
+}
+
+.pin-detail-header {
+    border-bottom-color: var(--border-primary);
+}
+
+.pin-detail-title {
+    color: var(--text-primary);
+}
+
+.pin-detail-price {
+    color: var(--text-primary);
+}
+
+.pin-detail-info {
+    color: var(--text-secondary);
+}
+
+.pin-detail-description {
+    color: var(--text-secondary);
+}
+
+.pin-detail-actions button {
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    border: 2px solid var(--border-white);
+}
+
+.pin-detail-actions button:hover {
+    background: var(--bg-hover);
+    border-color: var(--text-primary);
+}
+
+/* ===== LISTING PREVIEW STYLES ===== */
+.listing-preview-container {
+    background: var(--bg-primary);
+    color: var(--text-primary);
+}
+
+.preview-header {
+    background: var(--bg-primary);
+    border-bottom-color: var(--border-primary);
+}
+
+.preview-header h2 {
+    color: var(--text-primary);
+}
+
+.preview-section {
+    background: var(--bg-card);
+    border: 1px solid var(--border-primary);
+}
+
+.preview-section h3 {
+    color: var(--text-primary);
+}
+
+.preview-image-card {
+    background: var(--bg-card);
+    border-color: var(--border-primary);
+}
+
+.preview-item-title {
+    color: var(--text-primary);
+}
+
+.preview-item-description {
+    color: var(--text-secondary);
+}
+
+.preview-price-display {
+    color: var(--text-primary);
+    background: var(--bg-card);
+}
+
+.preview-condition-badge {
+    background: var(--accent-success);
+    color: var(--bg-primary);
+}
+
+.platform-badge {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+    border: 1px solid var(--border-primary);
+}
+
+.platform-badge.active {
+    background: var(--text-primary);
+    color: var(--bg-primary);
+    border-color: var(--text-primary);
+}
+
+/* Form Inputs */
+input[type="text"],
+input[type="number"],
+input[type="email"],
+input[type="tel"],
+textarea,
+select {
+    background: var(--bg-card);
+    color: var(--text-primary);
+    border: 1px solid var(--border-primary);
+}
+
+input[type="text"]:focus,
+input[type="number"]:focus,
+input[type="email"]:focus,
+input[type="tel"]:focus,
+textarea:focus,
+select:focus {
+    border-color: var(--text-primary);
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.1);
+}
+
+input::placeholder,
+textarea::placeholder {
+    color: var(--text-tertiary);
+}
+
+label {
+    color: var(--text-primary);
+}
+
+/* Toggle switches */
+.toggle-group {
+    background: var(--bg-card);
+    border-color: var(--border-primary);
+}
+
+.toggle-option {
+    color: var(--text-secondary);
+    border-color: var(--border-primary);
+}
+
+.toggle-option.active {
+    background: var(--text-primary);
+    color: var(--bg-primary);
+    border-color: var(--text-primary);
+}
+
+.toggle-option:hover:not(.active) {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+}
+
+/* ===== SUCCESS MODAL ===== */
+.success-modal {
+    background: rgba(0, 0, 0, 0.95);
+}
+
+.success-modal-content {
+    background: var(--bg-card);
+    border: 2px solid var(--border-white);
+    box-shadow: 0 8px 32px rgba(255, 255, 255, 0.1);
+}
+
+.success-modal h2 {
+    color: var(--text-primary);
+}
+
+.success-icon {
+    color: var(--accent-success);
+}
+
+.success-details {
+    color: var(--text-secondary);
+}
+
+.success-listing-name {
+    color: var(--text-primary);
+}
+
+.success-platforms {
+    background: var(--bg-hover);
+    border-color: var(--border-primary);
+}
+
+.success-platform-item {
+    background: var(--bg-card);
+    border-color: var(--border-primary);
+}
+
+.success-actions button {
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    border: 2px solid var(--border-white);
+}
+
+.success-actions button:hover {
+    background: var(--bg-hover);
+    border-color: var(--text-primary);
+    box-shadow: 0 4px 12px rgba(255, 255, 255, 0.2);
+}
+
+/* ===== CHECKOUT/PURCHASE STYLES ===== */
+.checkout-container {
+    background: var(--bg-primary);
+    color: var(--text-primary);
+}
+
+.checkout-header {
+    background: var(--bg-primary);
+    border-bottom-color: var(--border-primary);
+}
+
+.checkout-header h2 {
+    color: var(--text-primary);
+}
+
+.checkout-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-primary);
+}
+
+.checkout-section h3 {
+    color: var(--text-primary);
+}
+
+.checkout-item-info {
+    background: var(--bg-hover);
+    border-color: var(--border-primary);
+}
+
+.checkout-total {
+    color: var(--text-primary);
+    border-top-color: var(--border-primary);
+}
+
+.checkout-total-label {
+    color: var(--text-secondary);
+}
+
+.checkout-total-amount {
+    color: var(--text-primary);
+}
+
+.payment-info {
+    color: var(--text-secondary);
+}
+
+.card-brand-icon {
+    color: var(--text-primary);
+}
+
+.billing-info {
+    background: var(--bg-hover);
+    border-color: var(--border-primary);
+}
+
+.purchase-button {
+    background: var(--accent-success);
+    color: var(--text-primary);
+    border: none;
+}
+
+.purchase-button:hover {
+    background: #16a34a;
+    box-shadow: 0 4px 12px rgba(34, 197, 94, 0.3);
+}
+
+/* ===== SCAN EDITOR STYLES ===== */
+.editor-container {
+    background: var(--bg-primary);
+}
+
+.editor-header {
+    background: var(--bg-primary);
+    border-bottom-color: var(--border-primary);
+}
+
+.editor-toolbar {
+    background: var(--bg-card);
+    border-color: var(--border-primary);
+}
+
+.editor-tool {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+    border-color: var(--border-primary);
+}
+
+.editor-tool:hover {
+    background: var(--text-primary);
+    color: var(--bg-primary);
+    border-color: var(--text-primary);
+}
+
+.editor-canvas-wrapper {
+    background: var(--bg-secondary);
+}
+
+/* ===== SCROLLBAR STYLING ===== */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: var(--bg-card);
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--border-primary);
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--text-tertiary);
+}
+
+/* ===== SELECTION STYLING ===== */
+::selection {
+    background: var(--text-primary);
+    color: var(--bg-primary);
+}
+
+::-moz-selection {
+    background: var(--text-primary);
+    color: var(--bg-primary);
+}
+
+/* ===== LOADING STATES ===== */
+.loading-spinner {
+    border-color: var(--border-primary);
+    border-top-color: var(--text-primary);
+}
+
+.skeleton {
+    background: linear-gradient(90deg, var(--bg-card) 25%, var(--bg-hover) 50%, var(--bg-card) 75%);
+    background-size: 200% 100%;
+}
+
+/* ===== SHADOWS FOR DEPTH ===== */
+.card,
+.modal,
+.dropdown {
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.8);
+}
+
+.card:hover {
+    box-shadow: 0 8px 32px rgba(255, 255, 255, 0.1);
+}
+
+/* ===== FOCUS VISIBLE (Accessibility) ===== */
+*:focus-visible {
+    outline: 2px solid var(--text-primary);
+    outline-offset: 2px;
+}
+
+/* ===== GRID PATTERN (Map-like aesthetic for backgrounds) ===== */
+.grid-background {
+    background-image:
+        linear-gradient(var(--border-secondary) 1px, transparent 1px),
+        linear-gradient(90deg, var(--border-secondary) 1px, transparent 1px);
+    background-size: 40px 40px;
+}
+
+/* ===== RESPONSIVE ADJUSTMENTS ===== */
+@media (max-width: 768px) {
+    .mode-toggle {
+        background: var(--bg-card);
+        border-color: var(--border-primary);
+    }
+}
+
+/* ===== HIGH CONTRAST ELEMENTS ===== */
+.thrift-spot-button,
+.preview-listing-button,
+.list-your-thrift-button,
+.view-on-map-button {
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    border: 2px solid var(--border-white);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    padding: 16px 32px;
+    font-size: 16px;
+    border-radius: 9999px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 20px rgba(255, 255, 255, 0.1);
+}
+
+.thrift-spot-button:hover,
+.preview-listing-button:hover,
+.list-your-thrift-button:hover,
+.view-on-map-button:hover {
+    background: var(--text-primary);
+    color: var(--bg-primary);
+    border-color: var(--text-primary);
+    box-shadow: 0 6px 24px rgba(255, 255, 255, 0.2);
+    transform: translateY(-2px);
+}
+
+/* ===== ESTIMATED VALUE DISPLAY ===== */
+.estimated-value-display {
+    color: var(--text-primary);
+    font-size: 18px;
+    font-weight: 600;
+    margin-top: 16px;
+    text-align: center;
+}
+
+.estimated-value-display .value {
+    font-size: 32px;
+    font-weight: 700;
+    display: block;
+    margin-top: 8px;
+}
+
+.condition-display {
+    color: var(--text-primary);
+    font-size: 16px;
+    font-weight: 600;
+    margin-top: 12px;
+    text-align: center;
+    text-transform: uppercase;
+}

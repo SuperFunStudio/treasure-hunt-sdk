@@ -23,6 +23,9 @@ const { router: analysisRoutes, injectDependencies: injectAnalysisDeps } = requi
 const { router: ebayRoutes, injectDependencies: injectEbayDeps } = require('./routes/ebay');
 const { router: pinsRoutes, injectDependencies: injectPinsDeps } = require('./routes/pins');
 const { router: locationRoutes } = require('./routes/location');
+const { router: tokensRoutes, injectDependencies: injectTokensDeps } = require('./routes/tokens');
+const { router: stripeWebhookRoutes, injectDependencies: injectStripeWebhookDeps } = require('./routes/stripe-webhooks');
+const { router: purchasesRoutes, injectDependencies: injectPurchasesDeps } = require('./routes/purchases');
 
 
 
@@ -39,6 +42,22 @@ initializeDatabase(db, admin);
 console.log('Category mapper initialized with database access');
 
 logStartup();
+
+// ========== 2.5 STRIPE INITIALIZATION ==========
+let stripe = null;
+try {
+  const stripeLib = require('stripe');
+  const stripeKey = config.STRIPE_SECRET_KEY;
+
+  if (stripeKey) {
+    stripe = stripeLib(stripeKey);
+    console.log('✅ Stripe initialized successfully');
+  } else {
+    console.warn('⚠️  Stripe not initialized - STRIPE_SECRET_KEY not configured');
+  }
+} catch (error) {
+  console.error('❌ Failed to initialize Stripe:', error.message);
+}
 
 // ========== 3. ENHANCED STARTUP VALIDATION ==========
 const envStatus = getEnvironmentStatus();
@@ -206,8 +225,17 @@ injectAnalysisDeps(getSDK, verifyAuth);
 // Inject dependencies into eBay routes
 injectEbayDeps(verifyAuth);
 
-//Inject pin dependenceies 
+//Inject pin dependenceies
 injectPinsDeps(verifyAuth);
+
+// Inject dependencies into token routes
+injectTokensDeps({ db, admin, stripe });
+
+// Inject dependencies into Stripe webhook routes
+injectStripeWebhookDeps({ db, admin, stripe });
+
+// Inject dependencies into purchases routes
+injectPurchasesDeps({ db, admin, stripe, verifyAuth });
 
 
 // ========== 9. REGISTER ROUTES ==========
@@ -218,10 +246,13 @@ app.use('/', analysisRoutes);  // /api/analyze, /api/analyze-json
 app.use('/', ebayRoutes);      // /api/ebay/* (now with affiliate tracking)
 app.use('/', pinsRoutes);      // /api/pins/*
 app.use('/', locationRoutes);  // /api/location/*
+app.use('/api/tokens', tokensRoutes);  // /api/tokens/* (token system)
+app.use('/api/stripe', stripeWebhookRoutes);  // /api/stripe/webhook
+app.use('/api/purchases', purchasesRoutes);  // /api/purchases/* (listing purchases)
 
 app.use('/', subscriptionRoutes); // NEW: Subscription management
 
-console.log('Core routes registered');
+console.log('Core routes registered (including token system)');
 
 // Add eBay Auth routes to main app
 try {

@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>ThriftSpot - Profile</title>
+
+    <link rel="stylesheet" href="css/thriftspot-mobile.css">
+
+    <!-- Firebase -->
+    <script src="/__/firebase/10.7.1/firebase-app-compat.js"></script>
+    <script src="/__/firebase/10.7.1/firebase-auth-compat.js"></script>
+    <script src="/__/firebase/10.7.1/firebase-firestore-compat.js"></script>
+    <script src="/__/firebase/10.7.1/firebase-storage-compat.js"></script>
+    <script src="/__/firebase/init.js"></script>
+
+    <style>
+        .profile-header {
+            background: linear-gradient(135deg, var(--primary-500) 0%, var(--primary-700) 100%);
+            color: white;
+            padding: var(--space-8) var(--space-4);
+            text-align: center;
+        }
+
+        .avatar {
+            width: 100px;
+            height: 100px;
+            border-radius: var(--radius-full);
+            background: white;
+            color: var(--primary-500);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: var(--text-4xl);
+            font-weight: var(--font-bold);
+            margin: 0 auto var(--space-4);
+            box-shadow: var(--shadow-lg);
+        }
+
+        .profile-name {
+            font-size: var(--text-2xl);
+            font-weight: var(--font-bold);
+            margin-bottom: var(--space-1);
+        }
+
+        .profile-email {
+            font-size: var(--text-sm);
+            opacity: 0.9;
+        }
+
+        .profile-body {
+            padding: var(--space-6) var(--space-4);
+        }
+
+        .menu-section {
+            margin-bottom: var(--space-6);
+        }
+
+        .menu-title {
+            font-size: var(--text-sm);
+            font-weight: var(--font-semibold);
+            color: var(--gray-500);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: var(--space-3);
+        }
+
+        .menu-items {
+            background: white;
+            border-radius: var(--radius-xl);
+            box-shadow: var(--shadow-md);
+            overflow: hidden;
+        }
+
+        .menu-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: var(--space-4);
+            border-bottom: 1px solid var(--gray-200);
+            cursor: pointer;
+            transition: background var(--transition-fast);
+            text-decoration: none;
+            color: var(--gray-900);
+        }
+
+        .menu-item:last-child {
+            border-bottom: none;
+        }
+
+        .menu-item:hover {
+            background: var(--gray-50);
+        }
+
+        .menu-item-content {
+            display: flex;
+            align-items: center;
+            gap: var(--space-3);
+        }
+
+        .menu-item-icon {
+            font-size: 1.5rem;
+        }
+
+        .menu-item-text {
+            font-size: var(--text-base);
+            font-weight: var(--font-medium);
+        }
+
+        .menu-item-arrow {
+            color: var(--gray-400);
+        }
+
+        .signout-btn {
+            background: var(--error);
+            color: white;
+        }
+
+        .signout-btn:hover {
+            background: var(--error-dark);
+        }
+
+        .version-info {
+            text-align: center;
+            color: var(--gray-500);
+            font-size: var(--text-xs);
+            margin-top: var(--space-8);
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <!-- Profile Header -->
+        <header class="profile-header">
+            <div class="avatar" id="userAvatar">
+                <!-- User initials -->
+            </div>
+            <div class="profile-name" id="userName">Loading...</div>
+            <div class="profile-email" id="userEmail"></div>
+        </header>
+
+        <!-- Profile Body -->
+        <main class="profile-body">
+            <!-- Account Section -->
+            <div class="menu-section">
+                <h3 class="menu-title">Account</h3>
+                <div class="menu-items">
+                    <a href="dashboard-v5.html" class="menu-item">
+                        <div class="menu-item-content">
+                            <span class="menu-item-icon">📊</span>
+                            <span class="menu-item-text">Dashboard</span>
+                        </div>
+                        <span class="menu-item-arrow">›</span>
+                    </a>
+
+                    <div class="menu-item" id="editProfileBtn">
+                        <div class="menu-item-content">
+                            <span class="menu-item-icon">✏️</span>
+                            <span class="menu-item-text">Edit Profile</span>
+                        </div>
+                        <span class="menu-item-arrow">›</span>
+                    </div>
+
+                    <a href="ebay-connect.html" class="menu-item">
+                        <div class="menu-item-content">
+                            <span class="menu-item-icon">🔗</span>
+                            <span class="menu-item-text">Connected Accounts</span>
+                        </div>
+                        <span class="menu-item-arrow">›</span>
+                    </a>
+                </div>
+            </div>
+
+            <!-- Listings Section -->
+            <div class="menu-section">
+                <h3 class="menu-title">My Listings</h3>
+                <div class="menu-items">
+                    <a href="dashboard-v5.html" class="menu-item">
+                        <div class="menu-item-content">
+                            <span class="menu-item-icon">📦</span>
+                            <span class="menu-item-text">All Listings</span>
+                        </div>
+                        <span class="menu-item-arrow">›</span>
+                    </a>
+
+                    <div class="menu-item">
+                        <div class="menu-item-content">
+                            <span class="menu-item-icon">💚</span>
+                            <span class="menu-item-text">Favorites</span>
+                        </div>
+                        <span class="menu-item-arrow">›</span>
+                    </div>
+
+                    <div class="menu-item">
+                        <div class="menu-item-content">
+                            <span class="menu-item-icon">🛒</span>
+                            <span class="menu-item-text">Purchases</span>
+                        </div>
+                        <span class="menu-item-arrow">›</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Settings Section -->
+            <div class="menu-section">
+                <h3 class="menu-title">Settings</h3>
+                <div class="menu-items">
+                    <div class="menu-item">
+                        <div class="menu-item-content">
+                            <span class="menu-item-icon">🔔</span>
+                            <span class="menu-item-text">Notifications</span>
+                        </div>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="notificationsToggle" checked>
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+
+                    <div class="menu-item">
+                        <div class="menu-item-content">
+                            <span class="menu-item-icon">🌙</span>
+                            <span class="menu-item-text">Dark Mode</span>
+                        </div>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="darkModeToggle">
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+
+                    <a href="privacy-policy.html" class="menu-item">
+                        <div class="menu-item-content">
+                            <span class="menu-item-icon">🔒</span>
+                            <span class="menu-item-text">Privacy Policy</span>
+                        </div>
+                        <span class="menu-item-arrow">›</span>
+                    </a>
+
+                    <div class="menu-item">
+                        <div class="menu-item-content">
+                            <span class="menu-item-icon">❓</span>
+                            <span class="menu-item-text">Help & Support</span>
+                        </div>
+                        <span class="menu-item-arrow">›</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sign Out -->
+            <div class="menu-section">
+                <div class="menu-items">
+                    <button class="menu-item signout-btn" id="signOutBtn">
+                        <div class="menu-item-content">
+                            <span class="menu-item-icon">🚪</span>
+                            <span class="menu-item-text">Sign Out</span>
+                        </div>
+                    </button>
+                </div>
+            </div>
+
+            <div class="version-info">
+                Version 5.0 (Beta)
+            </div>
+        </main>
+
+        <!-- Bottom Navigation -->
+        <nav class="bottom-nav">
+            <a href="index-v5.html" class="bottom-nav-item">
+                <span class="bottom-nav-icon">📷</span>
+                <span>Spot</span>
+            </a>
+            <a href="index-v5.html#thrift" class="bottom-nav-item">
+                <span class="bottom-nav-icon">🗺️</span>
+                <span>Thrift</span>
+            </a>
+            <a href="profile-v5.html" class="bottom-nav-item active">
+                <span class="bottom-nav-icon">👤</span>
+                <span>Profile</span>
+            </a>
+        </nav>
+    </div>
+
+    <script>
+        let currentUser = null;
+
+        // Initialize
+        firebase.auth().onAuthStateChanged((user) => {
+            if (!user) {
+                window.location.href = 'signin-v5.html';
+                return;
+            }
+
+            currentUser = user;
+
+            // Update profile info
+            const displayName = user.displayName || user.email.split('@')[0];
+            const initials = user.displayName
+                ? user.displayName.split(' ').map(n => n[0]).join('').toUpperCase()
+                : user.email[0].toUpperCase();
+
+            document.getElementById('userName').textContent = displayName;
+            document.getElementById('userEmail').textContent = user.email;
+            document.getElementById('userAvatar').textContent = initials;
+        });
+
+        // Sign Out
+        document.getElementById('signOutBtn').addEventListener('click', async () => {
+            if (confirm('Are you sure you want to sign out?')) {
+                await firebase.auth().signOut();
+                window.location.href = 'signin-v5.html';
+            }
+        });
+
+        // Edit Profile
+        document.getElementById('editProfileBtn').addEventListener('click', () => {
+            const newName = prompt('Enter your name:', currentUser.displayName || '');
+            if (newName && newName !== currentUser.displayName) {
+                currentUser.updateProfile({ displayName: newName })
+                    .then(() => {
+                        window.location.reload();
+                    })
+                    .catch(error => {
+                        alert('Failed to update profile: ' + error.message);
+                    });
+            }
+        });
+
+        // Notifications Toggle
+        document.getElementById('notificationsToggle').addEventListener('change', (e) => {
+            // Save to local storage or user preferences in Firestore
+            localStorage.setItem('notificationsEnabled', e.target.checked);
+            console.log('Notifications:', e.target.checked ? 'enabled' : 'disabled');
+        });
+
+        // Dark Mode Toggle
+        document.getElementById('darkModeToggle').addEventListener('change', (e) => {
+            if (e.target.checked) {
+                document.body.classList.add('dark-mode');
+                localStorage.setItem('darkMode', 'enabled');
+            } else {
+                document.body.classList.remove('dark-mode');
+                localStorage.setItem('darkMode', 'disabled');
+            }
+        });
+
+        // Load saved preferences
+        if (localStorage.getItem('darkMode') === 'enabled') {
+            document.getElementById('darkModeToggle').checked = true;
+            document.body.classList.add('dark-mode');
+        }
+
+        if (localStorage.getItem('notificationsEnabled') === 'false') {
+            document.getElementById('notificationsToggle').checked = false;
+        }
+    </script>
+</body>
+</html>
