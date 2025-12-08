@@ -4,6 +4,9 @@
 const express = require('express');
 const router = express.Router();
 
+// Platform fee configuration (10%)
+const PLATFORM_FEE_PERCENT = 0.10;
+
 // Dependencies (injected)
 let db = null;
 let admin = null;
@@ -31,8 +34,11 @@ router.post('/create-checkout', async (req, res) => {
     }
 
     if (!stripe) {
+      console.error('Stripe not initialized - purchase request rejected');
       return res.status(503).json({ error: 'Payment processing not configured' });
     }
+
+    console.log(`Processing purchase request for pin: ${pinId} by user: ${userId}`);
 
     // Get the pin/listing data directly by document ID
     const pinDoc = await db.collection('pins').doc(pinId).get();
@@ -54,9 +60,17 @@ router.post('/create-checkout', async (req, res) => {
       return res.status(400).json({ error: 'Cannot purchase your own listing' });
     }
 
-    // Get price
+    // Get price and calculate platform fee
     const price = pinData.price || pinData.item?.price || pinData.item?.estimatedValue || 25;
     const priceInCents = Math.round(price * 100);
+
+    // Calculate 10% platform fee
+    const platformFee = Math.round(price * PLATFORM_FEE_PERCENT * 100) / 100;
+    const sellerAmount = Math.round((price - platformFee) * 100) / 100;
+    const platformFeeInCents = Math.round(platformFee * 100);
+    const sellerAmountInCents = Math.round(sellerAmount * 100);
+
+    console.log(`Platform fee breakdown: Total $${price}, Platform fee $${platformFee} (${PLATFORM_FEE_PERCENT * 100}%), Seller gets $${sellerAmount}`);
 
     if (priceInCents < 50) { // Stripe minimum is $0.50
       return res.status(400).json({ error: 'Price too low for payment processing' });
@@ -70,6 +84,12 @@ router.post('/create-checkout', async (req, res) => {
     const itemTitle = pinData.item?.title ||
                       `${pinData.item?.brand || ''} ${pinData.item?.category || 'Item'}`.trim();
 
+    // Get valid HTTPS image URLs for Stripe (Stripe requires https URLs)
+    const allImages = pinData.item?.imageUrls || pinData.imageUrls || pinData.images || [];
+    const validImages = allImages
+      .filter(url => url && typeof url === 'string' && url.startsWith('https://'))
+      .slice(0, 1); // Stripe only allows up to 8, we'll use 1
+
     // Create Stripe checkout session
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
@@ -78,9 +98,9 @@ router.post('/create-checkout', async (req, res) => {
           price_data: {
             currency: 'usd',
             product_data: {
-              name: itemTitle,
-              description: pinData.item?.description?.substring(0, 200) || 'ThriftSpot listing',
-              images: pinData.item?.imageUrls?.slice(0, 1) || [],
+              name: itemTitle || 'ThriftSpot Item',
+              description: (pinData.item?.description?.substring(0, 200) || 'ThriftSpot listing').trim() || 'Item for sale',
+              ...(validImages.length > 0 && { images: validImages }),
             },
             unit_amount: priceInCents,
           },
@@ -98,14 +118,21 @@ router.post('/create-checkout', async (req, res) => {
         pinDocId: pinDocId,
         buyerId: userId,
         sellerId: pinData.userId,
-        itemTitle: itemTitle
+        itemTitle: itemTitle,
+        // Platform fee breakdown (stored as strings for Stripe metadata)
+        totalAmount: price.toString(),
+        platformFee: platformFee.toString(),
+        platformFeePercent: (PLATFORM_FEE_PERCENT * 100).toString(),
+        sellerAmount: sellerAmount.toString()
       },
       payment_intent_data: {
         metadata: {
           purpose: 'listing_purchase',
           pinId: pinId,
           buyerId: userId,
-          sellerId: pinData.userId
+          sellerId: pinData.userId,
+          platformFee: platformFee.toString(),
+          sellerAmount: sellerAmount.toString()
         }
       }
     });
@@ -120,8 +147,22 @@ router.post('/create-checkout', async (req, res) => {
 
   } catch (error) {
     console.error('Error creating checkout session:', error);
-    res.status(500).json({
-      error: 'Failed to create checkout session',
+    console.error('Error stack:', error.stack);
+
+    // Provide more specific error messages
+    let errorMessage = 'Failed to create checkout session';
+    let statusCode = 500;
+
+    if (error.type === 'StripeInvalidRequestError') {
+      errorMessage = 'Invalid payment configuration';
+      console.error('Stripe error details:', error.raw);
+    } else if (error.code === 'permission-denied') {
+      errorMessage = 'Database permission error';
+      statusCode = 403;
+    }
+
+    res.status(statusCode).json({
+      error: errorMessage,
       details: error.message
     });
   }

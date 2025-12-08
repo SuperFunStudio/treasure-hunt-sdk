@@ -1,30 +1,41 @@
-// capture-sdk/core/routeDisposition.js - UPDATED with vehicle detection and realistic pricing
+// capture-sdk/core/routeDisposition.js - UPDATED with vehicle detection, realistic pricing, and assortment support
 
 const fetch = (...args) => import('node-fetch').then(mod => mod.default(...args));
-const { 
-  detectItemCategory, 
-  buildVehicleSearchQuery, 
-  getPricingTier, 
+const {
+  detectItemCategory,
+  buildVehicleSearchQuery,
+  getPricingTier,
   validatePriceEstimate,
   calculateCategoryFees
 } = require('../utils/vehicle-detector');
+
+// Lazy load ebay market service to avoid circular dependencies
+let ebayMarketService = null;
+const getEbayMarketService = () => {
+  if (!ebayMarketService) {
+    ebayMarketService = require('../../services/ebay/marketDataService');
+  }
+  return ebayMarketService;
+};
 
 async function routeDisposition(itemData, userPreferences = {}, ebayConfig = null) {
   console.log('🎯 routeDisposition called with enhanced vehicle detection:', {
     category: itemData.category,
     brand: itemData.brand,
     model: itemData.model,
-    hasEbayConfig: !!ebayConfig
+    hasEbayConfig: !!ebayConfig,
+    isAssortment: itemData.isAssortment,
+    itemizedCount: itemData.itemizedList?.length || 0
   });
 
   try {
     // ENHANCED: Detect vehicle category and get appropriate pricing tier
     const detectedCategory = detectItemCategory(itemData);
     const pricingTier = getPricingTier(itemData);
-    
+
     console.log(`🔍 Detected category: ${detectedCategory} (original: ${itemData.category})`);
     console.log(`💰 Pricing tier: $${pricingTier.min}-$${pricingTier.max}, base: $${pricingTier.base}`);
-    
+
     // Enhanced item data with detected category
     const enhancedItemData = {
       ...itemData,
@@ -34,7 +45,7 @@ async function routeDisposition(itemData, userPreferences = {}, ebayConfig = nul
 
     // Get market pricing with category awareness
     const marketAnalysis = await getMarketPrice(enhancedItemData, ebayConfig);
-    
+
     console.log('💰 Market analysis result:', {
       suggested: marketAnalysis.suggested,
       source: marketAnalysis.source,
@@ -42,9 +53,47 @@ async function routeDisposition(itemData, userPreferences = {}, ebayConfig = nul
       isVehicle: ['automobile', 'motorcycle', 'boat', 'rv'].includes(detectedCategory)
     });
 
+    // ENHANCED: If this is an assortment with itemized list, optionally look up individual items
+    // NOTE: Itemized data is for INFORMATIONAL purposes only - we do NOT replace the lot price
+    // because selling as a lot is different from selling individually
+    let itemizedMarketData = null;
+    if (itemData.isAssortment && itemData.itemizedList?.length > 0 && ebayConfig) {
+      try {
+        console.log('📚 Assortment detected - looking up individual item values for reference...');
+        const ebayService = getEbayMarketService();
+        itemizedMarketData = await ebayService.getMarketDataForItemizedList(
+          itemData.itemizedList,
+          {
+            maxLookups: userPreferences.maxItemizedLookups || 5,  // Limit API calls
+            skipNonSearchable: true,
+            delayBetweenCalls: 250
+          }
+        );
+
+        // Store itemized data for reference but DO NOT override the lot price
+        // The lot/assortment market price already reflects what buyers actually pay
+        // Summing individual values would be misleading because:
+        // 1. Many items in a lot may have no individual resale value
+        // 2. Selling individually requires much more time/effort
+        // 3. The lot price is what the market actually values the collection at
+        if (itemizedMarketData?.success && itemizedMarketData.totalValue?.high > 0) {
+          console.log(`📊 Itemized reference value: $${itemizedMarketData.totalValue.low}-$${itemizedMarketData.totalValue.high} (for reference only)`);
+          console.log(`📦 Keeping lot price of $${marketAnalysis.suggested} as suggested price`);
+
+          // Store itemized data as reference info, not as the suggested price
+          marketAnalysis.itemizedEstimate = itemizedMarketData.totalValue;
+          marketAnalysis.itemizedSource = 'ebay_itemized_lookup';
+          marketAnalysis.itemizedNote = 'Reference value if sold individually (requires more effort)';
+        }
+      } catch (itemizedError) {
+        console.warn('⚠️ Itemized lookup failed (non-fatal):', itemizedError.message);
+        // Continue with regular market analysis
+      }
+    }
+
     // Calculate routes based on enhanced market analysis
     const routes = calculateRoutes(enhancedItemData, marketAnalysis, userPreferences);
-    
+
     return {
       recommendedRoute: routes.primary,
       alternativeRoutes: routes.alternatives,
@@ -54,7 +103,16 @@ async function routeDisposition(itemData, userPreferences = {}, ebayConfig = nul
         searchQuery: marketAnalysis.searchQuery,
         confidence: marketAnalysis.confidence,
         detectedCategory: detectedCategory,
-        pricingTier: pricingTier
+        pricingTier: pricingTier,
+        // Include itemized data if available
+        ...(itemizedMarketData && {
+          itemizedAnalysis: {
+            totalValue: itemizedMarketData.totalValue,
+            itemCount: itemizedMarketData.totalItems,
+            lookupCount: itemizedMarketData.lookupCount,
+            items: itemizedMarketData.itemizedList
+          }
+        })
       }
     };
   } catch (error) {
@@ -335,13 +393,14 @@ function getVehicleManualEstimate(enhancedItemData) {
   
   // Apply condition multiplier
   const condition = enhancedItemData.condition?.rating || 'good';
- const conditionMultipliers = {
-  'excellent': 1.0,
-  'good': 0.75,      // Was 0.85 - too high
-  'fair': 0.50,      // Was 0.65 - too high
-  'poor': 0.25,      // Was 0.35 - way too high
-  'parts_only': 0.15  // NEW - for non-functional items
-};
+  // Standard condition multipliers - balanced for resale market
+  const conditionMultipliers = {
+    'excellent': 1.0,   // Like new, minimal wear
+    'good': 0.85,       // Normal wear, fully functional
+    'fair': 0.65,       // Visible wear, functional
+    'poor': 0.40,       // Heavy wear, may need repair
+    'parts_only': 0.20  // For non-functional items
+  };
   
   basePrice *= (conditionMultipliers[condition] || 0.75);
   
@@ -409,47 +468,99 @@ function getEnhancedManualEstimate(enhancedItemData) {
   
   let basePrice = pricingTier.base;
   
-  // Brand multipliers by category
+  // Brand multipliers by category - multipliers relative to base price
   const brandMultipliers = {
-  'electronics': {
-    'apple': 1.0,        // Was 2.5 - way too high! Apple retains ~50% vs generic 25%, so 2x generic
-    'samsung': 0.7,      // Was 1.8 - Samsung loses value faster than Apple
-    'sony': 0.8,         // Was 1.6
-    'microsoft': 0.9,    // Was 1.7
-    'nintendo': 1.1,     // Was 1.9 - Nintendo holds value well but not 90% premium
-    'hp': 0.6,          // Was 1.2 - HP loses value quickly
-    'dell': 0.55        // Was 1.1 - Dell loses value quickly
-  },
-  'clothing': {
-    'nike': 0.6,        // Was 1.8 - Regular Nike clothing loses 70% value
-    'adidas': 0.55,     // Was 1.7
-    'levi': 0.7,        // Was 1.4 - Denim holds better
-    'gucci': 1.5,       // Was 3.0 - Still luxury but not 3x
-    'coach': 1.2,       // Was 2.2 - Premium but not that high
-    'ralph lauren': 0.8  // Was 1.6 - Not luxury tier
-  },
-  'footwear': {
-    'nike': 0.8,        // Was 2.0 - Regular Nike shoes
-    'jordan': 1.5,      // Was 2.5 - Jordans do hold value but not 2.5x
-    'adidas': 0.7,      // Was 1.8
-    'converse': 0.5,    // Was 1.3 - Basic shoes
-    'vans': 0.45        // Was 1.2 - Basic shoes
-  },
-  'furniture': {
-    'west elm': 0.8,    // Was 1.5 - Furniture depreciates heavily
-    'pottery barn': 0.85, // Was 1.6
-    'restoration hardware': 1.0, // Was 2.0 - Quality but still used furniture
-    'cb2': 0.7,         // Was 1.4
-    'ikea': 0.3         // Was 0.8 - IKEA loses 70-75% immediately
-  },
-  'tools': {
-    'dewalt': 1.2,      // Was 1.8 - Tools hold value but not 80% premium
-    'milwaukee': 1.15,   // Was 1.7
-    'makita': 1.1,      // Was 1.6
-    'craftsman': 0.9,   // Was 1.3
-    'ryobi': 0.7        // Was 1.1 - Budget brand
-  }
-};
+    // Laptop brands - applied to $250 base
+    'laptop': {
+      'apple': 1.8,       // MacBooks hold value well - $250 * 1.8 = $450 base
+      'microsoft': 1.3,   // Surface laptops
+      'dell': 0.9,        // Business laptops, decent value
+      'hp': 0.85,         // Consumer laptops
+      'lenovo': 0.95,     // ThinkPads hold value
+      'asus': 0.8,
+      'acer': 0.7
+    },
+    // Desktop brands - applied to $180 base
+    'desktop': {
+      'apple': 1.6,       // iMacs, Mac Mini
+      'hp': 0.8,
+      'dell': 0.85,
+      'lenovo': 0.8
+    },
+    // Tablet brands - applied to $150 base
+    'tablet': {
+      'apple': 1.8,       // iPads hold value very well
+      'samsung': 0.9,
+      'microsoft': 1.2,   // Surface tablets
+      'amazon': 0.5       // Fire tablets are cheap
+    },
+    // Smartphone brands - applied to $120 base
+    'smartphone': {
+      'apple': 1.8,       // iPhones hold value
+      'samsung': 0.95,
+      'google': 0.85,
+      'oneplus': 0.7
+    },
+    // Gaming console brands - applied to $150 base
+    'gaming_console': {
+      'sony': 1.1,        // PlayStation
+      'microsoft': 1.0,   // Xbox
+      'nintendo': 1.3     // Nintendo holds value best
+    },
+    // Camera brands - applied to $150 base
+    'camera': {
+      'canon': 1.1,
+      'nikon': 1.1,
+      'sony': 1.3,
+      'fujifilm': 1.2,
+      'gopro': 0.9
+    },
+    // Audio brands - applied to $50 base
+    'audio': {
+      'apple': 1.4,       // AirPods
+      'bose': 1.3,
+      'sony': 1.2,
+      'jbl': 1.0,
+      'beats': 1.1
+    },
+    // Generic electronics - applied to $30 base
+    'electronics': {
+      'apple': 1.3,
+      'samsung': 0.9,
+      'sony': 1.0,
+      'lg': 0.85
+    },
+    'clothing': {
+      'nike': 0.9,        // Regular Nike clothing
+      'adidas': 0.85,
+      'levi': 0.95,       // Denim holds better
+      'gucci': 2.0,       // Luxury
+      'coach': 1.5,
+      'ralph lauren': 1.1
+    },
+    'footwear': {
+      'nike': 1.1,        // Regular Nike shoes
+      'jordan': 1.6,      // Jordans hold value
+      'adidas': 0.95,
+      'converse': 0.8,
+      'vans': 0.75,
+      'new balance': 0.9
+    },
+    'furniture': {
+      'west elm': 0.9,
+      'pottery barn': 0.95,
+      'restoration hardware': 1.1,
+      'cb2': 0.8,
+      'ikea': 0.4         // IKEA depreciates heavily
+    },
+    'tools': {
+      'dewalt': 1.2,
+      'milwaukee': 1.15,
+      'makita': 1.1,
+      'craftsman': 0.9,
+      'ryobi': 0.75
+    }
+  };
 
   
   // Apply brand multiplier if available
@@ -464,25 +575,45 @@ function getEnhancedManualEstimate(enhancedItemData) {
   
   // Apply condition multiplier
   const condition = enhancedItemData.condition?.rating || 'good';
- const conditionMultipliers = {
-  'excellent': 1.0,
-  'good': 0.75,      // Was 0.85 - too high
-  'fair': 0.50,      // Was 0.65 - too high
-  'poor': 0.25,      // Was 0.35 - way too high
-  'parts_only': 0.15  // NEW - for non-functional items
-};
+  // Standard condition multipliers - balanced for resale market
+  const conditionMultipliers = {
+    'excellent': 1.0,   // Like new, minimal wear
+    'good': 0.85,       // Normal wear, fully functional
+    'fair': 0.65,       // Visible wear, functional
+    'poor': 0.40,       // Heavy wear, may need repair
+    'parts_only': 0.20  // For non-functional items
+  };
   
   basePrice *= (conditionMultipliers[condition] || 0.75);
-  
+
   // Additional adjustments
   if (enhancedItemData.condition?.usableAsIs === false) {
     basePrice *= 0.6; // 40% reduction for items needing repair
   }
-  
+
   if (enhancedItemData.model && enhancedItemData.model !== 'Unknown') {
     basePrice *= 1.1; // 10% bonus for known model
   }
-  
+
+  // Quantity adjustment - multiply price for sets/multiple items
+  const itemCount = enhancedItemData.itemCount || 1;
+  const isSet = enhancedItemData.isSet === true;
+  if (itemCount > 1 && isSet) {
+    // Sets are worth more than single items but not a straight multiplier
+    // A pair of chairs might be 1.8x a single chair, not 2x
+    const quantityMultiplier = 1 + ((itemCount - 1) * 0.85);
+    basePrice *= quantityMultiplier;
+    console.log(`📦 Applied quantity multiplier for set of ${itemCount}: ${quantityMultiplier.toFixed(2)}x`);
+  }
+
+  // Size category adjustment - miniatures are worth less than full-size
+  const sizeCategory = enhancedItemData.sizeCategory || 'full-size';
+  if (sizeCategory === 'miniature') {
+    // Miniatures/toys typically worth 5-20% of full-size equivalent
+    basePrice *= 0.15;
+    console.log(`🔍 Applied miniature size adjustment: 0.15x`);
+  }
+
   const suggestedPrice = validatePriceEstimate(Math.round(basePrice), enhancedItemData);
   
   // Calculate costs

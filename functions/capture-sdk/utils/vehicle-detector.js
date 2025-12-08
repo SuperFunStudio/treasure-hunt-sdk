@@ -70,13 +70,40 @@ function detectItemCategory(itemData) {
     'mirror', 'battery', 'filter', 'spark plug', 'carburetor',
     'muffler', 'exhaust', 'suspension', 'steering', 'clutch'
   ];
-  
+
   if (autoPartsPatterns.some(pattern => allText.includes(pattern))) {
     console.log('Auto parts detected');
     return 'auto_parts';
   }
-  
-  // Return original category if not a vehicle
+
+  // Electronics subcategory detection - BEFORE returning generic category
+  const electronicsSubcategories = {
+    'laptop': ['laptop', 'notebook', 'macbook', 'chromebook', 'thinkpad', 'inspiron', 'pavilion', 'latitude', 'elitebook', 'xps', 'surface laptop', 'zenbook', 'vivobook'],
+    'desktop': ['desktop', 'pc', 'imac', 'mac mini', 'mac pro', 'tower', 'workstation', 'all-in-one computer'],
+    'tablet': ['tablet', 'ipad', 'galaxy tab', 'surface pro', 'fire tablet', 'kindle fire'],
+    'smartphone': ['smartphone', 'iphone', 'galaxy', 'pixel phone', 'android phone', 'cell phone', 'mobile phone'],
+    'gaming_console': ['playstation', 'xbox', 'nintendo switch', 'ps4', 'ps5', 'wii', 'game console', 'gaming console'],
+    'tv': ['television', 'tv', 'smart tv', 'led tv', 'oled', 'lcd tv', 'flat screen'],
+    'camera': ['camera', 'dslr', 'mirrorless', 'camcorder', 'gopro', 'action camera', 'digital camera'],
+    'audio': ['speaker', 'headphone', 'earbuds', 'airpods', 'soundbar', 'amplifier', 'receiver', 'turntable', 'bluetooth speaker', 'home theater']
+  };
+
+  // Check for electronics subcategories
+  for (const [subcategory, patterns] of Object.entries(electronicsSubcategories)) {
+    if (patterns.some(pattern => allText.includes(pattern))) {
+      console.log(`Electronics subcategory detected: ${subcategory}`);
+      return subcategory;
+    }
+  }
+
+  // Check if it's general electronics but not a specific subcategory
+  const generalElectronicsPatterns = ['electronic', 'charger', 'cable', 'adapter', 'remote', 'gadget', 'device'];
+  if (generalElectronicsPatterns.some(pattern => allText.includes(pattern))) {
+    console.log('General electronics detected');
+    return 'electronics';
+  }
+
+  // Return original category if not a vehicle or electronics subcategory
   return category;
 }
 
@@ -192,8 +219,26 @@ function buildStandardQuery(itemData) {
     parts.push(itemData.model);
   }
 
+  // Add quantity context for sets/pairs to find better comparables
+  const itemCount = itemData.itemCount || 1;
+  const isSet = itemData.isSet === true;
+  if (itemCount === 2 && isSet) {
+    parts.push('pair');
+  } else if (itemCount > 2 && isSet) {
+    parts.push(`set of ${itemCount}`);
+  }
+
+  // For miniatures, add "miniature" or "toy" to avoid full-size comparables
+  if (itemData.sizeCategory === 'miniature') {
+    // Don't add if category already indicates it's a toy/model
+    const category = (itemData.category || '').toLowerCase();
+    if (!category.includes('toy') && !category.includes('model') && !category.includes('miniature')) {
+      parts.push('miniature');
+    }
+  }
+
   const query = parts.join(' ').trim();
-  console.log(`Standard search query: "${query}" (brand: ${itemData.brand}, materials: ${itemData.materials?.join(', ')}, category: ${itemData.category})`);
+  console.log(`Standard search query: "${query}" (brand: ${itemData.brand}, materials: ${itemData.materials?.join(', ')}, category: ${itemData.category}, itemCount: ${itemCount}, isSet: ${isSet}, sizeCategory: ${itemData.sizeCategory})`);
 
   return query || 'item';
 }
@@ -241,12 +286,69 @@ const CATEGORY_PRICING_TIERS = {
     feeStructure: 'standard'
   },
   
-  // Standard categories
+  // Electronics subcategories - more accurate pricing
+  'laptop': {
+    min: 50,
+    max: 2500,
+    base: 250,
+    shippingCost: 18,
+    feeStructure: 'standard'
+  },
+  'desktop': {
+    min: 40,
+    max: 2000,
+    base: 180,
+    shippingCost: 35,
+    feeStructure: 'standard'
+  },
+  'tablet': {
+    min: 30,
+    max: 1500,
+    base: 150,
+    shippingCost: 12,
+    feeStructure: 'standard'
+  },
+  'smartphone': {
+    min: 25,
+    max: 1500,
+    base: 120,
+    shippingCost: 8,
+    feeStructure: 'standard'
+  },
+  'gaming_console': {
+    min: 40,
+    max: 800,
+    base: 150,
+    shippingCost: 15,
+    feeStructure: 'standard'
+  },
+  'tv': {
+    min: 30,
+    max: 2000,
+    base: 120,
+    shippingCost: 50,
+    feeStructure: 'standard'
+  },
+  'camera': {
+    min: 25,
+    max: 3000,
+    base: 150,
+    shippingCost: 12,
+    feeStructure: 'standard'
+  },
+  'audio': {
+    min: 10,
+    max: 1000,
+    base: 50,
+    shippingCost: 15,
+    feeStructure: 'standard'
+  },
+  // Standard electronics (small items, accessories, etc.)
   'electronics': {
     min: 5,
-    max: 3000,
-    base: 45,
-    shippingCost: 12,
+    max: 500,
+    base: 30,
+    shippingCost: 10,
     feeStructure: 'standard'
   },
   'furniture': {

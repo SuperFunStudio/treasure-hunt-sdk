@@ -43,10 +43,10 @@ async function getTokenBalance(userId) {
   try {
     const userDoc = await db.collection('users').doc(userId).get();
     if (!userDoc.exists) {
-      return 5; // Default starting balance
+      return 15; // Default starting balance
     }
     const data = userDoc.data();
-    return data.tokens?.balance || 5;
+    return data.tokens?.balance || 15;
   } catch (error) {
     console.error('Error getting token balance:', error);
     throw error;

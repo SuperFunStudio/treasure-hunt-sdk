@@ -137,6 +137,7 @@
             color: var(--gray-700);
             line-height: 1.6;
             margin-bottom: var(--space-5);
+            white-space: pre-line; /* Preserve line breaks from itemized descriptions */
         }
 
         .pin-status-badge {
@@ -224,16 +225,104 @@
                 bottom: var(--space-4);
             }
         }
+
+        /* Filter Bar - Floating on map */
+        .filter-bar-container {
+            position: absolute;
+            top: 12px;
+            left: 0;
+            right: 0;
+            z-index: 500;
+            padding: 0 12px;
+        }
+
+        .filter-bar {
+            display: flex;
+            gap: 8px;
+            overflow-x: auto;
+            padding: 12px 16px;
+            padding-right: 48px; /* Extra space for peek effect */
+            background: rgba(255, 255, 255, 0.92);
+            backdrop-filter: blur(10px);
+            border-radius: 16px;
+            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: none;
+            -ms-overflow-style: none;
+            position: relative;
+        }
+
+        .filter-bar::-webkit-scrollbar {
+            display: none;
+        }
+
+        /* Peek effect - gradient fade on right */
+        .filter-bar-container::after {
+            content: '';
+            position: absolute;
+            right: 12px;
+            top: 0;
+            bottom: 0;
+            width: 60px;
+            background: linear-gradient(to left, rgba(255, 255, 255, 0.95) 0%, rgba(255, 255, 255, 0.8) 40%, transparent 100%);
+            border-radius: 0 16px 16px 0;
+            pointer-events: none;
+        }
+
+        .filter-chip {
+            flex-shrink: 0;
+            padding: 8px 16px;
+            border: 1px solid var(--gray-200);
+            border-radius: 20px;
+            background: var(--white);
+            color: var(--gray-600);
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            white-space: nowrap;
+        }
+
+        .filter-chip:hover {
+            border-color: var(--primary);
+            color: var(--primary);
+        }
+
+        .filter-chip.active {
+            background: var(--primary);
+            border-color: var(--primary);
+            color: var(--white);
+        }
+
+        @media (max-width: 768px) {
+            .filter-bar-container {
+                top: 8px;
+                padding: 0 8px;
+            }
+
+            .filter-bar {
+                padding: 10px 12px;
+                padding-right: 40px;
+                gap: 6px;
+            }
+
+            .filter-chip {
+                padding: 6px 12px;
+                font-size: 13px;
+            }
+
+            .filter-bar-container::after {
+                right: 8px;
+                width: 50px;
+            }
+        }
     </style>
 </head>
 <body>
     <!-- Header -->
     <header class="app-header">
         <div class="header-logo">
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <circle cx="12" cy="12" r="10"/>
-                <path d="M12 6v12M6 12h12"/>
-            </svg>
+           
             <span>ThriftSpot</span>
         </div>
 
@@ -242,6 +331,24 @@
 
     <!-- Map Container -->
     <div class="map-container">
+        <!-- Filter Bar (Floating) -->
+        <div class="filter-bar-container">
+            <div class="filter-bar" id="filterBar">
+                <button class="filter-chip active" data-category="all">All</button>
+                <button class="filter-chip" data-category="electronics">Electronics</button>
+                <button class="filter-chip" data-category="clothing">Clothing</button>
+                <button class="filter-chip" data-category="furniture">Furniture</button>
+                <button class="filter-chip" data-category="home & garden">Home</button>
+                <button class="filter-chip" data-category="collectibles">Collectibles</button>
+                <button class="filter-chip" data-category="toys">Toys</button>
+                <button class="filter-chip" data-category="sporting goods">Sports</button>
+                <button class="filter-chip" data-category="automotive">Auto</button>
+                <button class="filter-chip" data-category="books">Books</button>
+                <button class="filter-chip" data-category="tools">Tools</button>
+                <button class="filter-chip" data-category="jewelry">Jewelry</button>
+            </div>
+        </div>
+
         <div id="map"></div>
 
         <!-- Mode Toggle (Bottom) -->
@@ -279,8 +386,10 @@
                 this.currentUser = null;
                 this.map = null;
                 this.markers = [];
+                this.pins = []; // Store pin data for filtering
                 this.selectedPin = null;
                 this.userLocation = null;
+                this.currentFilter = 'all';
             }
 
             async init() {
@@ -391,10 +500,14 @@
 
                 pinsSnapshot.forEach((doc) => {
                     const pin = { id: doc.id, ...doc.data() };
+                    this.pins.push(pin); // Store for filtering
                     this.addPinToMap(pin);
                 });
 
                 console.log(`📍 Loaded ${pinsSnapshot.size} pins`);
+
+                // Fit map to nearest items after loading
+                this.fitToNearestItems(5);
             }
 
             addPinToMap(pin) {
@@ -413,18 +526,26 @@
             }
 
             getPinIcon(pin) {
-                let color = '#6366f1'; // primary
+                let color = '#fbbf24'; // Friendly yellow for available/unknown
+                let textColor = 'black';
+
                 if (pin.claimedBy) {
                     color = '#ef4444'; // red
+                    textColor = 'white';
                 } else if (pin.reservedBy) {
-                    color = '#eab308'; // yellow
+                    color = '#f59e0b'; // amber for reserved
+                    textColor = 'white';
                 }
 
-                const emoji = this.getCategoryEmoji(pin.category);
+                const icon = this.getCategoryEmoji(pin.category);
+                // Use black text for question mark on yellow, white for emojis
+                if (icon !== '?') {
+                    textColor = 'white';
+                }
 
                 return L.divIcon({
                     className: 'custom-pin-marker',
-                    html: `<div style="background: ${color}; color: white; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 20px; border: 3px solid white; box-shadow: 0 2px 8px rgba(0,0,0,0.3); cursor: pointer;">${emoji}</div>`,
+                    html: `<div style="background: ${color}; color: ${textColor}; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: ${icon === '?' ? '24px' : '20px'}; font-weight: ${icon === '?' ? '700' : 'normal'}; border: 3px solid white; box-shadow: 0 2px 8px rgba(0,0,0,0.3); cursor: pointer;">${icon}</div>`,
                     iconSize: [46, 46]
                 });
             }
@@ -436,9 +557,99 @@
                     'clothing': '👕',
                     'tools': '🔧',
                     'books': '📚',
-                    'toys': '🧸'
+                    'toys': '🧸',
+                    'home & garden': '🏠',
+                    'collectibles': '🎨',
+                    'sporting goods': '⚽',
+                    'sports': '⚽',
+                    'automotive': '🚗',
+                    'jewelry': '💎'
                 };
-                return emojis[category?.toLowerCase()] || '📦';
+                return emojis[category?.toLowerCase()] || '?';
+            }
+
+            // Filter pins by category
+            filterByCategory(category) {
+                this.currentFilter = category;
+
+                // Update active state on filter chips
+                document.querySelectorAll('.filter-chip').forEach(chip => {
+                    chip.classList.toggle('active', chip.dataset.category === category);
+                });
+
+                // Show/hide markers based on category
+                this.markers.forEach(({ marker, id }) => {
+                    const pin = this.pins.find(p => p.id === id);
+                    if (!pin) return;
+
+                    const pinCategory = pin.category?.toLowerCase() || '';
+                    const shouldShow = category === 'all' || pinCategory === category || pinCategory.includes(category);
+
+                    if (shouldShow) {
+                        if (!this.map.hasLayer(marker)) {
+                            marker.addTo(this.map);
+                        }
+                    } else {
+                        if (this.map.hasLayer(marker)) {
+                            this.map.removeLayer(marker);
+                        }
+                    }
+                });
+
+                console.log(`🔍 Filtered to: ${category}`);
+            }
+
+            // Fit map to show nearest items
+            fitToNearestItems(count = 5) {
+                if (this.markers.length === 0) return;
+
+                // If we have user location, sort by distance
+                if (this.userLocation) {
+                    const sorted = this.markers
+                        .map(m => ({
+                            marker: m.marker,
+                            distance: this.getDistance(
+                                this.userLocation,
+                                m.marker.getLatLng()
+                            )
+                        }))
+                        .sort((a, b) => a.distance - b.distance)
+                        .slice(0, count);
+
+                    if (sorted.length > 0) {
+                        const group = L.featureGroup(sorted.map(s => s.marker));
+                        this.map.fitBounds(group.getBounds(), {
+                            padding: [50, 50],
+                            maxZoom: 15
+                        });
+                        return;
+                    }
+                }
+
+                // Fallback: fit all markers
+                if (this.markers.length > 0) {
+                    const group = L.featureGroup(this.markers.map(m => m.marker));
+                    this.map.fitBounds(group.getBounds(), {
+                        padding: [50, 50],
+                        maxZoom: 14
+                    });
+                }
+            }
+
+            // Calculate distance between two points (Haversine formula)
+            getDistance(point1, point2) {
+                const R = 6371; // Earth's radius in km
+                const lat1 = point1.lat * Math.PI / 180;
+                const lat2 = point2.lat * Math.PI / 180;
+                const deltaLat = (point2.lat - point1.lat) * Math.PI / 180;
+                const deltaLng = (point2.lng - point1.lng) * Math.PI / 180;
+
+                const a = Math.sin(deltaLat / 2) * Math.sin(deltaLat / 2) +
+                          Math.cos(lat1) * Math.cos(lat2) *
+                          Math.sin(deltaLng / 2) * Math.sin(deltaLng / 2);
+                const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+                return R * c; // Distance in km
             }
 
             async showPinDetails(pinId) {
@@ -668,6 +879,13 @@
 
                 document.getElementById('thriftBtnBottom').addEventListener('click', () => {
                     // Already on thrift mode
+                });
+
+                // Filter chips
+                document.querySelectorAll('.filter-chip').forEach(chip => {
+                    chip.addEventListener('click', () => {
+                        this.filterByCategory(chip.dataset.category);
+                    });
                 });
             }
         }

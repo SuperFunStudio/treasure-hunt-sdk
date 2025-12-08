@@ -20,6 +20,9 @@ setGlobalOptions(FUNCTION_CONFIG.DEFAULT_OPTIONS);
 // Get Firestore database instance
 const db = admin.firestore();
 
+// Configure Firestore to ignore undefined values (prevents save errors)
+db.settings({ ignoreUndefinedProperties: true });
+
 // Export Firebase utilities
 module.exports = {
   functions,

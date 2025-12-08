@@ -72,15 +72,17 @@ async function callClaudeAPI(images, apiKey, options = {}) {
     maxTokens = 1500
   } = options;
 
-  console.log('🔵 Calling Claude API with vehicle-aware analysis');
+  console.log('🔵 Calling Claude API with vehicle-aware analysis v2');
 
   const imageContent = images.map((img, index) => {
-    console.log(`📸 Processing image ${index + 1}:`, typeof img);
+    const mediaType = determineImageMediaType(img);
+    const imgPreview = typeof img === 'string' ? img.substring(0, 50) : 'Buffer';
+    console.log(`📸 Processing image ${index + 1}: type=${typeof img}, mediaType=${mediaType}, preview=${imgPreview}...`);
     return {
       type: 'image',
       source: {
         type: 'base64',
-        media_type: determineImageMediaType(img),
+        media_type: mediaType,
         data: convertToBase64(img)
       }
     };
@@ -112,7 +114,10 @@ async function callClaudeAPI(images, apiKey, options = {}) {
   if (!response.ok) {
     const errorText = await response.text().catch(() => '');
     console.error('❌ Claude API Error:', response.status, errorText);
-    
+    console.error('❌ Request body size:', JSON.stringify(requestBody).length, 'chars');
+    console.error('❌ Prompt length:', VEHICLE_AWARE_ANALYSIS_PROMPT.length, 'chars');
+    console.error('❌ Image count:', imageContent.length);
+
     if (response.status === 401) {
       throw new Error('Invalid Claude API key');
     }
@@ -120,9 +125,11 @@ async function callClaudeAPI(images, apiKey, options = {}) {
       throw new Error('Claude API rate limit exceeded');
     }
     if (response.status === 400) {
-      throw new Error('Invalid request to Claude API');
+      // Log more details about the 400 error
+      console.error('❌ 400 Bad Request details:', errorText);
+      throw new Error(`Invalid request to Claude API: ${errorText}`);
     }
-    
+
     throw new Error(`Claude API error ${response.status}: ${errorText || response.statusText}`);
   }
 
@@ -145,13 +152,25 @@ async function callClaudeAPI(images, apiKey, options = {}) {
   console.log('📝 Raw response preview:', rawContent.substring(0, 200) + '...');
 
   const parsed = parseJsonResponse(rawContent);
-  
+
   if (!parsed) {
     console.error('🔍 FULL RAW RESPONSE FOR DEBUGGING:', rawContent);
     throw new Error('Failed to parse JSON response from Claude');
   }
 
+  // DEBUG: Log what Claude returned for assortment detection
+  console.log('📦 Claude returned isAssortment:', parsed.isAssortment);
+  console.log('📚 Claude itemizedList count:', parsed.itemizedList?.length || 0);
+  if (parsed.itemizedList?.length > 0) {
+    console.log('📖 First 3 items:', JSON.stringify(parsed.itemizedList.slice(0, 3)));
+  }
+
   const normalized = normalizeResponse(parsed);
+
+  // DEBUG: Log after normalization
+  console.log('📋 Normalized isAssortment:', normalized.isAssortment);
+  console.log('📋 Normalized itemizedList count:', normalized.itemizedList?.length || 0);
+
   return sanitizeResponse(normalized);
 }
 
@@ -344,28 +363,109 @@ PRICING GUIDANCE FOR VEHICLES:
 - Condition is critical for value
 - Rare/discontinued parts can be valuable
 
-MULTIPLE ITEM DETECTION:
-If you see multiple SEPARATE items of the same type (e.g., 2 chairs, 3 lamps), indicate this:
-- Set "itemCount": 2 (or appropriate number)
-- Set "isSet": true if items are meant to be sold together
-- Include in description: "Set of 2 chairs" or "2 separate chairs"
+CRITICAL: QUANTITY AND SIZE DETECTION
 
-Examples:
-- Photo shows 2 matching chairs side by side → "itemCount": 2, "isSet": true
-- Photo shows 1 chair with attached ottoman → "itemCount": 1, "isSet": false (it's ONE item with accessories)
+**QUANTITY DETECTION** - Always count items carefully:
+- If you see multiple SEPARATE items of the same type (e.g., 2 chairs, 3 lamps), count them
+- Set "itemCount": to the exact number visible
+- Set "isSet": true if items are meant to be sold together as a set
+- Set "isSet": false if showing multiple of same item but selling individually
+- Include quantity in description: "Set of 2 dining chairs" or "Pair of nightstands"
+
+Quantity Examples:
+- Photo shows 2 matching chairs side by side → "itemCount": 2, "isSet": true, description includes "pair" or "set of 2"
+- Photo shows 1 chair with attached ottoman → "itemCount": 1, "isSet": false (ottoman is part of the chair)
+- Photo shows stack of 6 plates → "itemCount": 6, "isSet": true
 - Photo shows 1 chair only → "itemCount": 1, "isSet": false
+
+**MULTI-ITEM / ASSORTMENT DETECTION** - CRITICAL for boxes, piles, or collections:
+When you see a box, pile, bin, or container with MULTIPLE DIFFERENT items:
+1. Set "isAssortment": true
+2. Set "category": to a descriptive category like "Book Assortment", "Mixed Lot", "Toy Collection", etc.
+3. CAREFULLY examine and LIST each distinct item you can identify in "itemizedList"
+4. For each item, try to identify: title, author/brand, condition, and estimated individual value
+
+ITEMIZED DETECTION - READ ALL VISIBLE TEXT:
+- Look at EVERY visible book spine, cover, label, tag
+- Read partial titles and try to identify the full title
+- Note authors when visible
+- Identify brands on toys, electronics, etc.
+- For books: distinguish between children's books, textbooks, novels, art books, etc.
+
+CRITICAL: ITEM TYPE DISCRIMINATION
+Carefully distinguish between similar-looking items:
+
+**PUZZLES vs BOOKS:**
+- PUZZLE indicators: "Puzzle", "X pieces", "piece puzzle", "jigsaw", puzzle piece imagery, Galison, Buffalo Games, Ravensburger, Springbok, Ceaco brand names, box shows assembled image
+- ART BOOK indicators: "Art of...", artist monograph, exhibition catalog, museum publication, ISBN visible, spine binding, page edges visible
+- Example: "Yayoi Kusama 1000 Piece Puzzle" = PUZZLE (type: "Jigsaw Puzzle"), NOT an art book
+- Example: "The World of Yayoi Kusama" (has spine, pages) = BOOK (type: "Art Book")
+
+**GAMES vs BOOKS:**
+- BOARD GAME indicators: "Game", player count (2-4 players), age range, game pieces visible, dice, cards as components
+- CARD GAME indicators: "Card Game", deck of cards, playing cards, trading cards
+- VIDEO GAME indicators: PlayStation, Xbox, Nintendo, game disc, cartridge
+- BOOK indicators: ISBN, pages, chapters, author name, publisher
+
+**TOYS vs COLLECTIBLES:**
+- TOY indicators: "Ages X+", play features, action figure, for children
+- COLLECTIBLE indicators: "Limited Edition", numbered, display piece, adult collector, Funko Pop, statue
+
+For itemizedList, always set the "type" field to the SPECIFIC item type:
+- "Jigsaw Puzzle" (not "Art Book" or "Book")
+- "Board Game" (not "Book")
+- "Card Game"
+- "Video Game"
+- "Art Book"
+- "Children's Book"
+- "Hardcover Novel"
+- "Paperback Novel"
+- "Textbook"
+- "Action Figure"
+- "Collectible Figure"
+- "Stuffed Animal"
+- "Building Set" (LEGO, etc.)
+
+Assortment Examples:
+- Box of books → Read EVERY spine/cover: "The World of Yayoi Kusama", "Graphic Design: The New Basics", etc.
+- Box with books AND puzzles → Distinguish each: "Yayoi Kusama 500pc Puzzle" (type: "Jigsaw Puzzle"), "Design Basics" (type: "Textbook")
+- Bag of toys → List each: "Hot Wheels car (red)", "Barbie doll", "LEGO set #12345"
+- Bin of electronics → List each: "iPhone 6 (cracked screen)", "iPad Mini 2", "Various cables"
+
+**SIZE/SCALE DETECTION** - Critical for accurate pricing:
+Determine if the item is FULL-SIZE or MINIATURE/TOY/MODEL:
+- Set "sizeCategory": "full-size" for real, usable items at normal scale
+- Set "sizeCategory": "miniature" for toy/model/collectible versions
+- Set "sizeCategory": "oversized" for items larger than typical
+- Include estimated dimensions in "estimatedDimensions"
+
+Size Detection Clues:
+- Compare to visible reference objects (hands, furniture, flooring tiles)
+- Look for "toy", "model", "replica", "1:18 scale", "miniature" text
+- Check context: is it on a display shelf? In a child's hand? On a real road?
+- Full-size furniture: chairs ~18" seat height, tables ~30" height, sofas ~84" wide
+- Full-size electronics: laptops ~13-17" diagonal, TVs measured diagonally
+
+Size Examples:
+- Die-cast model car on shelf → "sizeCategory": "miniature", "estimatedDimensions": "6 inches long"
+- Real car in driveway → "sizeCategory": "full-size", "estimatedDimensions": "sedan, approximately 15 feet"
+- Dollhouse furniture → "sizeCategory": "miniature"
+- IKEA bookshelf → "sizeCategory": "full-size", "estimatedDimensions": "approximately 6 feet tall"
 
 JSON STRUCTURE - Return this exact format:
 
 {
-  "category": "specific vehicle type (e.g., 'mid-size sedan', 'pickup truck', 'sport motorcycle', 'alternator', 'brake caliper')",
-  "brand": "EXACT brand name (e.g., 'Nissan', 'BMW', 'Harley-Davidson', 'Bosch')",
-  "model": "specific model if identifiable (e.g., 'Altima', '3 Series', 'Sportster', 'Unknown')",
-  "year": "model year if determinable from styling/plates/stickers, or 'Unknown'",
+  "category": "specific item type (e.g., 'dining chair', 'laptop computer', 'mid-size sedan', 'alternator', 'Book Assortment')",
+  "brand": "EXACT brand name (e.g., 'IKEA', 'Dell', 'Nissan', 'Bosch') or 'Various' for assortments or 'Unknown'",
+  "model": "specific model if identifiable (e.g., 'Malm', 'Inspiron 15', 'Altima') or 'Unknown'",
+  "year": "model year if determinable, or 'Unknown'",
   "bodyStyle": "for vehicles: 'sedan', 'coupe', 'SUV', 'pickup', 'hatchback', etc.",
   "materials": ["primary material", "secondary material"],
   "itemCount": 1,
   "isSet": false,
+  "isAssortment": false,
+  "sizeCategory": "full-size|miniature|oversized",
+  "estimatedDimensions": "approximate size (e.g., '18 inches tall', '15-inch laptop', '6 feet long')",
   "condition": {
     "rating": "excellent|good|fair|poor",
     "description": "detailed condition with specific observations about wear, damage, functionality",
@@ -374,25 +474,44 @@ JSON STRUCTURE - Return this exact format:
     "mileage": "if visible on odometer or estimated from wear"
   },
   "identifiers": {
-    "visible_text": "ALL visible text, badges, license plates, VINs, part numbers",
-    "vin": "if any VIN visible",
-    "color": "exterior color and interior if visible",
-    "distinctive_features": ["unique design elements", "aftermarket modifications"]
+    "visible_text": "ALL visible text, badges, labels, model numbers, serial numbers",
+    "vin": "if any VIN visible (vehicles only)",
+    "color": "primary color and secondary colors",
+    "distinctive_features": ["unique design elements", "modifications", "accessories included"]
   },
   "resale": {
     "recommendation": "resell|local_pickup|donate|salvage",
-    "priceRange": "realistic range for vehicle/part (e.g., '8000-12000' for decent car, '50-150' for auto part)",
-    "justification": "value assessment considering age, condition, brand, market demand"
+    "priceRange": "realistic range (e.g., '150-250' for single chair, '300-500' for pair of chairs)",
+    "justification": "value assessment noting if price is per item or for the set"
   },
   "vehicleSpecific": {
     "estimatedMileage": "if determinable",
     "fuelType": "gasoline|diesel|electric|hybrid if determinable",
     "transmission": "manual|automatic if visible",
     "drivetrain": "FWD|RWD|AWD if determinable",
-    "specialFeatures": ["sunroof", "leather seats", "navigation", etc.]
+    "specialFeatures": ["sunroof", "leather seats", "navigation", "other features"]
   },
+  "itemizedList": [
+    {
+      "title": "exact title/name of item (e.g., 'Yayoi Kusama Infinity 1000 Piece Puzzle' or 'The Art of Animation')",
+      "author": "author name for books, brand for puzzles/games/toys (e.g., 'Galison', 'Ravensburger', 'LEGO')",
+      "type": "SPECIFIC item type - MUST be one of: 'Jigsaw Puzzle', 'Board Game', 'Card Game', 'Video Game', 'Art Book', 'Children's Book', 'Hardcover Novel', 'Paperback Novel', 'Textbook', 'Cookbook', 'Reference Book', 'Action Figure', 'Collectible Figure', 'Stuffed Animal', 'Building Set', 'Doll', 'RC Toy', 'Educational Toy'",
+      "condition": "excellent|good|fair|poor",
+      "conditionNotes": "specific condition details for this item",
+      "estimatedValue": "$X-Y range or specific value",
+      "searchable": true
+    }
+  ],
   "confidence": 8
 }
+
+**IMPORTANT for itemizedList:**
+- Include EVERY distinct item you can identify
+- For books: read spines carefully, note if upside down text
+- For partially visible items: include what you can see with "(partial)" note
+- Set "searchable": true if the item has enough info for an eBay lookup
+- Set "searchable": false for generic items like "miscellaneous paperback"
+- Leave itemizedList as empty array [] if NOT an assortment
 
 VEHICLE PRICING REALITY CHECK:
 - Cars typically range $500-$50,000+ depending on age/condition
@@ -411,12 +530,71 @@ Return ONLY the JSON object with no additional text or markdown formatting.`;
 
 // Existing utility functions (keeping the same)
 function determineImageMediaType(img) {
+  // Helper function to detect from magic bytes
+  const detectFromBytes = (bytes) => {
+    if (!bytes || bytes.length < 4) return null;
+    // PNG magic bytes: 89 50 4E 47
+    if (bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4E && bytes[3] === 0x47) {
+      return 'image/png';
+    }
+    // JPEG magic bytes: FF D8 FF
+    if (bytes[0] === 0xFF && bytes[1] === 0xD8 && bytes[2] === 0xFF) {
+      return 'image/jpeg';
+    }
+    // GIF magic bytes: 47 49 46
+    if (bytes[0] === 0x47 && bytes[1] === 0x49 && bytes[2] === 0x46) {
+      return 'image/gif';
+    }
+    // WebP magic bytes: 52 49 46 46 ... 57 45 42 50
+    if (bytes[0] === 0x52 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x46) {
+      return 'image/webp';
+    }
+    return null;
+  };
+
+  // Handle Buffer input - check magic bytes directly
+  if (Buffer.isBuffer(img)) {
+    const detected = detectFromBytes(img);
+    if (detected) {
+      console.log(`🔍 Detected image type from Buffer magic bytes: ${detected}`);
+      return detected;
+    }
+    console.warn('Could not detect image type from Buffer bytes, defaulting to jpeg');
+    return 'image/jpeg';
+  }
+
   if (typeof img === 'string') {
+    // Check data URL prefix first
     if (img.startsWith('data:image/png')) return 'image/png';
     if (img.startsWith('data:image/gif')) return 'image/gif';
     if (img.startsWith('data:image/webp')) return 'image/webp';
+    if (img.startsWith('data:image/jpeg') || img.startsWith('data:image/jpg')) return 'image/jpeg';
+
+    // If it's a data URL, extract the media type from it
+    const dataUrlMatch = img.match(/^data:([^;,]+)/);
+    if (dataUrlMatch) {
+      return dataUrlMatch[1];
+    }
+
+    // If it's raw base64, try to detect from magic bytes
+    let base64Data = img;
+    if (img.includes(',')) {
+      base64Data = img.split(',')[1];
+    }
+
+    // Decode first few bytes to check magic numbers
+    try {
+      const decoded = Buffer.from(base64Data.substring(0, 16), 'base64');
+      const detected = detectFromBytes(decoded);
+      if (detected) return detected;
+    } catch (e) {
+      console.warn('Could not detect image type from base64 bytes, defaulting to jpeg');
+    }
+
     return 'image/jpeg';
   }
+
+  console.warn('Unknown image input type, defaulting to jpeg');
   return 'image/jpeg';
 }
 
@@ -509,16 +687,64 @@ function normalizeResponse(parsed) {
     resale: normalizeResale(parsed),
     salvageable: normalizeSalvageable(parsed),
     confidence: extractField(parsed, ['confidence', 'confidenceRating'], 5),
-    
+
+    // Quantity and size fields - CRITICAL for accurate pricing
+    itemCount: extractField(parsed, ['itemCount', 'item_count', 'quantity'], 1),
+    isSet: extractField(parsed, ['isSet', 'is_set'], false),
+    isAssortment: extractField(parsed, ['isAssortment', 'is_assortment'], false),
+    sizeCategory: extractField(parsed, ['sizeCategory', 'size_category'], 'full-size'),
+    estimatedDimensions: extractField(parsed, ['estimatedDimensions', 'estimated_dimensions', 'dimensions'], ''),
+
+    // Itemized list for assortments (boxes of books, mixed lots, etc.)
+    itemizedList: normalizeItemizedList(parsed),
+
     // Enhanced fields
     materials: extractField(parsed, ['materials', 'material'], []),
     identifiers: normalizeIdentifiers(parsed),
     vehicleSpecific: extractField(parsed, ['vehicleSpecific', 'vehicle_specific'], {}),
-    
+
     // Original fields for compatibility
     keyFeatures: extractField(parsed, ['keyFeatures', 'distinctive_features'], []),
     specifications: normalizeSpecifications(parsed)
   };
+}
+
+/**
+ * Normalize itemized list for assortments
+ */
+function normalizeItemizedList(parsed) {
+  const itemizedList = extractField(parsed, ['itemizedList', 'itemized_list', 'items'], []);
+
+  if (!Array.isArray(itemizedList)) {
+    return [];
+  }
+
+  return itemizedList.map((item, index) => {
+    if (typeof item === 'string') {
+      // Simple string item - convert to object
+      return {
+        title: item,
+        author: 'Unknown',
+        type: 'Unknown',
+        condition: 'good',
+        conditionNotes: '',
+        estimatedValue: 'Unknown',
+        searchable: false,
+        index: index
+      };
+    }
+
+    return {
+      title: extractField(item, ['title', 'name', 'item'], 'Unknown Item'),
+      author: extractField(item, ['author', 'brand', 'manufacturer'], ''),
+      type: extractField(item, ['type', 'category', 'itemType'], ''),
+      condition: normalizeConditionRating(extractField(item, ['condition', 'rating'], 'good')),
+      conditionNotes: extractField(item, ['conditionNotes', 'condition_notes', 'notes'], ''),
+      estimatedValue: extractField(item, ['estimatedValue', 'estimated_value', 'value', 'price'], ''),
+      searchable: extractField(item, ['searchable', 'canSearch'], true),
+      index: index
+    };
+  }).filter(item => item.title && item.title !== 'Unknown Item');
 }
 
 function extractField(obj, keys, defaultValue) {
@@ -662,7 +888,25 @@ function normalizeSpecifications(parsed) {
 
 function sanitizeResponse(normalized) {
   const trimString = (val) => typeof val === 'string' ? val.trim() : val;
-  
+
+  // Ensure itemCount is a valid positive integer
+  let itemCount = parseInt(normalized.itemCount, 10);
+  if (isNaN(itemCount) || itemCount < 1) itemCount = 1;
+
+  // Sanitize itemized list
+  const sanitizedItemizedList = Array.isArray(normalized.itemizedList)
+    ? normalized.itemizedList.map(item => ({
+        title: trimString(item.title) || 'Unknown',
+        author: trimString(item.author) || '',
+        type: trimString(item.type) || '',
+        condition: item.condition || 'good',
+        conditionNotes: trimString(item.conditionNotes) || '',
+        estimatedValue: trimString(item.estimatedValue) || '',
+        searchable: item.searchable === true,
+        index: item.index || 0
+      }))
+    : [];
+
   return {
     category: trimString(normalized.category) || 'Unknown',
     brand: trimString(normalized.brand) || 'Unknown',
@@ -687,12 +931,24 @@ function sanitizeResponse(normalized) {
     },
     salvageable: Array.isArray(normalized.salvageable) ? normalized.salvageable : [],
     confidence: Math.min(10, Math.max(1, normalized.confidence || 5)),
-    
+
+    // Quantity and size fields - CRITICAL for accurate pricing
+    itemCount: itemCount,
+    isSet: normalized.isSet === true,
+    isAssortment: normalized.isAssortment === true,
+    sizeCategory: ['full-size', 'miniature', 'oversized'].includes(normalized.sizeCategory)
+      ? normalized.sizeCategory
+      : 'full-size',
+    estimatedDimensions: trimString(normalized.estimatedDimensions) || '',
+
+    // Itemized list for assortments
+    itemizedList: sanitizedItemizedList,
+
     // Enhanced fields
     materials: Array.isArray(normalized.materials) ? normalized.materials : [],
     identifiers: normalized.identifiers || {},
     vehicleSpecific: normalized.vehicleSpecific || {},
-    
+
     // Compatibility fields
     keyFeatures: Array.isArray(normalized.keyFeatures) ? normalized.keyFeatures : [],
     specifications: normalized.specifications || {},

@@ -8,17 +8,41 @@ class EbayMarketDataService {
   constructor() {
     this.baseUrl = 'https://api.ebay.com';
     this.browseApiUrl = 'https://api.ebay.com/buy/browse/v1';
+    // Token cache with expiration tracking
+    this.tokenCache = {
+      token: null,
+      expiresAt: 0  // Unix timestamp in milliseconds
+    };
   }
 
   /**
-   * Get eBay access token for public API calls
+   * Get a valid eBay access token (with caching)
+   * Checks expiration and refreshes if needed
    */
-  async getPublicAccessToken() {
+  async getValidAccessToken() {
+    const now = Date.now();
+    const bufferMs = 60000; // 1 minute buffer before expiration
+
+    // Return cached token if still valid
+    if (this.tokenCache.token && this.tokenCache.expiresAt > now + bufferMs) {
+      console.log('🔑 Using cached eBay token (expires in', Math.round((this.tokenCache.expiresAt - now) / 1000), 'seconds)');
+      return this.tokenCache.token;
+    }
+
+    // Token expired or doesn't exist - fetch new one
+    console.log('🔄 Refreshing eBay access token...');
+    return await this.refreshAccessToken();
+  }
+
+  /**
+   * Refresh the eBay access token
+   */
+  async refreshAccessToken() {
     try {
       const fetch = (await import('node-fetch')).default;
-      
+
       const credentials = Buffer.from(`${config.EBAY_CLIENT_ID}:${config.EBAY_CLIENT_SECRET}`).toString('base64');
-      
+
       const response = await fetch('https://api.ebay.com/identity/v1/oauth2/token', {
         method: 'POST',
         headers: {
@@ -33,11 +57,54 @@ class EbayMarketDataService {
       }
 
       const tokenData = await response.json();
+
+      // Cache the token with expiration (eBay tokens typically expire in 7200 seconds / 2 hours)
+      const expiresInMs = (tokenData.expires_in || 7200) * 1000;
+      this.tokenCache = {
+        token: tokenData.access_token,
+        expiresAt: Date.now() + expiresInMs
+      };
+
+      console.log('✅ eBay token refreshed, expires in', tokenData.expires_in, 'seconds');
       return tokenData.access_token;
     } catch (error) {
-      console.error('Failed to get eBay public access token:', error);
+      console.error('Failed to refresh eBay access token:', error);
+      // Clear cache on error
+      this.tokenCache = { token: null, expiresAt: 0 };
       throw error;
     }
+  }
+
+  /**
+   * Execute an API call with automatic retry on 401 (token expired)
+   */
+  async executeWithRetry(apiCallFn, maxRetries = 2) {
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        return await apiCallFn();
+      } catch (error) {
+        const isAuthError = error.message?.includes('401') ||
+                           error.status === 401 ||
+                           error.message?.includes('Unauthorized');
+
+        if (isAuthError && attempt < maxRetries) {
+          console.log(`🔄 Auth error on attempt ${attempt + 1}, refreshing token and retrying...`);
+          // Clear cached token and retry
+          this.tokenCache = { token: null, expiresAt: 0 };
+          continue;
+        }
+
+        // Re-throw if not auth error or max retries reached
+        throw error;
+      }
+    }
+  }
+
+  /**
+   * Get eBay access token for public API calls (DEPRECATED - use getValidAccessToken)
+   */
+  async getPublicAccessToken() {
+    return await this.getValidAccessToken();
   }
 
   /**
@@ -78,9 +145,9 @@ class EbayMarketDataService {
           });
 
           if (result.success && result.listings.length > 0) {
-            // Validate price ranges for mass market brands
-            const validatedResult = this.validatePriceResults(result, itemData);
-            
+            // Validate price ranges AND relevance for mass market brands
+            const validatedResult = this.validatePriceResults(result, itemData, strategy.query);
+
             if (validatedResult.isValid) {
               console.log(`✅ Strategy "${strategy.query}" returned ${validatedResult.result.listings.length} valid results`);
               bestResult = validatedResult.result;
@@ -126,72 +193,180 @@ class EbayMarketDataService {
   }
 
   /**
-   * Execute a single eBay search with given parameters
+   * Execute a single eBay search with given parameters (with retry on auth errors)
+   * @param {string} _accessToken - Deprecated, token is now fetched internally with caching
    */
-  async executeSearch(accessToken, { query, condition, categoryId, maxResults, itemData = null }) {
-    try {
-      const fetch = (await import('node-fetch')).default;
+  async executeSearch(_accessToken, { query, condition, categoryId, maxResults, itemData = null }) {
+    // Wrap the actual search in retry logic
+    return await this.executeWithRetry(async () => {
+      try {
+        const fetch = (await import('node-fetch')).default;
 
-      // Build API URL
-      const apiParams = new URLSearchParams({
-        q: query,
-        limit: Math.min(maxResults, 200)
-      });
+        // Get fresh token (in case this is a retry)
+        const token = await this.getValidAccessToken();
 
-      // Add condition filter
-      const conditionFilter = this.buildConditionFilter(condition);
-      if (conditionFilter) {
-        apiParams.append('filter', conditionFilter);
-      }
+        // Build API URL
+        const apiParams = new URLSearchParams({
+          q: query,
+          limit: Math.min(maxResults, 200)
+        });
 
-      // Add category filter if provided
-      if (categoryId) {
-        const categoryFilter = `categoryIds:{${categoryId}}`;
-        const existingFilter = apiParams.get('filter');
-        if (existingFilter) {
-          apiParams.set('filter', `${existingFilter},${categoryFilter}`);
-        } else {
-          apiParams.append('filter', categoryFilter);
+        // Add condition filter
+        const conditionFilter = this.buildConditionFilter(condition);
+        if (conditionFilter) {
+          apiParams.append('filter', conditionFilter);
         }
-      }
 
-      const url = `${this.browseApiUrl}/item_summary/search?${apiParams.toString()}`;
-
-      const response = await fetch(url, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'Accept': 'application/json',
-          'X-EBAY-C-MARKETPLACE-ID': 'EBAY_US'
+        // Add category filter if provided
+        if (categoryId) {
+          const categoryFilter = `categoryIds:{${categoryId}}`;
+          const existingFilter = apiParams.get('filter');
+          if (existingFilter) {
+            apiParams.set('filter', `${existingFilter},${categoryFilter}`);
+          } else {
+            apiParams.append('filter', categoryFilter);
+          }
         }
-      });
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`eBay Browse API error: ${response.status} - ${errorText}`);
+        const url = `${this.browseApiUrl}/item_summary/search?${apiParams.toString()}`;
+
+        const response = await fetch(url, {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Accept': 'application/json',
+            'X-EBAY-C-MARKETPLACE-ID': 'EBAY_US'
+          }
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          const error = new Error(`eBay Browse API error: ${response.status} - ${errorText}`);
+          error.status = response.status;
+          throw error;
+        }
+
+        const data = await response.json();
+        return this.parseBrowseApiResponse(data, query, itemData);
+
+      } catch (error) {
+        console.error('eBay search execution failed:', error);
+        // Re-throw to let executeWithRetry handle it
+        throw error;
       }
-
-      const data = await response.json();
-      return this.parseBrowseApiResponse(data, query, itemData);
-
-    } catch (error) {
-      console.error('eBay search execution failed:', error);
+    }).catch(error => {
+      // Final fallback if all retries failed
+      console.error('eBay search failed after retries:', error.message);
       return {
         success: false,
         error: error.message,
         listings: [],
         statistics: null
       };
+    });
+  }
+
+  /**
+   * Validate search result relevance - ensure results actually match what we're searching for
+   */
+  validateSearchRelevance(result, itemData, searchQuery) {
+    if (!result.success || !result.listings || result.listings.length === 0) {
+      return { isRelevant: false, reason: 'No listings to validate', relevanceScore: 0 };
     }
+
+    const { brand, category } = itemData;
+    const listings = result.listings;
+    const searchLower = (searchQuery || '').toLowerCase();
+
+    // Calculate brand match rate
+    let brandMatchRate = 1.0; // Default to 1 if no brand specified
+    if (brand && brand !== 'Unknown' && brand !== 'Unbranded') {
+      const brandLower = brand.toLowerCase();
+      const brandMatches = listings.filter(l =>
+        l.title.toLowerCase().includes(brandLower)
+      ).length;
+      brandMatchRate = brandMatches / listings.length;
+    }
+
+    // Calculate category match rate
+    let categoryMatchRate = 1.0; // Default to 1 if no category
+    if (category && category !== 'Unknown') {
+      // Extract key category words (skip common words)
+      const categoryWords = category.toLowerCase()
+        .split(/\s+/)
+        .filter(word => word.length > 3 && !['with', 'and', 'the', 'for'].includes(word));
+
+      if (categoryWords.length > 0) {
+        const categoryMatches = listings.filter(l => {
+          const titleLower = l.title.toLowerCase();
+          return categoryWords.some(word => titleLower.includes(word));
+        }).length;
+        categoryMatchRate = categoryMatches / listings.length;
+      }
+    }
+
+    // Calculate price consistency (coefficient of variation)
+    let priceConsistency = 1.0;
+    if (result.statistics && result.statistics.price) {
+      const prices = listings.map(l => l.price).filter(p => p > 0);
+      if (prices.length > 1) {
+        const mean = prices.reduce((a, b) => a + b, 0) / prices.length;
+        const variance = prices.reduce((sum, p) => sum + Math.pow(p - mean, 2), 0) / prices.length;
+        const coefficientOfVariation = Math.sqrt(variance) / mean;
+        // Convert CV to consistency score (lower CV = higher consistency)
+        // CV of 0.5 = 75% consistency, CV of 1.0 = 50% consistency
+        priceConsistency = Math.max(0, 1 - (coefficientOfVariation * 0.5));
+      }
+    }
+
+    // Calculate overall relevance score (weighted average)
+    const relevanceScore = (brandMatchRate * 0.4) + (categoryMatchRate * 0.4) + (priceConsistency * 0.2);
+
+    const relevanceDetails = {
+      brandMatchRate: Math.round(brandMatchRate * 100) / 100,
+      categoryMatchRate: Math.round(categoryMatchRate * 100) / 100,
+      priceConsistency: Math.round(priceConsistency * 100) / 100,
+      overallScore: Math.round(relevanceScore * 100) / 100
+    };
+
+    console.log(`📊 Search relevance for "${searchQuery}":`, relevanceDetails);
+
+    // Threshold: require at least 50% relevance score
+    const isRelevant = relevanceScore >= 0.5;
+
+    if (!isRelevant) {
+      console.log(`⚠️ Low relevance score (${relevanceScore.toFixed(2)}): brand=${brandMatchRate.toFixed(2)}, category=${categoryMatchRate.toFixed(2)}, price=${priceConsistency.toFixed(2)}`);
+    }
+
+    return {
+      isRelevant,
+      reason: isRelevant ? 'Results are relevant' : `Low relevance score: ${relevanceScore.toFixed(2)}`,
+      relevanceScore,
+      details: relevanceDetails
+    };
   }
 
   /**
    * Validate price results against known constraints
    */
-  validatePriceResults(result, itemData) {
+  validatePriceResults(result, itemData, searchQuery = '') {
     if (!result.success || !result.statistics) {
       return { isValid: false, reason: 'No valid statistics', result };
     }
+
+    // First check relevance
+    const relevanceCheck = this.validateSearchRelevance(result, itemData, searchQuery);
+    if (!relevanceCheck.isRelevant) {
+      return {
+        isValid: false,
+        reason: relevanceCheck.reason,
+        result,
+        relevanceScore: relevanceCheck.relevanceScore
+      };
+    }
+
+    // Add relevance score to result
+    result.relevanceScore = relevanceCheck.details;
 
     const { brand, category } = itemData;
     const { price } = result.statistics;
@@ -609,10 +784,10 @@ class EbayMarketDataService {
         currency: item.price.currency || 'USD',
         condition: item.condition || 'Unknown',
         location: item.itemLocation?.country || 'Unknown',
-        seller: item.seller?.username,
-        categoryPath: item.categoryPath,
-        url: item.itemWebUrl,
-        image: item.image?.imageUrl,
+        seller: item.seller?.username || null,
+        categoryPath: item.categoryPath || null,
+        url: item.itemWebUrl || null,
+        image: item.image?.imageUrl || null,
         shippingOptions: item.shippingOptions || [],
         listingType: 'current' // Mark as current listing
       };
@@ -821,9 +996,9 @@ class EbayMarketDataService {
     try {
       const searchParams = {
         keywords: this.buildSearchKeywords(itemData), // Now uses smart query builder
-        brand: itemData.brand,
+        brand: itemData.brand || null,
         condition: this.mapConditionForSearch(itemData.condition),
-        categoryId: itemData.categoryId,
+        categoryId: itemData.categoryId || null,
         maxResults: 50,
         itemData: itemData // NEW: Pass full item data for smart queries
       };
@@ -945,6 +1120,212 @@ class EbayMarketDataService {
       dataType: 'current_listings_enhanced',
       outlierRemovalApplied: statistics.outlierRemovalApplied
     };
+  }
+
+  /**
+   * Get market data for itemized items in an assortment (e.g., box of books)
+   * Only looks up items marked as searchable to avoid wasting API calls
+   * @param {Array} itemizedList - Array of items from analysis.itemizedList
+   * @param {Object} options - Options like maxLookups, skipNonSearchable
+   * @returns {Object} - Enhanced itemized list with market data
+   */
+  async getMarketDataForItemizedList(itemizedList, options = {}) {
+    const {
+      maxLookups = 10,  // Limit API calls
+      skipNonSearchable = true,
+      delayBetweenCalls = 200  // ms between API calls to avoid rate limiting
+    } = options;
+
+    if (!Array.isArray(itemizedList) || itemizedList.length === 0) {
+      return {
+        success: true,
+        itemizedList: [],
+        totalValue: { low: 0, high: 0 },
+        lookupCount: 0,
+        skippedCount: 0
+      };
+    }
+
+    console.log(`📚 Looking up market data for ${itemizedList.length} itemized items (max: ${maxLookups})`);
+
+    const enhancedItems = [];
+    let lookupCount = 0;
+    let skippedCount = 0;
+    let totalValueLow = 0;
+    let totalValueHigh = 0;
+
+    for (const item of itemizedList) {
+      // Skip non-searchable items if option is set
+      if (skipNonSearchable && !item.searchable) {
+        console.log(`⏭️ Skipping non-searchable item: ${item.title}`);
+        enhancedItems.push({
+          ...item,
+          marketData: null,
+          lookupSkipped: true,
+          skipReason: 'marked_non_searchable'
+        });
+        skippedCount++;
+        continue;
+      }
+
+      // Respect max lookups limit
+      if (lookupCount >= maxLookups) {
+        console.log(`⏭️ Skipping item (max lookups reached): ${item.title}`);
+        enhancedItems.push({
+          ...item,
+          marketData: null,
+          lookupSkipped: true,
+          skipReason: 'max_lookups_reached'
+        });
+        skippedCount++;
+        continue;
+      }
+
+      try {
+        // Build search query for this specific item
+        const searchQuery = this.buildItemizedSearchQuery(item);
+
+        if (!searchQuery) {
+          console.log(`⏭️ Could not build search query for: ${item.title}`);
+          enhancedItems.push({
+            ...item,
+            marketData: null,
+            lookupSkipped: true,
+            skipReason: 'no_search_query'
+          });
+          skippedCount++;
+          continue;
+        }
+
+        console.log(`🔍 Looking up: "${searchQuery}" for "${item.title}"`);
+
+        // Perform the search
+        const marketData = await this.searchCurrentListings({
+          keywords: searchQuery,
+          condition: this.mapConditionForSearch(item.condition),
+          maxResults: 20,
+          itemData: { title: item.title, brand: item.author }
+        });
+
+        lookupCount++;
+
+        if (marketData.success && marketData.statistics?.price) {
+          const priceRange = {
+            low: Math.round(marketData.statistics.price.p25 * 0.8 * 100) / 100,
+            high: Math.round(marketData.statistics.price.p75 * 0.8 * 100) / 100,
+            median: marketData.statistics.price.median
+          };
+
+          totalValueLow += priceRange.low;
+          totalValueHigh += priceRange.high;
+
+          enhancedItems.push({
+            ...item,
+            marketData: {
+              found: true,
+              priceRange,
+              sampleSize: marketData.statistics.count,
+              confidence: marketData.statistics.confidence,
+              searchQuery
+            }
+          });
+
+          console.log(`✅ Found market data for "${item.title}": $${priceRange.low}-$${priceRange.high}`);
+        } else {
+          enhancedItems.push({
+            ...item,
+            marketData: {
+              found: false,
+              searchQuery,
+              error: marketData.error || 'No results'
+            }
+          });
+          console.log(`❌ No market data found for "${item.title}"`);
+        }
+
+        // Delay between calls to avoid rate limiting
+        if (lookupCount < maxLookups && delayBetweenCalls > 0) {
+          await new Promise(resolve => setTimeout(resolve, delayBetweenCalls));
+        }
+
+      } catch (error) {
+        console.error(`Error looking up item "${item.title}":`, error.message);
+        enhancedItems.push({
+          ...item,
+          marketData: {
+            found: false,
+            error: error.message
+          }
+        });
+      }
+    }
+
+    console.log(`📊 Itemized lookup complete: ${lookupCount} lookups, ${skippedCount} skipped`);
+    console.log(`💰 Estimated total value: $${totalValueLow.toFixed(2)} - $${totalValueHigh.toFixed(2)}`);
+
+    return {
+      success: true,
+      itemizedList: enhancedItems,
+      totalValue: {
+        low: Math.round(totalValueLow * 100) / 100,
+        high: Math.round(totalValueHigh * 100) / 100
+      },
+      lookupCount,
+      skippedCount,
+      totalItems: itemizedList.length
+    };
+  }
+
+  /**
+   * Build a search query for an individual itemized item
+   * @param {Object} item - Item from itemizedList
+   * @returns {string|null} - Search query or null if not searchable
+   */
+  buildItemizedSearchQuery(item) {
+    if (!item || !item.title) {
+      return null;
+    }
+
+    const parts = [];
+
+    // Clean the title - remove common non-searchable phrases
+    let cleanTitle = item.title
+      .replace(/\(partial\)/gi, '')
+      .replace(/\(visible\)/gi, '')
+      .replace(/unknown/gi, '')
+      .trim();
+
+    if (cleanTitle.length < 3) {
+      return null;
+    }
+
+    parts.push(cleanTitle);
+
+    // Add author/brand if meaningful
+    if (item.author &&
+        item.author !== 'Unknown' &&
+        item.author.length > 1 &&
+        !cleanTitle.toLowerCase().includes(item.author.toLowerCase())) {
+      parts.push(item.author);
+    }
+
+    // Add type for context (helps narrow results)
+    if (item.type && item.type !== 'Unknown') {
+      // Only add type if it's specific
+      const specificTypes = ['hardcover', 'board book', 'art book', 'textbook', 'novel'];
+      if (specificTypes.some(t => item.type.toLowerCase().includes(t))) {
+        parts.push(item.type);
+      }
+    }
+
+    const query = parts.join(' ').trim();
+
+    // Minimum query length check
+    if (query.length < 5) {
+      return null;
+    }
+
+    return query;
   }
 }
 

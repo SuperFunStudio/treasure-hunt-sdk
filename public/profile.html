@@ -7,9 +7,8 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <title>ThriftSpot - Profile</title>
 
-    <!-- v6 Design System -->
-    <link rel="stylesheet" href="css/thriftspot-v6.css">
-    <link rel="stylesheet" href="css/thriftspot-v6-dark.css">
+    <!-- v7 Design System -->
+    <link rel="stylesheet" href="css/thriftspot-v7.css">
 
     <!-- Firebase -->
     <script src="/__/firebase/10.7.1/firebase-app-compat.js"></script>
@@ -18,11 +17,14 @@
     <script src="/__/firebase/init.js"></script>
 
     <style>
-        /* Profile-specific styles */
+        /* Profile-specific styles using v7 dark theme */
+        body {
+            padding-top: 60px;
+        }
+
         .page-container {
             min-height: 100vh;
-            padding-top: 60px;
-            background: var(--gray-50);
+            background: var(--bg-primary);
         }
 
         .page-content {
@@ -33,11 +35,10 @@
 
         /* Profile Header */
         .profile-header {
-            background: var(--white);
+            background: var(--bg-secondary);
             border-radius: var(--radius-lg);
             padding: var(--space-8);
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-            border: 1px solid var(--gray-200);
+            border: 1px solid var(--border-primary);
             margin-bottom: var(--space-6);
             text-align: center;
         }
@@ -46,8 +47,8 @@
             width: 100px;
             height: 100px;
             border-radius: var(--radius-full);
-            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
-            color: var(--white);
+            background: linear-gradient(135deg, var(--accent-primary) 0%, #818cf8 100%);
+            color: var(--text-primary);
             display: flex;
             align-items: center;
             justify-content: center;
@@ -60,13 +61,13 @@
         .profile-name {
             font-size: var(--font-3xl);
             font-weight: 700;
-            color: var(--gray-900);
+            color: var(--text-primary);
             margin-bottom: var(--space-2);
         }
 
         .profile-email {
             font-size: var(--font-base);
-            color: var(--gray-600);
+            color: var(--text-tertiary);
             margin-bottom: var(--space-6);
         }
 
@@ -75,7 +76,7 @@
             justify-content: center;
             gap: var(--space-8);
             padding-top: var(--space-6);
-            border-top: 1px solid var(--gray-200);
+            border-top: 1px solid var(--border-primary);
         }
 
         .profile-stat {
@@ -85,29 +86,28 @@
         .profile-stat-value {
             font-size: var(--font-2xl);
             font-weight: 700;
-            color: var(--gray-900);
+            color: var(--text-primary);
         }
 
         .profile-stat-label {
-            font-size: 0.875rem;
-            color: var(--gray-600);
+            font-size: var(--font-sm);
+            color: var(--text-tertiary);
             margin-top: var(--space-1);
         }
 
         /* Profile Sections */
         .profile-section {
-            background: var(--white);
+            background: var(--bg-secondary);
             border-radius: var(--radius-lg);
             padding: var(--space-6);
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-            border: 1px solid var(--gray-200);
+            border: 1px solid var(--border-primary);
             margin-bottom: var(--space-6);
         }
 
         .section-title {
             font-size: var(--font-xl);
             font-weight: 700;
-            color: var(--gray-900);
+            color: var(--text-primary);
             margin-bottom: var(--space-4);
         }
 
@@ -126,33 +126,81 @@
             margin-bottom: var(--space-2);
             font-size: var(--font-base);
             font-weight: 600;
-            color: var(--gray-700);
+            color: var(--text-secondary);
         }
 
         .form-input,
         .form-select {
             width: 100%;
             padding: var(--space-3) var(--space-4);
-            border: 2px solid var(--gray-300);
+            border: 1px solid var(--border-primary);
             border-radius: var(--radius-md);
             font-size: var(--font-base);
             font-family: inherit;
-            color: var(--gray-900);
-            background: var(--white);
-            transition: all 0.2s ease;
+            color: var(--text-primary);
+            background: var(--bg-card);
+            transition: all var(--transition-fast);
         }
 
         .form-input:focus,
         .form-select:focus {
             outline: none;
-            border-color: var(--primary);
-            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+            border-color: var(--accent-primary);
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
         }
 
         .form-input:disabled {
-            background: var(--gray-100);
-            color: var(--gray-500);
+            background: var(--bg-primary);
+            color: var(--text-tertiary);
             cursor: not-allowed;
+        }
+
+        /* Buttons */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: var(--space-2);
+            padding: var(--space-3) var(--space-5);
+            border-radius: var(--radius-full);
+            font-size: var(--font-sm);
+            font-weight: 600;
+            cursor: pointer;
+            transition: all var(--transition-fast);
+            font-family: inherit;
+            border: none;
+            text-decoration: none;
+        }
+
+        .btn-primary {
+            background: var(--accent-primary);
+            color: var(--text-primary);
+        }
+
+        .btn-primary:hover {
+            background: #4f46e5;
+        }
+
+        .btn-secondary {
+            background: var(--bg-card);
+            color: var(--text-secondary);
+            border: 1px solid var(--border-primary);
+        }
+
+        .btn-secondary:hover {
+            background: var(--bg-hover);
+            color: var(--text-primary);
+        }
+
+        .btn-outline {
+            background: transparent;
+            color: var(--text-secondary);
+            border: 1px solid var(--border-primary);
+        }
+
+        .btn-outline:hover {
+            background: var(--bg-hover);
+            color: var(--text-primary);
         }
 
         /* Action Buttons */
@@ -168,21 +216,78 @@
 
         /* Danger Zone */
         .danger-zone {
-            border: 2px solid var(--error);
-            background: #fef2f2;
+            border: 2px solid var(--accent-error);
+            background: rgba(239, 68, 68, 0.1);
         }
 
         .danger-zone .section-title {
-            color: var(--error);
+            color: var(--accent-error);
         }
 
         .btn-danger {
-            background: var(--error);
-            color: var(--white);
+            background: var(--accent-error);
+            color: var(--text-primary);
         }
 
         .btn-danger:hover {
             background: #dc2626;
+        }
+
+        /* User Menu */
+        .user-menu-container {
+            position: relative;
+        }
+
+        .user-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: var(--radius-full);
+            background: linear-gradient(135deg, var(--accent-primary) 0%, #818cf8 100%);
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: var(--font-sm);
+            cursor: pointer;
+        }
+
+        .user-dropdown {
+            display: none;
+            position: absolute;
+            right: 0;
+            top: 50px;
+            background: var(--bg-card);
+            min-width: 160px;
+            border-radius: var(--radius-md);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+            overflow: hidden;
+            z-index: 1000;
+            border: 1px solid var(--border-primary);
+        }
+
+        .user-dropdown.show {
+            display: block;
+        }
+
+        .dropdown-item {
+            display: block;
+            padding: var(--space-3) var(--space-4);
+            text-decoration: none;
+            color: var(--text-secondary);
+            transition: background var(--transition-fast);
+            border: none;
+            background: transparent;
+            width: 100%;
+            text-align: left;
+            font-family: inherit;
+            font-size: var(--font-base);
+            cursor: pointer;
+        }
+
+        .dropdown-item:hover {
+            background: var(--bg-hover);
+            color: var(--text-primary);
         }
 
         /* Mobile adjustments */
@@ -217,11 +322,7 @@
 <body>
     <!-- Header -->
     <header class="app-header">
-        <a href="index-v6.html" class="header-logo">
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <circle cx="12" cy="12" r="10"/>
-                <path d="M12 6v12M6 12h12"/>
-            </svg>
+        <a href="index.html" class="header-logo">
             <span>ThriftSpot</span>
         </a>
 
@@ -365,8 +466,8 @@
                         <div class="user-menu-container">
                             <div class="user-avatar">${initials}</div>
                             <div class="user-dropdown">
-                                <a href="profile-v6.html" class="dropdown-item">Profile</a>
-                                <a href="dashboard-v6.html" class="dropdown-item">Dashboard</a>
+                                <a href="profile.html" class="dropdown-item">Profile</a>
+                                <a href="dashboard.html" class="dropdown-item">Dashboard</a>
                                 <button class="dropdown-item" onclick="firebase.auth().signOut()">Sign Out</button>
                             </div>
                         </div>

@@ -10,9 +10,8 @@
     <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 
-    <!-- v6 Design System -->
-    <link rel="stylesheet" href="css/thriftspot-v6.css">
-    <link rel="stylesheet" href="css/thriftspot-v6-dark.css">
+    <!-- v7 Design System -->
+    <link rel="stylesheet" href="css/thriftspot-v7.css">
 
     <!-- Firebase -->
     <script src="/__/firebase/10.7.1/firebase-app-compat.js"></script>
@@ -26,31 +25,237 @@
             overflow: hidden;
         }
 
-        .map-container {
-            height: calc(85vh - 60px);
+        /* ===== SEARCH BAR ===== */
+        .search-container {
+            position: fixed;
+            top: 70px;
+            left: var(--space-3);
+            right: var(--space-3);
+            z-index: 500;
+        }
+
+        .search-wrapper {
             position: relative;
-            margin: 60px auto var(--space-6);
-            padding: 0 var(--space-6);
-            max-width: 100%;
+            max-width: 500px;
+            margin: 0 auto;
+        }
+
+        .search-input {
+            width: 100%;
+            padding: var(--space-3) var(--space-4);
+            padding-left: 44px;
+            border: 1px solid var(--border-primary);
+            border-radius: var(--radius-full);
+            background: var(--bg-secondary);
+            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.3);
+            font-size: var(--font-sm);
+            color: var(--text-primary);
+            font-family: inherit;
+        }
+
+        .search-input:focus {
+            outline: none;
+            border-color: var(--accent-primary);
+            box-shadow: 0 2px 16px rgba(99, 102, 241, 0.3);
+        }
+
+        .search-input::placeholder {
+            color: var(--text-tertiary);
+        }
+
+        .search-icon {
+            position: absolute;
+            left: 14px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-tertiary);
+            pointer-events: none;
+        }
+
+        .search-suggestions {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            margin-top: var(--space-2);
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-primary);
+            border-radius: var(--radius-md);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+            max-height: 300px;
+            overflow-y: auto;
+            display: none;
+            z-index: 600; /* Above filter bar */
+        }
+
+        .search-suggestions.active {
+            display: block;
+        }
+
+        .suggestion-item {
+            padding: var(--space-3) var(--space-4);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: var(--space-3);
+            border-bottom: 1px solid var(--border-primary);
+            transition: background 0.2s ease;
+        }
+
+        .suggestion-item:last-child {
+            border-bottom: none;
+        }
+
+        .suggestion-item:hover {
+            background: var(--bg-hover);
+        }
+
+        .suggestion-emoji {
+            font-size: 20px;
+            flex-shrink: 0;
+        }
+
+        .suggestion-text {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .suggestion-title {
+            font-weight: 600;
+            color: var(--text-primary);
+            font-size: var(--font-sm);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .suggestion-meta {
+            font-size: var(--font-xs);
+            color: var(--text-tertiary);
+        }
+
+        .suggestion-price {
+            font-weight: 700;
+            color: var(--accent-success);
+            font-size: var(--font-sm);
+            flex-shrink: 0;
+        }
+
+        .no-results {
+            padding: var(--space-4);
+            text-align: center;
+            color: var(--text-tertiary);
+            font-size: var(--font-sm);
+        }
+
+        /* ===== CATEGORY FILTER ===== */
+        .category-filter-wrapper {
+            position: relative;
+        }
+
+        .category-filter {
+            display: flex;
+            gap: var(--space-2);
+            margin-top: var(--space-2);
+            overflow-x: auto;
+            padding-bottom: var(--space-2);
+            padding-right: 40px; /* Space for peek effect */
+            -webkit-overflow-scrolling: touch;
+            scroll-snap-type: x mandatory;
+        }
+
+        .category-filter::-webkit-scrollbar {
+            display: none;
+        }
+
+        /* Peek indicator - gradient fade on right edge */
+        .category-filter-wrapper::after {
+            content: '';
+            position: absolute;
+            right: 0;
+            top: var(--space-2);
+            bottom: var(--space-2);
+            width: 50px;
+            background: linear-gradient(to left, var(--bg-primary) 0%, var(--bg-primary) 30%, transparent 100%);
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        .category-chip {
+            padding: var(--space-2) var(--space-3);
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-primary);
+            border-radius: var(--radius-full);
+            font-size: var(--font-xs);
+            font-weight: 500;
+            color: var(--text-secondary);
+            cursor: pointer;
+            white-space: nowrap;
+            transition: all 0.2s ease;
+            font-family: inherit;
+            scroll-snap-align: start;
+            flex-shrink: 0;
+        }
+
+        .category-chip:hover {
+            background: var(--bg-hover);
+            border-color: var(--accent-primary);
+        }
+
+        .category-chip.active {
+            background: var(--accent-primary);
+            border-color: var(--accent-primary);
+            color: var(--text-primary);
+        }
+
+        /* ===== MAP CONTAINER ===== */
+        .map-container {
+            position: fixed;
+            top: 130px;
+            left: 0;
+            right: 0;
+            bottom: 80px;
+            padding: var(--space-3);
         }
 
         #map {
             height: 100%;
             width: 100%;
-            border-radius: var(--radius-xl);
-            box-shadow: 0 6px 24px rgba(0, 0, 0, 0.2);
+            border-radius: var(--radius-lg);
             overflow: hidden;
-            border: 3px solid var(--gray-200);
+            border: 1px solid var(--border-primary);
         }
 
-        /* Pin Panel Backdrop */
+        /* Override Leaflet controls for dark theme */
+        .leaflet-control-zoom a {
+            background: var(--bg-secondary) !important;
+            color: var(--text-primary) !important;
+            border-color: var(--border-primary) !important;
+        }
+
+        .leaflet-control-zoom a:hover {
+            background: var(--bg-hover) !important;
+        }
+
+        .leaflet-control-attribution {
+            background: rgba(15, 23, 42, 0.8) !important;
+            color: var(--text-tertiary) !important;
+            font-size: 10px !important;
+        }
+
+        .leaflet-control-attribution a {
+            color: var(--text-secondary) !important;
+        }
+
+        /* ===== PIN PANEL BACKDROP ===== */
         .pin-panel-backdrop {
             position: fixed;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
-            background: rgba(0, 0, 0, 0.5);
+            background: rgba(15, 23, 42, 0.9);
+            backdrop-filter: blur(8px);
             z-index: 998;
             opacity: 0;
             visibility: hidden;
@@ -62,18 +267,18 @@
             visibility: visible;
         }
 
-        /* Pin Info Panel - Centered Modal on Desktop */
+        /* ===== PIN INFO PANEL ===== */
         .pin-panel {
             position: fixed;
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%) scale(0.95);
-            width: 50%;
-            max-width: 800px;
-            min-width: 500px;
-            background: var(--white);
-            border-radius: 24px;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            width: 90%;
+            max-width: 400px;
+            background: var(--bg-secondary);
+            border-radius: var(--radius-lg);
+            border: 1px solid var(--border-primary);
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
             z-index: 999;
             max-height: 80vh;
             overflow-y: auto;
@@ -88,26 +293,27 @@
             visibility: visible;
         }
 
-        /* Mobile: Keep bottom sheet style */
+        /* Mobile: Bottom sheet style - completely hidden until active */
         @media (max-width: 768px) {
             .pin-panel {
-                position: absolute;
+                position: fixed;
                 top: auto;
                 bottom: 80px;
                 left: 0;
                 right: 0;
                 width: 100%;
-                min-width: 0;
                 max-width: none;
-                border-radius: 24px 24px 0 0;
-                transform: translateY(calc(100% + 80px));
-                max-height: 50vh;
-                opacity: 1;
-                visibility: visible;
+                border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+                transform: translateY(100%);
+                max-height: 60vh;
+                opacity: 0;
+                visibility: hidden;
             }
 
             .pin-panel.active {
                 transform: translateY(0);
+                opacity: 1;
+                visibility: visible;
             }
 
             .pin-panel-backdrop {
@@ -115,205 +321,373 @@
             }
         }
 
-        @media (max-width: 430px) {
-            .pin-panel {
-                max-height: 45vh;
-                bottom: 70px;
-            }
-
-            .pin-panel:not(.active) {
-                transform: translateY(calc(100% + 70px));
-            }
-        }
-
         .pin-panel-header {
             position: sticky;
             top: 0;
-            background: var(--white);
-            padding: var(--space-5);
-            border-bottom: 1px solid var(--gray-200);
+            background: var(--bg-secondary);
+            padding: var(--space-3) var(--space-4);
+            border-bottom: 1px solid var(--border-primary);
             display: flex;
             justify-content: space-between;
             align-items: center;
-            border-radius: 24px 24px 0 0;
+            border-radius: var(--radius-lg) var(--radius-lg) 0 0;
             z-index: 1;
         }
 
+        .pin-panel-header h3 {
+            font-size: var(--font-sm);
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
         .pin-panel-close {
-            background: var(--error);
+            background: var(--bg-card);
             border: none;
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
+            width: 32px;
+            height: 32px;
+            border-radius: var(--radius-full);
             display: flex;
             align-items: center;
             justify-content: center;
             cursor: pointer;
-            font-size: 24px;
-            font-weight: bold;
-            color: var(--white);
-            transition: all 0.2s ease;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+            font-size: 16px;
+            color: var(--text-tertiary);
+            transition: all var(--transition-fast);
         }
 
         .pin-panel-close:hover {
-            background: #dc2626;
-            transform: scale(1.1);
+            background: var(--bg-hover);
+            color: var(--text-primary);
         }
 
         .pin-panel-content {
-            padding: var(--space-6);
+            padding: var(--space-4);
         }
 
+        /* ===== PIN CONTENT STYLES ===== */
         .pin-images {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-            gap: var(--space-3);
-            margin-bottom: var(--space-5);
+            display: flex;
+            gap: var(--space-2);
+            margin-bottom: var(--space-4);
+            overflow-x: auto;
+            padding-bottom: var(--space-2);
         }
 
         .pin-image {
-            width: 100%;
-            aspect-ratio: 1;
+            width: 80px;
+            height: 80px;
             object-fit: cover;
             border-radius: var(--radius-md);
-            border: 2px solid var(--gray-200);
+            border: 1px solid var(--border-primary);
+            flex-shrink: 0;
         }
 
         .pin-title {
+            font-size: var(--font-lg);
+            font-weight: 700;
+            color: var(--text-primary);
+            margin-bottom: var(--space-2);
+            line-height: 1.3;
+        }
+
+        .pin-price {
             font-size: var(--font-2xl);
             font-weight: 700;
-            color: var(--gray-900);
-            margin-bottom: var(--space-3);
+            color: var(--accent-success);
+            margin-bottom: var(--space-2);
         }
 
         .pin-meta {
             display: flex;
-            gap: var(--space-4);
-            margin-bottom: var(--space-4);
+            gap: var(--space-3);
+            margin-bottom: var(--space-3);
             flex-wrap: wrap;
         }
 
         .meta-item {
             display: flex;
             align-items: center;
-            gap: var(--space-2);
-            font-size: var(--font-sm);
-            color: var(--gray-600);
-        }
-
-        .pin-price {
-            font-size: var(--font-3xl);
-            font-weight: 700;
-            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            margin-bottom: var(--space-3);
+            gap: var(--space-1);
+            font-size: var(--font-xs);
+            color: var(--text-tertiary);
         }
 
         .pin-description {
-            color: var(--gray-700);
-            line-height: 1.6;
-            margin-bottom: var(--space-5);
+            color: var(--text-secondary);
+            font-size: var(--font-sm);
+            line-height: 1.5;
+            margin-bottom: var(--space-4);
+            white-space: pre-line; /* Preserve line breaks from itemized descriptions */
+        }
+
+        .pin-location {
+            font-size: var(--font-xs);
+            color: var(--text-tertiary);
+            margin-bottom: var(--space-4);
         }
 
         .pin-status-badge {
             display: inline-block;
-            padding: var(--space-2) var(--space-4);
+            padding: var(--space-1) var(--space-2);
             border-radius: var(--radius-full);
-            font-size: var(--font-sm);
-            font-weight: 600;
-            margin-bottom: var(--space-4);
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+            margin-bottom: var(--space-3);
         }
 
         .status-available {
-            background: rgba(34, 197, 94, 0.1);
-            color: rgb(22, 163, 74);
+            background: rgba(34, 197, 94, 0.15);
+            color: var(--accent-success);
         }
 
         .status-reserved {
-            background: rgba(234, 179, 8, 0.1);
-            color: rgb(161, 98, 7);
+            background: rgba(245, 158, 11, 0.15);
+            color: var(--accent-warning);
         }
 
         .status-claimed {
-            background: rgba(239, 68, 68, 0.1);
-            color: rgb(185, 28, 28);
+            background: rgba(239, 68, 68, 0.15);
+            color: var(--accent-error);
         }
 
         .pin-actions {
             display: flex;
-            gap: var(--space-3);
-            margin-top: var(--space-5);
+            flex-direction: column;
+            gap: var(--space-2);
         }
 
         .pin-actions .btn {
-            flex: 1;
+            width: 100%;
+            justify-content: center;
         }
 
-        /* Mode Toggle at Bottom */
-        .mode-toggle-bottom {
-            position: fixed;
-            bottom: var(--space-6);
-            left: 50%;
-            transform: translateX(-50%);
-            background: var(--white);
-            border-radius: var(--radius-full);
-            padding: var(--space-2);
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
-            display: flex;
+        /* ===== BUTTONS ===== */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
             gap: var(--space-2);
-            z-index: 999;
+            padding: var(--space-2) var(--space-4);
+            border-radius: var(--radius-full);
+            font-size: var(--font-sm);
+            font-weight: 600;
+            cursor: pointer;
+            transition: all var(--transition-fast);
+            font-family: inherit;
+            border: none;
+            text-decoration: none;
         }
 
-        .mode-toggle-bottom.hidden {
+        .btn-primary {
+            background: var(--accent-primary);
+            color: var(--text-primary);
+        }
+
+        .btn-primary:hover {
+            background: #4f46e5;
+        }
+
+        .btn-secondary {
+            background: transparent;
+            color: var(--text-tertiary);
+            border: 1px solid var(--border-primary);
+        }
+
+        .btn-secondary:hover {
+            background: var(--bg-hover);
+            color: var(--text-primary);
+        }
+
+        .btn-danger {
+            background: var(--accent-error);
+            color: var(--text-primary);
+        }
+
+        .btn-danger:hover {
+            background: #dc2626;
+        }
+
+        .btn-outline {
+            background: transparent;
+            color: var(--text-secondary);
+            border: 1px solid var(--border-primary);
+        }
+
+        .btn-outline:hover {
+            background: var(--bg-hover);
+            color: var(--text-primary);
+        }
+
+        .btn-share {
+            background: #3b82f6;
+            color: var(--text-primary);
+        }
+
+        .btn-share:hover {
+            background: #2563eb;
+        }
+
+        /* ===== YARD SALE POPUP ===== */
+        .yard-sale-title {
+            font-size: var(--font-base);
+            font-weight: 700;
+            color: var(--text-primary);
+            margin-bottom: var(--space-3);
+        }
+
+        .yard-sale-items-container {
+            display: flex;
+            flex-direction: column;
+            gap: var(--space-2);
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .yard-sale-item-card {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: var(--space-3);
+            background: var(--bg-card);
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            transition: all var(--transition-fast);
+            border: 1px solid var(--border-primary);
+        }
+
+        .yard-sale-item-card:hover {
+            background: var(--bg-hover);
+            border-color: var(--accent-primary);
+        }
+
+        .yard-sale-item-name {
+            font-size: var(--font-sm);
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .yard-sale-item-price {
+            font-size: var(--font-sm);
+            font-weight: 700;
+            color: var(--accent-success);
+        }
+
+        /* ===== USER AVATAR ===== */
+        .user-avatar {
+            width: 36px;
+            height: 36px;
+            border-radius: var(--radius-full);
+            background: var(--accent-primary);
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: var(--font-sm);
+            text-decoration: none;
+        }
+
+        /* ===== HAMBURGER DROPDOWN ===== */
+        .hamburger-dropdown {
+            position: fixed;
+            top: 60px;
+            left: 0;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-primary);
+            border-radius: 0 0 var(--radius-md) var(--radius-md);
+            min-width: 200px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+            z-index: 1000;
             display: none;
         }
 
-        .mode-btn-bottom {
-            padding: var(--space-3) var(--space-6);
-            border: none;
-            border-radius: var(--radius-full);
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            background: transparent;
-            color: var(--gray-600);
+        .hamburger-dropdown.show {
+            display: block;
+        }
+
+        .menu-item {
             display: flex;
             align-items: center;
-            gap: var(--space-2);
+            gap: var(--space-3);
+            padding: var(--space-3) var(--space-4);
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-size: var(--font-sm);
+            transition: all var(--transition-fast);
+            border: none;
+            background: none;
+            width: 100%;
+            text-align: left;
+            cursor: pointer;
         }
 
-        .mode-btn-bottom.active {
-            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
-            color: var(--white);
+        .menu-item:hover {
+            background: var(--bg-hover);
+            color: var(--text-primary);
         }
 
-        @media (max-width: 768px) {
+        .menu-item svg {
+            width: 18px;
+            height: 18px;
+            color: var(--text-tertiary);
+        }
+
+        .menu-divider {
+            height: 1px;
+            background: var(--border-primary);
+            margin: var(--space-2) 0;
+        }
+
+        /* ===== CUSTOM ALERT MODAL ===== */
+        .custom-alert-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(15, 23, 42, 0.9);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10000;
+            padding: var(--space-4);
+            backdrop-filter: blur(8px);
+        }
+
+        .custom-alert-content {
+            background: var(--bg-secondary);
+            border-radius: var(--radius-lg);
+            padding: var(--space-6);
+            max-width: 400px;
+            width: 100%;
+            border: 1px solid var(--border-primary);
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+        }
+
+        .custom-alert-content h3 {
+            color: var(--text-primary);
+            margin-bottom: var(--space-3);
+        }
+
+        .custom-alert-content p {
+            color: var(--text-secondary);
+            margin-bottom: var(--space-4);
+        }
+
+        /* ===== RESPONSIVE ===== */
+        @media (max-width: 480px) {
             .map-container {
-                height: calc(85vh - 50px);
-                padding: 0 var(--space-4);
-                margin-bottom: var(--space-4);
+                padding: var(--space-2);
             }
 
-            #map {
-                border-width: 2px;
+            .pin-panel-content {
+                padding: var(--space-3);
             }
 
-            .pin-panel {
-                bottom: 80px;
-                max-height: calc(65vh - 90px);
-                transform: translateY(calc(100% + 80px));
-            }
-
-            .pin-panel-close {
-                width: 44px;
-                height: 44px;
-                font-size: 26px;
-            }
-
-            .mode-toggle-bottom {
-                bottom: var(--space-4);
+            .pin-image {
+                width: 64px;
+                height: 64px;
             }
         }
     </style>
@@ -330,11 +704,7 @@
         </button>
 
         <div class="header-logo">
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <circle cx="12" cy="12" r="10"/>
-                <path d="M12 6v12M6 12h12"/>
-            </svg>
-            <span>ThriftSpot</span>
+            <span style="font-size: var(--font-lg); font-weight: 700; color: var(--text-primary);">ThriftSpot</span>
         </div>
 
         <div id="authSection"></div>
@@ -369,35 +739,64 @@
         </button>
     </div>
 
+    <!-- Search and Filter -->
+    <div class="search-container">
+        <div class="search-wrapper">
+            <svg class="search-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="11" cy="11" r="8"></circle>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
+            <input type="text" class="search-input" id="searchInput" placeholder="Search items nearby...">
+            <div class="search-suggestions" id="searchSuggestions">
+                <!-- Suggestions will be populated dynamically -->
+            </div>
+        </div>
+        <div class="category-filter-wrapper">
+            <div class="category-filter" id="categoryFilter">
+                <button class="category-chip active" data-category="all">All</button>
+                <button class="category-chip" data-category="electronics">📱 Electronics</button>
+                <button class="category-chip" data-category="furniture">🪑 Furniture</button>
+                <button class="category-chip" data-category="clothing">👕 Clothing</button>
+                <button class="category-chip" data-category="tools">🔧 Tools</button>
+                <button class="category-chip" data-category="books">📚 Books</button>
+                <button class="category-chip" data-category="toys">🧸 Toys</button>
+                <button class="category-chip" data-category="sports">⚽ Sports</button>
+                <button class="category-chip" data-category="automotive">🚗 Automotive</button>
+                <button class="category-chip" data-category="jewelry">💎 Jewelry</button>
+                <button class="category-chip" data-category="collectibles">🏆 Collectibles</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Map Container -->
     <div class="map-container">
         <div id="map"></div>
+    </div>
 
-        <!-- Mode Toggle (Bottom) -->
-        <div class="mode-toggle" id="modeToggle">
-            <div class="mode-toggle-slider"></div>
-            <button class="mode-btn" id="thriftBtn" data-mode="thrift">
-                <span>🗺️</span>
-                <span>Thrift</span>
-            </button>
-            <button class="mode-btn active" id="spotBtn" data-mode="spot">
-                <span>📷</span>
-                <span>Spot</span>
-            </button>
+    <!-- Mode Toggle -->
+    <div class="mode-toggle" id="modeToggle">
+        <div class="mode-toggle-slider slide-left"></div>
+        <button class="mode-btn active" id="thriftBtn" data-mode="thrift">
+            <span>🗺️</span>
+            <span>Thrift</span>
+        </button>
+        <button class="mode-btn" id="spotBtn" data-mode="spot">
+            <span>📷</span>
+            <span>Spot</span>
+        </button>
+    </div>
+
+    <!-- Pin Panel Backdrop -->
+    <div class="pin-panel-backdrop" id="pinPanelBackdrop"></div>
+
+    <!-- Pin Info Panel -->
+    <div class="pin-panel" id="pinPanel">
+        <div class="pin-panel-header">
+            <h3 id="pinPanelTitle"><!-- Dynamic title --></h3>
+            <button class="pin-panel-close" id="closePinPanel">✕</button>
         </div>
-
-        <!-- Pin Panel Backdrop -->
-        <div class="pin-panel-backdrop" id="pinPanelBackdrop"></div>
-
-        <!-- Pin Info Panel -->
-        <div class="pin-panel" id="pinPanel">
-            <div class="pin-panel-header">
-                <h3>Item Details</h3>
-                <button class="pin-panel-close" id="closePinPanel">✕</button>
-            </div>
-            <div class="pin-panel-content" id="pinPanelContent">
-                <!-- Content will be dynamically populated -->
-            </div>
+        <div class="pin-panel-content" id="pinPanelContent">
+            <!-- Content will be dynamically populated -->
         </div>
     </div>
 
@@ -413,33 +812,272 @@
                 this.currentUser = null;
                 this.map = null;
                 this.markers = [];
+                this.allPins = [];
+                this.filteredPins = [];
                 this.selectedPin = null;
                 this.userLocation = null;
+                this.activeCategory = 'all';
+                this.searchTimeout = null;
             }
 
             async init() {
-                console.log('🗺️ Map App initializing...');
+                console.log('🗺️ Map App v7 initializing...');
 
-                // Initialize Firebase Auth
                 await this.initAuth();
-
-                // Initialize map
                 this.initMap();
-
-                // Load pins
                 await this.loadPins();
-
-                // Setup event listeners
                 this.setupEventListeners();
+                this.setupSearch();
+                this.setupCategoryFilter();
 
                 // Check for specific pin in URL
                 const urlParams = new URLSearchParams(window.location.search);
                 const pinId = urlParams.get('pin');
+                const collectionId = urlParams.get('collection');
+
                 if (pinId) {
                     this.showPinDetails(pinId);
+                } else if (collectionId) {
+                    this.showCollectionFromUrl(collectionId);
                 }
 
-                console.log('✅ Map App ready!');
+                console.log('✅ Map App v7 ready!');
+            }
+
+            setupSearch() {
+                const searchInput = document.getElementById('searchInput');
+                const suggestionsContainer = document.getElementById('searchSuggestions');
+
+                searchInput.addEventListener('input', (e) => {
+                    clearTimeout(this.searchTimeout);
+                    this.searchTimeout = setTimeout(() => {
+                        this.handleSearch(e.target.value);
+                    }, 200);
+                });
+
+                searchInput.addEventListener('focus', () => {
+                    if (searchInput.value.length > 0) {
+                        this.handleSearch(searchInput.value);
+                    }
+                });
+
+                // Close suggestions when clicking outside
+                document.addEventListener('click', (e) => {
+                    if (!e.target.closest('.search-wrapper')) {
+                        suggestionsContainer.classList.remove('active');
+                    }
+                });
+            }
+
+            handleSearch(query) {
+                const suggestionsContainer = document.getElementById('searchSuggestions');
+
+                if (query.length < 1) {
+                    suggestionsContainer.classList.remove('active');
+                    return;
+                }
+
+                const queryLower = query.toLowerCase();
+                const matches = this.allPins.filter(pin => {
+                    const title = (pin.title || '').toLowerCase();
+                    const category = (pin.category || '').toLowerCase();
+                    const brand = (pin.brand || '').toLowerCase();
+                    const description = (pin.description || '').toLowerCase();
+
+                    return title.includes(queryLower) ||
+                           category.includes(queryLower) ||
+                           brand.includes(queryLower) ||
+                           description.includes(queryLower);
+                }).slice(0, 8);
+
+                if (matches.length === 0) {
+                    suggestionsContainer.innerHTML = `<div class="no-results">No items found for "${query}"</div>`;
+                } else {
+                    suggestionsContainer.innerHTML = matches.map(pin => {
+                        const emoji = this.getCategoryEmoji(pin.category);
+                        const displayTitle = this.buildDisplayTitle(pin);
+                        return `
+                            <div class="suggestion-item" data-pin-id="${pin.id}">
+                                <span class="suggestion-emoji">${emoji}</span>
+                                <div class="suggestion-text">
+                                    <div class="suggestion-title">${displayTitle}</div>
+                                    <div class="suggestion-meta">${pin.category || 'General'} • ${pin.condition || 'Good'}</div>
+                                </div>
+                                <span class="suggestion-price">$${pin.price || 0}</span>
+                            </div>
+                        `;
+                    }).join('');
+
+                    // Add click handlers
+                    suggestionsContainer.querySelectorAll('.suggestion-item').forEach(item => {
+                        item.addEventListener('click', () => {
+                            const pinId = item.dataset.pinId;
+                            this.showPinDetails(pinId);
+                            suggestionsContainer.classList.remove('active');
+                            document.getElementById('searchInput').value = '';
+                        });
+                    });
+                }
+
+                suggestionsContainer.classList.add('active');
+            }
+
+            setupCategoryFilter() {
+                const filterContainer = document.getElementById('categoryFilter');
+
+                filterContainer.querySelectorAll('.category-chip').forEach(chip => {
+                    chip.addEventListener('click', () => {
+                        // Update active state
+                        filterContainer.querySelectorAll('.category-chip').forEach(c => c.classList.remove('active'));
+                        chip.classList.add('active');
+
+                        const category = chip.dataset.category;
+                        this.activeCategory = category;
+                        this.filterByCategory(category);
+                    });
+                });
+            }
+
+            // Map specific item categories to broad filter categories
+            getCategoryMapping() {
+                return {
+                    electronics: [
+                        'laptop', 'computer', 'phone', 'smartphone', 'tablet', 'ipad', 'television', 'tv',
+                        'monitor', 'speaker', 'headphone', 'earphone', 'airpod', 'camera', 'xbox', 'playstation',
+                        'nintendo', 'gaming', 'console', 'keyboard', 'mouse', 'printer', 'router', 'modem',
+                        'drone', 'smartwatch', 'watch', 'electronic', 'charger', 'cable', 'adapter', 'projector',
+                        'receiver', 'amplifier', 'turntable', 'record player', 'bluetooth', 'wireless', 'apple',
+                        'samsung', 'dell', 'hp', 'lenovo', 'asus', 'acer', 'sony', 'lg', 'bose', 'jbl'
+                    ],
+                    clothing: [
+                        'shirt', 'pants', 'jeans', 'dress', 'jacket', 'coat', 'sweater', 'hoodie', 'blouse',
+                        'skirt', 'shorts', 'suit', 'blazer', 'vest', 'cardigan', 't-shirt', 'polo', 'clothing',
+                        'apparel', 'wear', 'outfit', 'top', 'bottom', 'underwear', 'socks', 'hat', 'cap',
+                        'scarf', 'glove', 'belt', 'tie', 'uniform'
+                    ],
+                    footwear: [
+                        'shoe', 'boot', 'sneaker', 'sandal', 'heel', 'loafer', 'slipper', 'footwear',
+                        'nike', 'adidas', 'jordan', 'converse', 'vans', 'puma', 'reebok', 'new balance'
+                    ],
+                    furniture: [
+                        'chair', 'table', 'desk', 'sofa', 'couch', 'bed', 'mattress', 'dresser', 'cabinet',
+                        'shelf', 'bookshelf', 'nightstand', 'ottoman', 'bench', 'stool', 'wardrobe', 'closet',
+                        'armoire', 'hutch', 'buffet', 'sideboard', 'furniture', 'futon', 'recliner', 'rocker',
+                        'loveseat', 'sectional', 'headboard', 'footboard', 'frame', 'dining', 'coffee table',
+                        'end table', 'console', 'entertainment center', 'tv stand', 'media'
+                    ],
+                    'home-garden': [
+                        'lamp', 'light', 'rug', 'carpet', 'curtain', 'drape', 'pillow', 'blanket', 'bedding',
+                        'sheet', 'towel', 'mirror', 'clock', 'vase', 'plant', 'pot', 'garden', 'lawn',
+                        'mower', 'trimmer', 'hose', 'sprinkler', 'outdoor', 'patio', 'grill', 'bbq',
+                        'home', 'decor', 'decoration', 'art', 'painting', 'frame', 'candle', 'kitchen',
+                        'appliance', 'blender', 'mixer', 'toaster', 'microwave', 'cookware', 'dinnerware',
+                        'utensil', 'storage', 'organizer', 'basket', 'bin', 'container'
+                    ],
+                    tools: [
+                        'tool', 'drill', 'saw', 'hammer', 'screwdriver', 'wrench', 'plier', 'socket',
+                        'power tool', 'hand tool', 'toolbox', 'workbench', 'ladder', 'level', 'tape measure',
+                        'dewalt', 'makita', 'milwaukee', 'bosch', 'craftsman', 'stanley', 'ryobi', 'black & decker'
+                    ],
+                    automotive: [
+                        'car', 'truck', 'suv', 'sedan', 'vehicle', 'auto', 'motorcycle', 'bike', 'scooter',
+                        'tire', 'wheel', 'rim', 'bumper', 'hood', 'fender', 'door', 'mirror', 'headlight',
+                        'taillight', 'engine', 'motor', 'transmission', 'brake', 'alternator', 'battery',
+                        'parts', 'accessory', 'automotive', 'oem', 'aftermarket'
+                    ],
+                    toys: [
+                        'toy', 'game', 'puzzle', 'lego', 'action figure', 'doll', 'stuffed', 'plush',
+                        'board game', 'card game', 'playset', 'hot wheels', 'barbie', 'nerf', 'hasbro',
+                        'mattel', 'fisher price', 'little tikes', 'playskool', 'rc', 'remote control'
+                    ],
+                    sports: [
+                        'sport', 'exercise', 'fitness', 'gym', 'weight', 'dumbbell', 'barbell', 'treadmill',
+                        'bike', 'bicycle', 'cycling', 'golf', 'tennis', 'basketball', 'football', 'soccer',
+                        'baseball', 'hockey', 'ski', 'snowboard', 'surf', 'skateboard', 'yoga', 'camping',
+                        'hiking', 'fishing', 'hunting', 'outdoor', 'athletic', 'equipment', 'gear'
+                    ],
+                    books: [
+                        'book', 'novel', 'textbook', 'magazine', 'comic', 'manga', 'literature', 'reading',
+                        'hardcover', 'paperback', 'ebook', 'kindle'
+                    ],
+                    collectibles: [
+                        'collectible', 'antique', 'vintage', 'rare', 'limited edition', 'signed', 'autograph',
+                        'memorabilia', 'coin', 'stamp', 'card', 'trading card', 'pokemon', 'sports card',
+                        'figurine', 'statue', 'art', 'pottery', 'china', 'crystal', 'silver', 'brass'
+                    ],
+                    jewelry: [
+                        'jewelry', 'jewellery', 'ring', 'necklace', 'bracelet', 'earring', 'pendant',
+                        'chain', 'gold', 'silver', 'diamond', 'gemstone', 'pearl', 'watch', 'luxury'
+                    ]
+                };
+            }
+
+            // Check if a pin matches a broad category
+            matchesBroadCategory(pin, filterCategory) {
+                const categoryMapping = this.getCategoryMapping();
+                const keywords = categoryMapping[filterCategory] || [];
+
+                // Get all searchable text from the pin
+                const pinCategory = (pin.category || '').toLowerCase();
+                const pinTitle = (pin.title || '').toLowerCase();
+                const pinBrand = (pin.brand || '').toLowerCase();
+                const pinDescription = (pin.description || '').toLowerCase();
+                const pinModel = (pin.model || '').toLowerCase();
+
+                const searchText = `${pinCategory} ${pinTitle} ${pinBrand} ${pinDescription} ${pinModel}`;
+
+                // Check if any keyword matches
+                return keywords.some(keyword => searchText.includes(keyword.toLowerCase()));
+            }
+
+            filterByCategory(category) {
+                // Clear existing markers
+                this.markers.forEach(({ marker }) => this.map.removeLayer(marker));
+                this.markers = [];
+
+                // Filter pins
+                if (category === 'all') {
+                    this.filteredPins = [...this.allPins];
+                } else {
+                    // Use broad category matching instead of exact match
+                    this.filteredPins = this.allPins.filter(pin => this.matchesBroadCategory(pin, category));
+                }
+
+                // Re-render markers with filtered pins
+                const groupedPins = this.groupPinsByProximity(this.filteredPins, 0.1);
+                groupedPins.forEach(group => {
+                    if (group.pins.length === 1) {
+                        this.addPinToMap(group.pins[0]);
+                    } else {
+                        this.addYardSaleToMap(group);
+                    }
+                });
+
+                console.log(`📍 Showing ${this.filteredPins.length} pins for category: ${category}`);
+            }
+
+            // Build display title without unknown attributes
+            buildDisplayTitle(pin) {
+                const parts = [];
+
+                // Only add brand if it's known and not "Unknown"
+                if (pin.brand && pin.brand.toLowerCase() !== 'unknown' && pin.brand.toLowerCase() !== 'unbranded') {
+                    parts.push(pin.brand);
+                }
+
+                // Add title or category
+                if (pin.title && pin.title.toLowerCase() !== 'unknown' && pin.title.toLowerCase() !== 'untitled') {
+                    // If title doesn't already contain the brand, use it
+                    if (!parts.some(p => pin.title.toLowerCase().includes(p.toLowerCase()))) {
+                        parts.push(pin.title);
+                    } else {
+                        return pin.title; // Title already contains brand
+                    }
+                } else if (pin.category && pin.category.toLowerCase() !== 'unknown') {
+                    parts.push(pin.category);
+                }
+
+                return parts.length > 0 ? parts.join(' ') : 'Item for Sale';
             }
 
             async initAuth() {
@@ -457,16 +1095,8 @@
                 if (this.currentUser) {
                     const displayName = this.currentUser.displayName || this.currentUser.email;
                     const initials = this.getUserInitials(displayName);
-
                     authSection.innerHTML = `
-                        <div class="user-menu-container">
-                            <div class="user-avatar">${initials}</div>
-                            <div class="user-dropdown">
-                                <a href="profile-v6.html" class="dropdown-item">Profile</a>
-                                <a href="dashboard-v6.html" class="dropdown-item">Dashboard</a>
-                                <button class="dropdown-item" onclick="firebase.auth().signOut()">Sign Out</button>
-                            </div>
-                        </div>
+                        <a href="dashboard.html" class="user-avatar" title="Dashboard">${initials}</a>
                     `;
                 } else {
                     authSection.innerHTML = `
@@ -477,44 +1107,41 @@
 
             getUserInitials(name) {
                 if (!name) return 'U';
-                if (name.includes('@')) {
-                    return name.substring(0, 2).toUpperCase();
-                }
+                if (name.includes('@')) return name.substring(0, 2).toUpperCase();
                 const parts = name.trim().split(' ');
-                if (parts.length >= 2) {
-                    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
-                }
+                if (parts.length >= 2) return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
                 return name.substring(0, 2).toUpperCase();
             }
 
             initMap() {
-                // Initialize map centered on user location or default
                 this.map = L.map('map').setView([37.7749, -122.4194], 13);
 
-                // Add tile layer - CARTO Dark Matter
+                // CARTO Dark Matter (matches dark theme)
                 L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png', {
-                    attribution: '© CARTO, © OpenStreetMap contributors',
+                    attribution: '© CARTO, © OpenStreetMap',
                     maxZoom: 19,
                     subdomains: 'abcd'
                 }).addTo(this.map);
 
-                // Try to get user location
+                // User location
                 if (navigator.geolocation) {
                     navigator.geolocation.getCurrentPosition((position) => {
                         this.userLocation = {
                             lat: position.coords.latitude,
                             lng: position.coords.longitude
                         };
-                        this.map.setView([this.userLocation.lat, this.userLocation.lng], 13);
 
-                        // Add user location marker
+                        // User location marker
                         L.marker([this.userLocation.lat, this.userLocation.lng], {
                             icon: L.divIcon({
                                 className: 'user-location-marker',
-                                html: '<div style="background: #3b82f6; width: 16px; height: 16px; border-radius: 50%; border: 3px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.2);"></div>',
-                                iconSize: [22, 22]
+                                html: '<div style="background: #3b82f6; width: 14px; height: 14px; border-radius: 50%; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"></div>',
+                                iconSize: [18, 18]
                             })
                         }).addTo(this.map);
+
+                        // Re-fit to nearest items now that we have user location
+                        this.fitToNearestItems(5);
                     });
                 }
             }
@@ -525,27 +1152,76 @@
                     .where('status', '==', 'active')
                     .get();
 
-                const pins = [];
+                this.allPins = [];
                 pinsSnapshot.forEach((doc) => {
-                    pins.push({ id: doc.id, ...doc.data() });
+                    this.allPins.push({ id: doc.id, ...doc.data() });
                 });
+                this.filteredPins = [...this.allPins];
 
-                console.log(`📍 Loaded ${pins.length} pins`);
+                console.log(`📍 Loaded ${this.allPins.length} pins`);
 
-                // Group pins by proximity for yard sales
-                const groupedPins = this.groupPinsByProximity(pins, 0.1); // 0.1 mile radius
+                const groupedPins = this.groupPinsByProximity(this.allPins, 0.1);
                 console.log(`📍 Grouped into ${groupedPins.length} locations`);
 
-                // Add pins to map (individual or grouped)
                 groupedPins.forEach(group => {
                     if (group.pins.length === 1) {
-                        // Single pin
                         this.addPinToMap(group.pins[0]);
                     } else {
-                        // Yard sale with multiple items
                         this.addYardSaleToMap(group);
                     }
                 });
+
+                // Fit map to show nearest items after loading
+                this.fitToNearestItems(5);
+            }
+
+            // Dynamic zoom to nearest items
+            fitToNearestItems(count = 5) {
+                if (this.markers.length === 0) return;
+
+                // If we have user location, sort by distance; otherwise show all
+                if (this.userLocation) {
+                    // Sort markers by distance from user
+                    const markersWithDistance = this.markers
+                        .filter(m => m.marker && m.marker.getLatLng)
+                        .map(m => {
+                            const latlng = m.marker.getLatLng();
+                            const distance = this.calculateDistance(
+                                this.userLocation.lat, this.userLocation.lng,
+                                latlng.lat, latlng.lng
+                            );
+                            return { marker: m.marker, distance };
+                        })
+                        .sort((a, b) => a.distance - b.distance)
+                        .slice(0, count);
+
+                    if (markersWithDistance.length > 0) {
+                        // Create bounds from nearest items + user location
+                        const bounds = L.latLngBounds([
+                            [this.userLocation.lat, this.userLocation.lng]
+                        ]);
+
+                        markersWithDistance.forEach(({ marker }) => {
+                            bounds.extend(marker.getLatLng());
+                        });
+
+                        this.map.fitBounds(bounds, { padding: [50, 50], maxZoom: 15 });
+                        console.log(`📍 Zoomed to show ${markersWithDistance.length} nearest items`);
+                    }
+                } else {
+                    // No user location - show all pins
+                    if (this.markers.length > 0) {
+                        const bounds = L.latLngBounds(
+                            this.markers
+                                .filter(m => m.marker && m.marker.getLatLng)
+                                .map(m => m.marker.getLatLng())
+                        );
+                        if (bounds.isValid()) {
+                            this.map.fitBounds(bounds, { padding: [50, 50], maxZoom: 14 });
+                            console.log(`📍 Zoomed to show all ${this.markers.length} items`);
+                        }
+                    }
+                }
             }
 
             groupPinsByProximity(pins, radiusMiles) {
@@ -560,7 +1236,6 @@
                         pins: [pin]
                     };
 
-                    // Find nearby pins
                     pins.forEach(otherPin => {
                         if (otherPin.id === pin.id || processed.has(otherPin.id)) return;
 
@@ -569,7 +1244,6 @@
                             otherPin.lat, otherPin.lng
                         );
 
-                        // Group if same user and close, or different users but very close (yard sale)
                         const shouldGroup = (pin.userId === otherPin.userId && distance <= radiusMiles) ||
                                            (distance <= radiusMiles / 4);
 
@@ -587,7 +1261,7 @@
             }
 
             calculateDistance(lat1, lon1, lat2, lon2) {
-                const R = 3959; // Earth radius in miles
+                const R = 3959;
                 const dLat = (lat2 - lat1) * Math.PI / 180;
                 const dLon = (lon2 - lon1) * Math.PI / 180;
                 const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
@@ -598,10 +1272,8 @@
             }
 
             addYardSaleToMap(group) {
-                const totalValue = group.pins.reduce((sum, pin) => sum + (pin.estimatedValue || 0), 0);
                 const itemCount = group.pins.length;
 
-                // Find the most common category in the group
                 const categoryCounts = {};
                 let mostCommonCategory = null;
                 let maxCount = 0;
@@ -615,16 +1287,15 @@
                     }
                 });
 
-                // Get emoji for the most common category
                 const categoryEmoji = this.getCategoryEmoji(mostCommonCategory);
 
                 const icon = L.divIcon({
                     className: 'yard-sale-marker',
-                    html: `<div style="background: #8b5cf6; color: white; min-width: 60px; height: 60px; border-radius: 50%; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 12px; border: 3px solid white; box-shadow: 0 2px 8px rgba(0,0,0,0.3); cursor: pointer; padding: 8px;">
-                        <div style="font-weight: bold; font-size: 18px; margin-bottom: 2px;">${categoryEmoji}</div>
-                        <div style="font-size: 10px; font-weight: 700; line-height: 1.1;">${itemCount} items</div>
+                    html: `<div style="background: #8b5cf6; color: white; min-width: 48px; height: 48px; border-radius: 50%; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 10px; border: 2px solid white; box-shadow: 0 2px 8px rgba(0,0,0,0.4); cursor: pointer; padding: 6px;">
+                        <div style="font-size: 16px; margin-bottom: 1px;">${categoryEmoji}</div>
+                        <div style="font-size: 9px; font-weight: 700;">${itemCount}</div>
                     </div>`,
-                    iconSize: [66, 66]
+                    iconSize: [52, 52]
                 });
 
                 const marker = L.marker([group.center.lat, group.center.lng], { icon })
@@ -635,28 +1306,117 @@
             }
 
             showYardSaleDetails(group) {
-                // Show list of all items in the yard sale
+                // Store collection for sharing
+                this.currentCollection = group;
+
+                // Create a collection ID from the pin IDs
+                const collectionId = group.pins.map(p => p.id).join(',');
+
+                // Set panel title
+                document.getElementById('pinPanelTitle').textContent = `${group.pins.length} items nearby`;
+
                 const content = `
                     <div class="yard-sale-popup-content">
-                        <h3 class="yard-sale-title">Items available</h3>
                         <div class="yard-sale-items-container">
-                            ${group.pins.map(pin => `
+                            ${group.pins.map(pin => {
+                                const displayTitle = this.buildDisplayTitle(pin);
+                                return `
                                 <div class="yard-sale-item-card" onclick="app.showPinDetails('${pin.id}')">
-                                    <div class="yard-sale-item-name">${pin.title || pin.itemName || pin.category || 'Item'}</div>
-                                    <div class="yard-sale-item-price">$${(pin.price || pin.estimatedValue || 0).toFixed(2)}</div>
+                                    <div class="yard-sale-item-name">${displayTitle}</div>
+                                    <div class="yard-sale-item-price">$${(pin.price || 0).toFixed(0)}</div>
                                 </div>
-                            `).join('')}
+                            `}).join('')}
+                        </div>
+                        <div class="pin-actions" style="margin-top: var(--space-4);">
+                            <button class="btn btn-share" onclick="app.shareCollection()">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <circle cx="18" cy="5" r="3"></circle>
+                                    <circle cx="6" cy="12" r="3"></circle>
+                                    <circle cx="18" cy="19" r="3"></circle>
+                                    <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line>
+                                    <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line>
+                                </svg>
+                                Share Collection
+                            </button>
                         </div>
                     </div>
                 `;
 
-                // Use the existing pin panel
                 document.getElementById('pinPanelContent').innerHTML = content;
                 document.getElementById('pinPanel').classList.add('active');
+                document.getElementById('pinPanelBackdrop').classList.add('active');
+            }
+
+            async shareCollection() {
+                if (!this.currentCollection) return;
+
+                const group = this.currentCollection;
+                const collectionId = group.pins.map(p => p.id).join(',');
+                const sharerId = this.currentUser?.uid || 'anon';
+                const shareUrl = `${window.location.origin}/pin-map.html?collection=${collectionId}&ref=${sharerId}`;
+                const shareTitle = `${group.pins.length} items nearby on ThriftSpot`;
+                const shareText = `Found ${group.pins.length} items nearby! Check them out on ThriftSpot.`;
+
+                // Use Web Share API on mobile if available
+                if (navigator.share) {
+                    try {
+                        await navigator.share({
+                            title: shareTitle,
+                            text: shareText,
+                            url: shareUrl
+                        });
+                        console.log('✅ Collection shared via Web Share API');
+                        return;
+                    } catch (err) {
+                        if (err.name !== 'AbortError') {
+                            console.log('Web Share failed, falling back to copy:', err);
+                        } else {
+                            return;
+                        }
+                    }
+                }
+
+                // Fallback: Copy to clipboard
+                try {
+                    await navigator.clipboard.writeText(shareUrl);
+                    this.showCustomAlert(`
+                        <h3>📤 Share Collection</h3>
+                        <p style="word-break: break-all; font-size: 12px; background: var(--bg-card); padding: 8px; border-radius: 4px; margin-bottom: 16px;">${shareUrl}</p>
+                        <p style="color: var(--accent-success); margin-bottom: 16px;">✓ Link copied to clipboard!</p>
+                        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                            <a href="https://wa.me/?text=${encodeURIComponent(shareText + ' ' + shareUrl)}" target="_blank" class="btn btn-primary" style="flex: 1; min-width: 120px;">WhatsApp</a>
+                            <a href="sms:?body=${encodeURIComponent(shareText + ' ' + shareUrl)}" class="btn btn-primary" style="flex: 1; min-width: 120px;">SMS</a>
+                        </div>
+                    `);
+                } catch (err) {
+                    console.error('Copy failed:', err);
+                    this.showCustomAlert(`
+                        <h3>📤 Share Collection</h3>
+                        <p>Copy this link:</p>
+                        <input type="text" value="${shareUrl}" style="width: 100%; padding: 8px; background: var(--bg-card); border: 1px solid var(--border-primary); border-radius: 4px; color: var(--text-primary);" onclick="this.select();" readonly>
+                    `);
+                }
+            }
+
+            async showCollectionFromUrl(collectionId) {
+                const pinIds = collectionId.split(',');
+                const matchingPins = this.allPins.filter(p => pinIds.includes(p.id));
+
+                if (matchingPins.length > 0) {
+                    const group = {
+                        center: { lat: matchingPins[0].lat, lng: matchingPins[0].lng },
+                        pins: matchingPins
+                    };
+                    this.showYardSaleDetails(group);
+
+                    // Center map on collection
+                    if (matchingPins[0].lat && matchingPins[0].lng) {
+                        this.map.setView([matchingPins[0].lat, matchingPins[0].lng], 15);
+                    }
+                }
             }
 
             addPinToMap(pin) {
-                // Skip pins without coordinates
                 if (!pin.lat || !pin.lng) {
                     console.warn('Pin missing coordinates:', pin.id);
                     return;
@@ -671,32 +1431,51 @@
             }
 
             getPinIcon(pin) {
-                let color = '#6366f1'; // primary
+                // Default: Friendly yellow for available/unknown
+                let bgColor = '#fbbf24';
+                let textColor = 'black';
+
                 if (pin.claimedBy) {
-                    color = '#ef4444'; // red
+                    bgColor = '#ef4444'; // red for claimed
+                    textColor = 'white';
                 } else if (pin.reservedBy) {
-                    color = '#eab308'; // yellow
+                    bgColor = '#eab308'; // darker amber for reserved
+                    textColor = 'white';
                 }
 
-                const emoji = this.getCategoryEmoji(pin.category);
+                const icon = this.getCategoryIcon(pin.category);
+                // If icon is "?" use black text, otherwise use white for emojis
+                const displayColor = icon === '?' ? 'black' : textColor;
 
                 return L.divIcon({
                     className: 'custom-pin-marker',
-                    html: `<div style="background: ${color}; color: white; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 20px; border: 3px solid white; box-shadow: 0 2px 8px rgba(0,0,0,0.3); cursor: pointer;">${emoji}</div>`,
-                    iconSize: [46, 46]
+                    html: `<div style="background: ${bgColor}; color: ${displayColor}; width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: ${icon === '?' ? '20px' : '16px'}; font-weight: ${icon === '?' ? '700' : '400'}; border: 2px solid white; box-shadow: 0 2px 8px rgba(0,0,0,0.4); cursor: pointer;">${icon}</div>`,
+                    iconSize: [40, 40]
                 });
             }
 
-            getCategoryEmoji(category) {
-                const emojis = {
+            getCategoryIcon(category) {
+                const icons = {
                     'electronics': '📱',
                     'furniture': '🪑',
                     'clothing': '👕',
+                    'footwear': '👟',
                     'tools': '🔧',
                     'books': '📚',
-                    'toys': '🧸'
+                    'toys': '🧸',
+                    'automotive': '🚗',
+                    'sporting goods': '⚽',
+                    'sports': '⚽',
+                    'jewelry': '💎',
+                    'home & garden': '🏡',
+                    'collectibles': '🏆'
                 };
-                return emojis[category?.toLowerCase()] || '📦';
+                return icons[category?.toLowerCase()] || '?';
+            }
+
+            // Keep getCategoryEmoji for backwards compatibility in search
+            getCategoryEmoji(category) {
+                return this.getCategoryIcon(category);
             }
 
             async showPinDetails(pinId) {
@@ -711,82 +1490,116 @@
                 const pin = { id: pinDoc.id, ...pinDoc.data() };
                 this.selectedPin = pin;
 
-                this.renderPinPanel(pin);
+                // Center map on pin
+                if (pin.lat && pin.lng) {
+                    this.map.setView([pin.lat, pin.lng], 16);
+                }
 
-                // Show panel and backdrop
+                await this.renderPinPanel(pin);
+
                 document.getElementById('pinPanel').classList.add('active');
                 document.getElementById('pinPanelBackdrop').classList.add('active');
             }
 
-            renderPinPanel(pin) {
+            getTimeAgo(date) {
+                if (!date) return '';
+                const dateObj = date.toDate ? date.toDate() : new Date(date);
+                const seconds = Math.floor((new Date() - dateObj) / 1000);
+                let interval = seconds / 31536000;
+                if (interval > 1) return Math.floor(interval) + 'y ago';
+                interval = seconds / 2592000;
+                if (interval > 1) return Math.floor(interval) + 'mo ago';
+                interval = seconds / 86400;
+                if (interval > 1) return Math.floor(interval) + 'd ago';
+                interval = seconds / 3600;
+                if (interval > 1) return Math.floor(interval) + 'h ago';
+                interval = seconds / 60;
+                if (interval > 1) return Math.floor(interval) + 'm ago';
+                return 'Just now';
+            }
+
+            async renderPinPanel(pin) {
                 const isOwner = this.currentUser && pin.userId === this.currentUser.uid;
                 const isReserved = !!pin.reservedBy;
                 const isClaimed = !!pin.claimedBy;
                 const canReserve = this.currentUser && !isOwner && !isReserved && !isClaimed;
                 const canClaim = this.currentUser && !isOwner && isReserved && pin.reservedBy === this.currentUser.uid;
 
+                // Build display title without unknown attributes
+                const displayTitle = this.buildDisplayTitle(pin);
+
+                // Set panel title to item name and price (removing "Item Details")
+                document.getElementById('pinPanelTitle').textContent = `${displayTitle} - $${pin.price || '0'}`;
+
                 let statusBadge = '';
                 if (isClaimed) {
-                    statusBadge = '<span class="pin-status-badge status-claimed">✓ Claimed</span>';
+                    statusBadge = '<span class="pin-status-badge status-claimed">Claimed</span>';
                 } else if (isReserved) {
-                    statusBadge = '<span class="pin-status-badge status-reserved">⏰ Reserved</span>';
+                    statusBadge = '<span class="pin-status-badge status-reserved">Reserved</span>';
                 } else {
-                    statusBadge = '<span class="pin-status-badge status-available">✓ Available</span>';
+                    statusBadge = '<span class="pin-status-badge status-available">Available</span>';
                 }
 
                 const images = pin.images && pin.images.length > 0
-                    ? pin.images.map(url => `<img src="${url}" class="pin-image" alt="Item photo">`).join('')
-                    : '<div style="padding: 40px; background: var(--gray-100); border-radius: 8px; text-align: center; color: var(--gray-500);">No images</div>';
+                    ? `<div class="pin-images">${pin.images.map(url => `<img src="${url}" class="pin-image" alt="Item">`).join('')}</div>`
+                    : '';
 
                 const listingType = pin.listingType === 'rent'
-                    ? `<span class="meta-item">📅 For Rent (${pin.rentalPeriod})</span>`
-                    : '<span class="meta-item">💰 For Sale</span>';
+                    ? `<span class="meta-item">📅 Rent (${pin.rentalPeriod})</span>`
+                    : '<span class="meta-item">💰 Sale</span>';
 
                 let actions = '';
                 if (isOwner) {
                     actions = `
-                        <button class="btn btn-secondary">Edit Listing</button>
+                        <button class="btn btn-secondary">Edit</button>
                         <button class="btn btn-danger" onclick="app.deletePinListing('${pin.id}')">Delete</button>
                     `;
                 } else if (canClaim) {
                     actions = `
-                        <button class="btn btn-primary" onclick="app.claimPin('${pin.id}')">Claim Item (10 🪙)</button>
-                        <button class="btn btn-secondary" onclick="app.cancelReservation('${pin.id}')">Cancel Reservation</button>
+                        <button class="btn btn-primary" onclick="app.claimPin('${pin.id}')">Claim (10 🪙)</button>
+                        <button class="btn btn-secondary" onclick="app.cancelReservation('${pin.id}')">Cancel</button>
                     `;
                 } else if (canReserve) {
                     actions = `
-                        <button class="btn btn-primary" onclick="app.reservePin('${pin.id}')">Reserve for 1h (1 🪙)</button>
-                        <button class="btn btn-secondary">Message Seller</button>
+                        <button class="btn btn-primary" onclick="app.reservePin('${pin.id}')">Reserve 1h (1 🪙)</button>
+                        <button class="btn btn-secondary" onclick="app.messageSeller('${pin.id}')">Message</button>
                     `;
                 } else if (!this.currentUser) {
-                    actions = `
-                        <a href="signin.html" class="btn btn-primary">Sign In to Reserve</a>
-                    `;
+                    actions = `<a href="signin.html" class="btn btn-primary">Sign In to Reserve</a>`;
+                }
+
+                const listedDate = pin.createdAt || pin.created_at || pin.timestamp;
+                const listedTimeAgo = listedDate ? this.getTimeAgo(listedDate) : '';
+
+                // Get location - reverse geocode if only lat/lng available
+                let locationDisplay = pin.location;
+                if (!locationDisplay && pin.lat && pin.lng) {
+                    locationDisplay = await this.reverseGeocode(pin.lat, pin.lng);
                 }
 
                 document.getElementById('pinPanelContent').innerHTML = `
                     ${statusBadge}
-
-                    <h2 class="pin-title">${pin.title || 'Untitled Item'}</h2>
-
-                    <div class="pin-price">$${pin.price || '0'}</div>
-
                     <div class="pin-meta">
                         ${listingType}
                         <span class="meta-item">📦 ${pin.category || 'General'}</span>
                         <span class="meta-item">⭐ ${pin.condition || 'Good'}</span>
+                        ${listedTimeAgo ? `<span class="meta-item">🕐 ${listedTimeAgo}</span>` : ''}
                     </div>
-
-                    <div class="pin-images">
-                        ${images}
-                    </div>
-
-                    <p class="pin-description">${pin.description || 'No description provided.'}</p>
-
-                    ${pin.location ? `<p class="meta-item">📍 ${pin.location}</p>` : ''}
-                    ${pin.locationNotes ? `<p class="meta-item" style="color: var(--gray-600); font-size: 0.9em;">Note: ${pin.locationNotes}</p>` : ''}
-
+                    ${images}
+                    <p class="pin-description">${pin.description || 'No description.'}</p>
+                    ${locationDisplay ? `<p class="pin-location">📍 ${locationDisplay}</p>` : ''}
                     <div class="pin-actions">
+                        <button class="btn btn-share" onclick="app.sharePin('${pin.id}')">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <circle cx="18" cy="5" r="3"></circle>
+                                <circle cx="6" cy="12" r="3"></circle>
+                                <circle cx="18" cy="19" r="3"></circle>
+                                <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line>
+                                <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line>
+                            </svg>
+                            Share Find
+                        </button>
+                        <a href="listing.html?id=${pin.id}" class="btn btn-outline">View Full Listing →</a>
                         ${actions}
                     </div>
                 `;
@@ -798,14 +1611,13 @@
                     return;
                 }
 
-                // Check and spend tokens for reserve (1 token)
                 const tokenResult = await window.tokenSystem.spendTokens('reserve', { relatedId: pinId });
                 if (!tokenResult.success) {
                     console.error('❌ Failed to spend tokens:', tokenResult.error);
                     return;
                 }
 
-                console.log(`✅ Spent ${tokenResult.amount} tokens for reserve. Remaining: ${tokenResult.balance}`);
+                console.log(`✅ Spent ${tokenResult.amount} tokens for reserve.`);
 
                 try {
                     const db = firebase.firestore();
@@ -820,13 +1632,17 @@
                         updatedAt: firebase.firestore.FieldValue.serverTimestamp()
                     });
 
-                    alert('Item reserved for 1 hour! Go claim it!');
+                    this.showCustomAlert(`
+                        <h3>✅ Reserved!</h3>
+                        <p>Item reserved for 1 hour. Go get it!</p>
+                        <a href="listing.html?id=${pinId}" class="btn btn-primary" style="width: 100%;">View Listing</a>
+                    `);
                     this.showPinDetails(pinId);
                     this.reloadPins();
 
                 } catch (error) {
                     console.error('Error reserving pin:', error);
-                    alert('Failed to reserve item: ' + error.message);
+                    alert('Failed to reserve: ' + error.message);
                 }
             }
 
@@ -836,26 +1652,18 @@
                     return;
                 }
 
-                if (!confirm('Are you sure you want to claim this item? This will mark it as claimed.')) {
-                    return;
-                }
+                if (!confirm('Claim this item for 10 tokens?')) return;
 
-                // Check and spend tokens for claim (10 tokens)
                 const tokenResult = await window.tokenSystem.spendTokens('claim', { relatedId: pinId });
                 if (!tokenResult.success) {
                     console.error('❌ Failed to spend tokens:', tokenResult.error);
                     return;
                 }
 
-                console.log(`✅ Spent ${tokenResult.amount} tokens for claim. Remaining: ${tokenResult.balance}`);
-
                 try {
                     const db = firebase.firestore();
-
-                    // Get pin data to find the owner
                     const pinDoc = await db.collection('pins').doc(pinId).get();
                     const pinData = pinDoc.data();
-                    const pinOwnerId = pinData.userId;
 
                     await db.collection('pins').doc(pinId).update({
                         claimedBy: this.currentUser.uid,
@@ -865,43 +1673,19 @@
                         updatedAt: firebase.firestore.FieldValue.serverTimestamp()
                     });
 
-                    // Award bonus tokens to pin owner (5 tokens when their pin is claimed)
-                    if (pinOwnerId && pinOwnerId !== this.currentUser.uid) {
-                        try {
-                            const idToken = await this.currentUser.getIdToken();
-                            await fetch('/api/tokens/award', {
-                                method: 'POST',
-                                headers: {
-                                    'Authorization': `Bearer ${idToken}`,
-                                    'Content-Type': 'application/json'
-                                },
-                                body: JSON.stringify({
-                                    userId: pinOwnerId,
-                                    amount: 5,
-                                    reason: 'pin_claimed',
-                                    relatedId: pinId
-                                })
-                            });
-                            console.log(`✅ Awarded 5 bonus tokens to pin owner ${pinOwnerId}`);
-                        } catch (error) {
-                            console.error('Failed to award bonus tokens to owner:', error);
-                        }
-                    }
-
-                    alert('Item claimed successfully! Congrats on your find!');
+                    alert('🎉 Item claimed!');
                     this.closePinPanel();
                     this.reloadPins();
 
                 } catch (error) {
                     console.error('Error claiming pin:', error);
-                    alert('Failed to claim item: ' + error.message);
+                    alert('Failed to claim: ' + error.message);
                 }
             }
 
             async cancelReservation(pinId) {
                 try {
                     const db = firebase.firestore();
-
                     await db.collection('pins').doc(pinId).update({
                         reservedBy: null,
                         reservedByEmail: null,
@@ -913,17 +1697,151 @@
                     alert('Reservation cancelled.');
                     this.showPinDetails(pinId);
                     this.reloadPins();
-
                 } catch (error) {
                     console.error('Error cancelling reservation:', error);
-                    alert('Failed to cancel reservation: ' + error.message);
+                    alert('Failed to cancel: ' + error.message);
+                }
+            }
+
+            messageSeller(pinId) {
+                if (!this.currentUser) {
+                    window.location.href = 'signin.html';
+                    return;
+                }
+
+                this.showCustomAlert(`
+                    <h3>📧 Contact Seller</h3>
+                    <p>View the full listing for contact info.</p>
+                    <a href="listing.html?id=${pinId}" class="btn btn-primary" style="width: 100%;">View Listing</a>
+                `);
+            }
+
+            async sharePin(pinId) {
+                const pin = this.selectedPin;
+                const sharerId = this.currentUser?.uid || 'anon';
+                const shareUrl = `${window.location.origin}/pin-map.html?pin=${pinId}&ref=${sharerId}`;
+                const shareTitle = pin?.title || 'Check out this find!';
+                const shareText = pin?.price
+                    ? `Found this for $${pin.price}! ${shareTitle}`
+                    : `Check out this find: ${shareTitle}`;
+
+                // Use Web Share API on mobile if available
+                if (navigator.share) {
+                    try {
+                        await navigator.share({
+                            title: shareTitle,
+                            text: shareText,
+                            url: shareUrl
+                        });
+                        console.log('✅ Shared successfully via Web Share API');
+                        return;
+                    } catch (err) {
+                        if (err.name !== 'AbortError') {
+                            console.log('Web Share failed, falling back to copy:', err);
+                        } else {
+                            return; // User cancelled
+                        }
+                    }
+                }
+
+                // Fallback: Copy to clipboard and show share options
+                try {
+                    await navigator.clipboard.writeText(shareUrl);
+                    this.showCustomAlert(`
+                        <h3>📤 Share This Find</h3>
+                        <p style="word-break: break-all; font-size: 12px; background: var(--bg-card); padding: 8px; border-radius: 4px; margin-bottom: 16px;">${shareUrl}</p>
+                        <p style="color: var(--accent-success); margin-bottom: 16px;">✓ Link copied to clipboard!</p>
+                        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                            <a href="https://wa.me/?text=${encodeURIComponent(shareText + ' ' + shareUrl)}" target="_blank" class="btn btn-primary" style="flex: 1; min-width: 120px;">WhatsApp</a>
+                            <a href="sms:?body=${encodeURIComponent(shareText + ' ' + shareUrl)}" class="btn btn-primary" style="flex: 1; min-width: 120px;">SMS</a>
+                        </div>
+                        <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px;">
+                            <a href="https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(shareUrl)}" target="_blank" class="btn btn-secondary" style="flex: 1; min-width: 120px;">Twitter</a>
+                            <a href="https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}" target="_blank" class="btn btn-secondary" style="flex: 1; min-width: 120px;">Facebook</a>
+                        </div>
+                    `);
+                } catch (err) {
+                    console.error('Copy failed:', err);
+                    this.showCustomAlert(`
+                        <h3>📤 Share This Find</h3>
+                        <p>Copy this link:</p>
+                        <input type="text" value="${shareUrl}" style="width: 100%; padding: 8px; background: var(--bg-card); border: 1px solid var(--border-primary); border-radius: 4px; color: var(--text-primary);" onclick="this.select();" readonly>
+                    `);
+                }
+
+                // Track share event
+                console.log('📤 Share initiated for pin:', pinId);
+            }
+
+            showCustomAlert(htmlContent) {
+                let modal = document.getElementById('customAlertModal');
+                if (!modal) {
+                    modal = document.createElement('div');
+                    modal.id = 'customAlertModal';
+                    modal.className = 'custom-alert-overlay';
+
+                    const content = document.createElement('div');
+                    content.className = 'custom-alert-content';
+                    modal.appendChild(content);
+                    document.body.appendChild(modal);
+
+                    modal.addEventListener('click', (e) => {
+                        if (e.target === modal) modal.remove();
+                    });
+                }
+
+                const content = modal.querySelector('.custom-alert-content');
+                content.innerHTML = htmlContent + `
+                    <button class="btn btn-secondary" style="width: 100%; margin-top: var(--space-3);" onclick="document.getElementById('customAlertModal').remove();">
+                        Close
+                    </button>
+                `;
+            }
+
+            async reverseGeocode(lat, lng) {
+                try {
+                    // Use Nominatim (OpenStreetMap) for reverse geocoding - free and no API key required
+                    const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`, {
+                        headers: {
+                            'Accept': 'application/json',
+                            'User-Agent': 'ThriftSpot/1.0'
+                        }
+                    });
+
+                    if (!response.ok) {
+                        console.warn('Reverse geocode failed:', response.status);
+                        return null;
+                    }
+
+                    const data = await response.json();
+
+                    if (data && data.address) {
+                        const addr = data.address;
+                        // Build a short, useful address
+                        const parts = [];
+
+                        if (addr.house_number && addr.road) {
+                            parts.push(`${addr.house_number} ${addr.road}`);
+                        } else if (addr.road) {
+                            parts.push(addr.road);
+                        }
+
+                        if (addr.city || addr.town || addr.village || addr.suburb) {
+                            parts.push(addr.city || addr.town || addr.village || addr.suburb);
+                        }
+
+                        return parts.length > 0 ? parts.join(', ') : null;
+                    }
+
+                    return null;
+                } catch (error) {
+                    console.warn('Reverse geocode error:', error);
+                    return null;
                 }
             }
 
             async deletePinListing(pinId) {
-                if (!confirm('Are you sure you want to delete this listing?')) {
-                    return;
-                }
+                if (!confirm('Delete this listing?')) return;
 
                 try {
                     const db = firebase.firestore();
@@ -935,19 +1853,15 @@
                     alert('Listing deleted.');
                     this.closePinPanel();
                     this.reloadPins();
-
                 } catch (error) {
                     console.error('Error deleting pin:', error);
-                    alert('Failed to delete listing: ' + error.message);
+                    alert('Failed to delete: ' + error.message);
                 }
             }
 
             async reloadPins() {
-                // Clear existing markers
                 this.markers.forEach(({ marker }) => this.map.removeLayer(marker));
                 this.markers = [];
-
-                // Reload pins
                 await this.loadPins();
             }
 
@@ -959,33 +1873,20 @@
 
             setupEventListeners() {
                 // Close pin panel
-                document.getElementById('closePinPanel').addEventListener('click', () => {
-                    this.closePinPanel();
-                });
-
-                // Close panel when clicking backdrop
-                document.getElementById('pinPanelBackdrop').addEventListener('click', () => {
-                    this.closePinPanel();
-                });
+                document.getElementById('closePinPanel').addEventListener('click', () => this.closePinPanel());
+                document.getElementById('pinPanelBackdrop').addEventListener('click', () => this.closePinPanel());
 
                 // Mode toggle
                 const spotBtn = document.getElementById('spotBtn');
                 const thriftBtn = document.getElementById('thriftBtn');
                 const toggleSlider = document.querySelector('.mode-toggle-slider');
 
-                // Initialize slider position for thrift mode
-                if (toggleSlider) {
-                    toggleSlider.classList.add('slide-left');
-                }
-
                 if (spotBtn) {
                     spotBtn.addEventListener('click', () => {
-                        // Update slider before navigation
                         if (toggleSlider) {
                             toggleSlider.classList.remove('slide-left');
                             toggleSlider.classList.add('slide-right');
                         }
-                        // Small delay for animation to be visible before navigation
                         setTimeout(() => {
                             window.location.href = 'index.html';
                         }, 150);
@@ -994,13 +1895,8 @@
 
                 if (thriftBtn) {
                     thriftBtn.addEventListener('click', () => {
-                        // Already on thrift mode
                         thriftBtn.classList.add('active');
                         if (spotBtn) spotBtn.classList.remove('active');
-                        if (toggleSlider) {
-                            toggleSlider.classList.remove('slide-right');
-                            toggleSlider.classList.add('slide-left');
-                        }
                     });
                 }
 
@@ -1010,28 +1906,22 @@
                 const signOutBtn = document.getElementById('signOutBtn');
 
                 if (hamburgerMenu && hamburgerDropdown) {
-                    // Toggle dropdown on hamburger click
                     hamburgerMenu.addEventListener('click', (e) => {
                         e.stopPropagation();
                         hamburgerDropdown.classList.toggle('show');
                     });
 
-                    // Close dropdown when clicking outside
                     document.addEventListener('click', (e) => {
                         if (!e.target.closest('.hamburger-menu') && !e.target.closest('.hamburger-dropdown')) {
                             hamburgerDropdown.classList.remove('show');
                         }
                     });
 
-                    // Close dropdown when clicking menu items
                     hamburgerDropdown.querySelectorAll('a.menu-item').forEach(item => {
-                        item.addEventListener('click', () => {
-                            hamburgerDropdown.classList.remove('show');
-                        });
+                        item.addEventListener('click', () => hamburgerDropdown.classList.remove('show'));
                     });
                 }
 
-                // Sign out handler
                 if (signOutBtn) {
                     signOutBtn.addEventListener('click', async () => {
                         try {
@@ -1045,10 +1935,8 @@
             }
         }
 
-        // Make app globally accessible
         window.app = new MapApp();
 
-        // Initialize app when DOM is ready
         document.addEventListener('DOMContentLoaded', () => {
             app.init();
         });

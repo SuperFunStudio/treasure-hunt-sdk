@@ -4,9 +4,9 @@
 // Token costs and rewards configuration
 const TOKEN_CONFIG = {
     costs: {
-        scan: 5,
+        scan: 1,
         reserve: 1,
-        claim: 10
+        claim: 1
     },
     rewards: {
         pin_created: 2,
@@ -335,13 +335,13 @@ function showInsufficientTokensModal(required, current) {
 
     const modal = document.createElement('div');
     modal.className = 'modal-overlay token-insufficient-modal-overlay';
-    modal.style.cssText = 'display: flex; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 10000; align-items: center; justify-content: center;';
+    modal.style.cssText = 'display: flex; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); backdrop-filter: blur(4px); z-index: 10000; align-items: center; justify-content: center;';
     modal.innerHTML = `
-        <div class="modal-content" style="max-width: 500px; background: white; padding: 2rem; border-radius: 1rem; text-align: center;">
+        <div class="modal-content" style="max-width: 500px; background: #334155; padding: 2rem; border-radius: 1rem; text-align: center; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.8); border: 1px solid rgba(148, 163, 184, 0.1);">
             <div style="font-size: 4rem; margin-bottom: 1rem;">⚠️</div>
-            <h2 style="margin-bottom: 1rem;">Insufficient Tokens</h2>
-            <p>You need <strong>${required} tokens</strong> to perform this action.</p>
-            <p style="color: #6b7280; margin: 1rem 0 2rem 0;">Your balance: <strong>${current} tokens</strong></p>
+            <h2 style="margin-bottom: 1rem; color: #f1f5f9;">Insufficient Tokens</h2>
+            <p style="color: #cbd5e1;">You need <strong style="color: #f97316;">${required} tokens</strong> to perform this action.</p>
+            <p style="color: #94a3b8; margin: 1rem 0 2rem 0;">Your balance: <strong style="color: #f1f5f9;">${current} tokens</strong></p>
 
             <div style="display: flex; gap: 1rem; justify-content: center;">
                 <button class="btn btn-secondary" onclick="this.closest('.modal-overlay').remove(); window.location.href='index.html';">

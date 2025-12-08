@@ -15,6 +15,18 @@ class ThriftSpotApp {
         this.cameraStream = null;
         this.isMobile = window.innerWidth < 768;
 
+        // Mode state
+        this.currentMode = 'spot';
+
+        // Map state (lazy initialized)
+        this.map = null;
+        this.mapInitialized = false;
+        this.markers = [];
+        this.pins = [];
+        this.selectedPin = null;
+        this.userLocation = null;
+        this.currentFilter = 'all';
+
         // Analysis stages with realistic messages
         this.analysisStages = [
             { name: 'Uploading images', description: 'Preparing your photos...', progress: 10 },
@@ -76,6 +88,12 @@ class ThriftSpotApp {
         const fileInputMobile = document.getElementById('fileInputMobile');
         if (fileInputMobile) {
             fileInputMobile.addEventListener('change', (e) => this.handleFileSelect(e));
+        }
+
+        // Capture row upload button
+        const fileInputCapture = document.getElementById('fileInputCapture');
+        if (fileInputCapture) {
+            fileInputCapture.addEventListener('change', (e) => this.handleFileSelect(e));
         }
 
         if (this.captureButton) {
@@ -149,36 +167,62 @@ class ThriftSpotApp {
         const toggleSlider = document.querySelector('.mode-toggle-slider');
 
         // Initialize slider position for spot mode
-        if (toggleSlider) {
+        if (toggleSlider && !toggleSlider.classList.contains('slide-right')) {
             toggleSlider.classList.add('slide-right');
         }
 
         if (spotBtn) {
             spotBtn.addEventListener('click', () => {
-                // Already on spot mode, no action needed
+                if (this.currentMode === 'spot') return;
+
+                this.currentMode = 'spot';
                 spotBtn.classList.add('active');
-                thriftBtn.classList.remove('active');
+                if (thriftBtn) thriftBtn.classList.remove('active');
+
+                // Update slider
                 if (toggleSlider) {
                     toggleSlider.classList.remove('slide-left');
                     toggleSlider.classList.add('slide-right');
                 }
+
+                // Switch to spot mode (no page reload)
+                document.body.classList.remove('thrift-mode');
+
+                // Close pin panel if open
+                this.closePinPanel();
+
+                console.log('📷 Switched to Spot mode');
             });
         }
 
         if (thriftBtn) {
             thriftBtn.addEventListener('click', () => {
-                // Save current state before navigation
-                this.saveAppState();
+                if (this.currentMode === 'thrift') return;
 
-                // Update slider before navigation
+                this.currentMode = 'thrift';
+                thriftBtn.classList.add('active');
+                if (spotBtn) spotBtn.classList.remove('active');
+
+                // Update slider
                 if (toggleSlider) {
                     toggleSlider.classList.remove('slide-right');
                     toggleSlider.classList.add('slide-left');
                 }
-                // Small delay for animation to be visible before navigation
-                setTimeout(() => {
-                    window.location.href = 'pin-map.html';
-                }, 150);
+
+                // Switch to thrift mode (no page reload)
+                document.body.classList.add('thrift-mode');
+
+                // Initialize map on first switch (lazy loading)
+                if (!this.mapInitialized) {
+                    this.initMap();
+                } else {
+                    // Invalidate map size in case container was hidden
+                    setTimeout(() => {
+                        if (this.map) this.map.invalidateSize();
+                    }, 100);
+                }
+
+                console.log('🗺️ Switched to Thrift mode');
             });
         }
     }
@@ -579,6 +623,69 @@ class ThriftSpotApp {
         }
     }
 
+    /**
+     * Build an enhanced description for assortments with itemized list
+     * @param {Object} analysis - The analysis object with itemizedList
+     * @param {string} itemName - The overall item name/category
+     * @returns {string} - Formatted description with itemized contents
+     */
+    buildItemizedDescription(analysis, itemName) {
+        const items = analysis.itemizedList || [];
+        const itemCount = items.length;
+        const overallCondition = analysis.condition?.rating || 'good';
+
+        // Start with summary
+        let description = `${itemName} - ${itemCount} items included.\n\n`;
+        description += `Overall Condition: ${overallCondition.charAt(0).toUpperCase() + overallCondition.slice(1)}\n\n`;
+
+        // Add itemized list
+        description += `📚 CONTENTS:\n`;
+        description += `─────────────────────\n`;
+
+        items.forEach((item, index) => {
+            const num = index + 1;
+            let itemLine = `${num}. ${item.title}`;
+
+            // Add author/brand if available
+            if (item.author && item.author !== 'Unknown' && item.author.trim()) {
+                itemLine += ` by ${item.author}`;
+            }
+
+            // Add type if available
+            if (item.type && item.type !== 'Unknown' && item.type.trim()) {
+                itemLine += ` (${item.type})`;
+            }
+
+            description += itemLine + '\n';
+
+            // Add condition on separate line if different from overall or has notes
+            if (item.condition && item.condition !== overallCondition) {
+                description += `   Condition: ${item.condition}`;
+                if (item.conditionNotes) {
+                    description += ` - ${item.conditionNotes}`;
+                }
+                description += '\n';
+            } else if (item.conditionNotes) {
+                description += `   Note: ${item.conditionNotes}\n`;
+            }
+
+            // Add estimated value if available
+            if (item.estimatedValue && item.estimatedValue !== 'Unknown') {
+                description += `   Est. Value: ${item.estimatedValue}\n`;
+            }
+        });
+
+        description += `─────────────────────\n\n`;
+
+        // Add any overall condition notes
+        if (analysis.condition?.description) {
+            description += `Additional Notes: ${analysis.condition.description}\n`;
+        }
+
+        console.log('📝 Built itemized description with', itemCount, 'items');
+        return description;
+    }
+
     async analyzeImages(base64Images) {
         console.log('🤖 Calling Claude AI API...');
 
@@ -734,10 +841,26 @@ class ThriftSpotApp {
                 finalName: itemName
             });
 
-            // Store description for listing creation
-            const description = analysis.condition?.description ||
+            // Store description for listing creation - enhanced for assortments
+            let description = analysis.condition?.description ||
                               analysis.description ||
                               `${itemName} in ${analysis.condition?.rating || 'good'} condition`;
+
+            // DEBUG: Log assortment check before building description
+            console.log('🔍 Assortment check:', {
+                isAssortment: analysis.isAssortment,
+                hasItemizedList: !!analysis.itemizedList,
+                itemizedListLength: analysis.itemizedList?.length || 0,
+                firstItems: analysis.itemizedList?.slice(0, 3)?.map(i => i.title) || []
+            });
+
+            // If this is an assortment with itemized list, build enhanced description
+            if (analysis.isAssortment && analysis.itemizedList && analysis.itemizedList.length > 0) {
+                description = this.buildItemizedDescription(analysis, itemName);
+                console.log('✅ Built itemized description for assortment');
+            } else {
+                console.log('⏭️ Using standard description (not an assortment or no itemized list)');
+            }
 
             // Store the full analysis data for listing creation
             this.listingDescription = description;
@@ -749,6 +872,15 @@ class ThriftSpotApp {
             // Price extraction - correct path based on backend structure
             // Backend returns: routes.marketAnalysis.estimatedValue.suggested
             let price = 0;
+
+            // DEBUG: Log all price sources to understand where value comes from
+            console.log('💰 Price sources check:', {
+                suggested: routes.marketAnalysis?.estimatedValue?.suggested,
+                itemizedEstimate: routes.marketAnalysis?.estimatedValue?.itemizedEstimate,
+                source: routes.marketAnalysis?.estimatedValue?.source,
+                itemizedNote: routes.marketAnalysis?.estimatedValue?.itemizedNote,
+                median: routes.marketAnalysis?.estimatedValue?.priceRange?.median
+            });
 
             if (routes.marketAnalysis?.estimatedValue?.suggested) {
                 price = routes.marketAnalysis.estimatedValue.suggested;
@@ -924,6 +1056,9 @@ class ThriftSpotApp {
             // Core analysis data
             ...this.analysisData,
 
+            // Ensure scanId is included for eBay listing creation
+            scanId: this.analysisData?.scanId || this.analysisData?.id || this.analysisData?._id,
+
             // Enhanced fields for listing creation
             prepopulatedData: {
                 description: this.listingDescription || '',
@@ -933,9 +1068,16 @@ class ThriftSpotApp {
                 condition: this.listingCondition || {},
                 estimatedPrice: this.analysisData?.routes?.marketAnalysis?.estimatedValue?.suggested || 0,
                 category: this.analysisData?.analysis?.category || '',
-                itemName: this.analysisData?.analysis?.category || 'Unknown Item'
+                itemName: this.analysisData?.analysis?.category || 'Unknown Item',
+                // Assortment/multi-item support
+                isAssortment: this.analysisData?.analysis?.isAssortment || false,
+                itemizedList: this.analysisData?.analysis?.itemizedList || [],
+                itemCount: this.analysisData?.analysis?.itemCount || 1
             }
         };
+
+        // Log scanId for debugging
+        console.log('📌 scanId being saved:', listingData.scanId);
 
         // Use already-uploaded images from analysis phase to avoid delay
         try {
@@ -1059,6 +1201,424 @@ class ThriftSpotApp {
 
         // Reset progress
         this.updateAnalysisStage('Starting Analysis', 'Please wait...', 0);
+    }
+
+    // ==================== MAP MODE METHODS ====================
+
+    initMap() {
+        console.log('🗺️ Initializing map...');
+
+        // Initialize map centered on default location
+        this.map = L.map('map').setView([37.7749, -122.4194], 13);
+
+        // Add tile layer
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap contributors'
+        }).addTo(this.map);
+
+        // Try to get user location
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    this.userLocation = {
+                        lat: position.coords.latitude,
+                        lng: position.coords.longitude
+                    };
+                    this.map.setView([this.userLocation.lat, this.userLocation.lng], 13);
+
+                    // Add user location marker
+                    L.marker([this.userLocation.lat, this.userLocation.lng], {
+                        icon: L.divIcon({
+                            className: 'user-location-marker',
+                            html: '<div style="background: #3b82f6; width: 16px; height: 16px; border-radius: 50%; border: 3px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.2);"></div>',
+                            iconSize: [22, 22]
+                        })
+                    }).addTo(this.map);
+
+                    // Re-fit to nearest items after getting location
+                    if (this.markers.length > 0) {
+                        this.fitToNearestItems(5);
+                    }
+                },
+                (error) => {
+                    console.warn('Could not get user location:', error);
+                }
+            );
+        }
+
+        // Load pins
+        this.loadPins();
+
+        // Setup map event listeners
+        this.setupMapEventListeners();
+
+        this.mapInitialized = true;
+        console.log('✅ Map initialized');
+    }
+
+    setupMapEventListeners() {
+        // Close pin panel button
+        const closePinPanel = document.getElementById('closePinPanel');
+        if (closePinPanel) {
+            closePinPanel.addEventListener('click', () => this.closePinPanel());
+        }
+
+        // Filter chips
+        document.querySelectorAll('.filter-chip').forEach(chip => {
+            chip.addEventListener('click', () => {
+                this.filterByCategory(chip.dataset.category);
+            });
+        });
+    }
+
+    async loadPins() {
+        try {
+            const db = firebase.firestore();
+            const pinsSnapshot = await db.collection('pins')
+                .where('status', '==', 'active')
+                .get();
+
+            pinsSnapshot.forEach((doc) => {
+                const pin = { id: doc.id, ...doc.data() };
+                this.pins.push(pin);
+                this.addPinToMap(pin);
+            });
+
+            console.log(`📍 Loaded ${pinsSnapshot.size} pins`);
+
+            // Fit map to nearest items after loading
+            this.fitToNearestItems(5);
+        } catch (error) {
+            console.error('Error loading pins:', error);
+        }
+    }
+
+    addPinToMap(pin) {
+        if (!pin.lat || !pin.lng) {
+            console.warn('Pin missing coordinates:', pin.id);
+            return;
+        }
+
+        const icon = this.getPinIcon(pin);
+        const marker = L.marker([pin.lat, pin.lng], { icon })
+            .addTo(this.map)
+            .on('click', () => this.showPinDetails(pin.id));
+
+        this.markers.push({ id: pin.id, marker, category: pin.category });
+    }
+
+    getPinIcon(pin) {
+        let color = '#fbbf24'; // Friendly yellow for available/unknown
+        let textColor = 'black';
+
+        if (pin.claimedBy) {
+            color = '#ef4444'; // red
+            textColor = 'white';
+        } else if (pin.reservedBy) {
+            color = '#f59e0b'; // amber for reserved
+            textColor = 'white';
+        }
+
+        const icon = this.getCategoryEmoji(pin.category);
+        if (icon !== '?') {
+            textColor = 'white';
+        }
+
+        return L.divIcon({
+            className: 'custom-pin-marker',
+            html: `<div style="background: ${color}; color: ${textColor}; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: ${icon === '?' ? '24px' : '20px'}; font-weight: ${icon === '?' ? '700' : 'normal'}; border: 3px solid white; box-shadow: 0 2px 8px rgba(0,0,0,0.3); cursor: pointer;">${icon}</div>`,
+            iconSize: [46, 46]
+        });
+    }
+
+    getCategoryEmoji(category) {
+        const emojis = {
+            'electronics': '📱',
+            'furniture': '🪑',
+            'clothing': '👕',
+            'tools': '🔧',
+            'books': '📚',
+            'toys': '🧸',
+            'home & garden': '🏠',
+            'collectibles': '🎨',
+            'sporting goods': '⚽',
+            'sports': '⚽',
+            'automotive': '🚗',
+            'jewelry': '💎'
+        };
+        return emojis[category?.toLowerCase()] || '?';
+    }
+
+    filterByCategory(category) {
+        this.currentFilter = category;
+
+        // Update active state on filter chips
+        document.querySelectorAll('.filter-chip').forEach(chip => {
+            chip.classList.toggle('active', chip.dataset.category === category);
+        });
+
+        // Show/hide markers based on category
+        this.markers.forEach(({ marker, id }) => {
+            const pin = this.pins.find(p => p.id === id);
+            if (!pin) return;
+
+            const pinCategory = pin.category?.toLowerCase() || '';
+            const shouldShow = category === 'all' || pinCategory === category || pinCategory.includes(category);
+
+            if (shouldShow) {
+                if (!this.map.hasLayer(marker)) {
+                    marker.addTo(this.map);
+                }
+            } else {
+                if (this.map.hasLayer(marker)) {
+                    this.map.removeLayer(marker);
+                }
+            }
+        });
+
+        console.log(`🔍 Filtered to: ${category}`);
+    }
+
+    fitToNearestItems(count = 5) {
+        if (this.markers.length === 0) return;
+
+        if (this.userLocation) {
+            const sorted = this.markers
+                .map(m => ({
+                    marker: m.marker,
+                    distance: this.getDistance(this.userLocation, m.marker.getLatLng())
+                }))
+                .sort((a, b) => a.distance - b.distance)
+                .slice(0, count);
+
+            if (sorted.length > 0) {
+                const group = L.featureGroup(sorted.map(s => s.marker));
+                this.map.fitBounds(group.getBounds(), { padding: [50, 50], maxZoom: 15 });
+                return;
+            }
+        }
+
+        // Fallback: fit all markers
+        if (this.markers.length > 0) {
+            const group = L.featureGroup(this.markers.map(m => m.marker));
+            this.map.fitBounds(group.getBounds(), { padding: [50, 50], maxZoom: 14 });
+        }
+    }
+
+    getDistance(point1, point2) {
+        const R = 6371;
+        const lat1 = point1.lat * Math.PI / 180;
+        const lat2 = point2.lat * Math.PI / 180;
+        const deltaLat = (point2.lat - point1.lat) * Math.PI / 180;
+        const deltaLng = (point2.lng - point1.lng) * Math.PI / 180;
+
+        const a = Math.sin(deltaLat / 2) * Math.sin(deltaLat / 2) +
+                  Math.cos(lat1) * Math.cos(lat2) *
+                  Math.sin(deltaLng / 2) * Math.sin(deltaLng / 2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+        return R * c;
+    }
+
+    async showPinDetails(pinId) {
+        try {
+            const db = firebase.firestore();
+            const pinDoc = await db.collection('pins').doc(pinId).get();
+
+            if (!pinDoc.exists) {
+                console.error('Pin not found:', pinId);
+                return;
+            }
+
+            const pin = { id: pinDoc.id, ...pinDoc.data() };
+            this.selectedPin = pin;
+
+            this.renderPinPanel(pin);
+
+            // Show panel
+            document.getElementById('pinPanel').classList.add('active');
+        } catch (error) {
+            console.error('Error showing pin details:', error);
+        }
+    }
+
+    renderPinPanel(pin) {
+        const isOwner = this.currentUser && pin.userId === this.currentUser.uid;
+        const isReserved = !!pin.reservedBy;
+        const isClaimed = !!pin.claimedBy;
+        const canReserve = this.currentUser && !isOwner && !isReserved && !isClaimed;
+        const canClaim = this.currentUser && !isOwner && isReserved && pin.reservedBy === this.currentUser.uid;
+
+        let statusBadge = '';
+        if (isClaimed) {
+            statusBadge = '<span class="pin-status-badge status-claimed">✓ Claimed</span>';
+        } else if (isReserved) {
+            statusBadge = '<span class="pin-status-badge status-reserved">⏰ Reserved</span>';
+        } else {
+            statusBadge = '<span class="pin-status-badge status-available">✓ Available</span>';
+        }
+
+        const images = pin.images && pin.images.length > 0
+            ? pin.images.map(url => `<img src="${url}" class="pin-image" alt="Item photo">`).join('')
+            : '<div style="padding: 40px; background: var(--gray-100); border-radius: 8px; text-align: center; color: var(--gray-500);">No images</div>';
+
+        const listingType = pin.listingType === 'rent'
+            ? `<span class="meta-item">📅 For Rent (${pin.rentalPeriod})</span>`
+            : '<span class="meta-item">💰 For Sale</span>';
+
+        let actions = '';
+        if (isOwner) {
+            actions = `
+                <button class="btn btn-secondary">Edit Listing</button>
+                <button class="btn btn-danger" onclick="app.deletePinListing('${pin.id}')">Delete</button>
+            `;
+        } else if (canClaim) {
+            actions = `
+                <button class="btn btn-primary" onclick="app.claimPin('${pin.id}')">Claim Item</button>
+                <button class="btn btn-secondary" onclick="app.cancelReservation('${pin.id}')">Cancel Reservation</button>
+            `;
+        } else if (canReserve) {
+            actions = `
+                <button class="btn btn-primary" onclick="app.reservePin('${pin.id}')">Reserve for 24h</button>
+                <button class="btn btn-secondary">Message Seller</button>
+            `;
+        } else if (!this.currentUser) {
+            actions = `
+                <a href="signin.html" class="btn btn-primary">Sign In to Reserve</a>
+            `;
+        }
+
+        document.getElementById('pinPanelContent').innerHTML = `
+            ${statusBadge}
+            <h2 class="pin-title">${pin.title || 'Untitled Item'}</h2>
+            <div class="pin-price">$${pin.price || '0'}</div>
+            <div class="pin-meta">
+                ${listingType}
+                <span class="meta-item">📦 ${pin.category || 'General'}</span>
+                <span class="meta-item">⭐ ${pin.condition || 'Good'}</span>
+            </div>
+            <div class="pin-images">${images}</div>
+            <p class="pin-description">${pin.description || 'No description provided.'}</p>
+            ${pin.location ? `<p class="meta-item">📍 ${pin.location}</p>` : ''}
+            ${pin.locationNotes ? `<p class="meta-item" style="color: var(--gray-600); font-size: 0.9em;">Note: ${pin.locationNotes}</p>` : ''}
+            <div class="pin-actions">${actions}</div>
+        `;
+    }
+
+    closePinPanel() {
+        const pinPanel = document.getElementById('pinPanel');
+        if (pinPanel) {
+            pinPanel.classList.remove('active');
+        }
+        this.selectedPin = null;
+    }
+
+    async reservePin(pinId) {
+        if (!this.currentUser) {
+            window.location.href = 'signin.html';
+            return;
+        }
+
+        try {
+            const db = firebase.firestore();
+            const reservedUntil = new Date();
+            reservedUntil.setHours(reservedUntil.getHours() + 24);
+
+            await db.collection('pins').doc(pinId).update({
+                reservedBy: this.currentUser.uid,
+                reservedByEmail: this.currentUser.email,
+                reservedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                reservedUntil: firebase.firestore.Timestamp.fromDate(reservedUntil),
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+
+            alert('Item reserved for 24 hours! Go claim it!');
+            this.showPinDetails(pinId);
+            this.reloadPins();
+        } catch (error) {
+            console.error('Error reserving pin:', error);
+            alert('Failed to reserve item: ' + error.message);
+        }
+    }
+
+    async claimPin(pinId) {
+        if (!this.currentUser) {
+            window.location.href = 'signin.html';
+            return;
+        }
+
+        if (!confirm('Are you sure you want to claim this item? This will mark it as claimed.')) {
+            return;
+        }
+
+        try {
+            const db = firebase.firestore();
+            await db.collection('pins').doc(pinId).update({
+                claimedBy: this.currentUser.uid,
+                claimedByEmail: this.currentUser.email,
+                claimedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                status: 'claimed',
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+
+            alert('Item claimed successfully! Congrats on your find!');
+            this.closePinPanel();
+            this.reloadPins();
+        } catch (error) {
+            console.error('Error claiming pin:', error);
+            alert('Failed to claim item: ' + error.message);
+        }
+    }
+
+    async cancelReservation(pinId) {
+        try {
+            const db = firebase.firestore();
+            await db.collection('pins').doc(pinId).update({
+                reservedBy: null,
+                reservedByEmail: null,
+                reservedAt: null,
+                reservedUntil: null,
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+
+            alert('Reservation cancelled.');
+            this.showPinDetails(pinId);
+            this.reloadPins();
+        } catch (error) {
+            console.error('Error cancelling reservation:', error);
+            alert('Failed to cancel reservation: ' + error.message);
+        }
+    }
+
+    async deletePinListing(pinId) {
+        if (!confirm('Are you sure you want to delete this listing?')) {
+            return;
+        }
+
+        try {
+            const db = firebase.firestore();
+            await db.collection('pins').doc(pinId).update({
+                status: 'deleted',
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+
+            alert('Listing deleted.');
+            this.closePinPanel();
+            this.reloadPins();
+        } catch (error) {
+            console.error('Error deleting pin:', error);
+            alert('Failed to delete listing: ' + error.message);
+        }
+    }
+
+    async reloadPins() {
+        // Clear existing markers
+        this.markers.forEach(({ marker }) => this.map.removeLayer(marker));
+        this.markers = [];
+        this.pins = [];
+
+        // Reload pins
+        await this.loadPins();
     }
 }
 

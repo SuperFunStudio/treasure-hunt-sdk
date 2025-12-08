@@ -178,10 +178,18 @@ async function handleListingPurchaseCompleted(session) {
   const sellerId = session.metadata?.sellerId;
   const itemTitle = session.metadata?.itemTitle || 'Item';
 
+  // Platform fee data from metadata
+  const totalAmount = parseFloat(session.metadata?.totalAmount) || (session.amount_total / 100);
+  const platformFee = parseFloat(session.metadata?.platformFee) || 0;
+  const sellerAmount = parseFloat(session.metadata?.sellerAmount) || totalAmount;
+  const platformFeePercent = parseFloat(session.metadata?.platformFeePercent) || 10;
+
   if (!pinId || !buyerId || !sellerId) {
     console.error('Missing required metadata for listing purchase');
     return;
   }
+
+  console.log(`Processing listing purchase: Total $${totalAmount}, Platform fee $${platformFee} (${platformFeePercent}%), Seller gets $${sellerAmount}`);
 
   try {
     // Create order record
@@ -203,10 +211,15 @@ async function handleListingPurchaseCompleted(session) {
       buyerId: buyerId,
       sellerId: sellerId,
 
-      // Financial details
-      amount: session.amount_total / 100,
+      // Financial details (with platform fee breakdown)
+      amount: totalAmount,
+      platformFee: platformFee,
+      platformFeePercent: platformFeePercent,
+      sellerAmount: sellerAmount,
       currency: session.currency,
       paymentStatus: 'paid',
+      platformFeeCollected: true,
+      sellerPayoutStatus: 'pending', // Seller will be paid manually
 
       // Order status
       status: 'paid',
@@ -228,6 +241,22 @@ async function handleListingPurchaseCompleted(session) {
 
     console.log(`✅ Created order ${orderId} for listing ${pinId}`);
 
+    // Record platform earnings
+    await db.collection('platformEarnings').add({
+      orderId: orderId,
+      pinId: pinId,
+      sellerId: sellerId,
+      buyerId: buyerId,
+      totalAmount: totalAmount,
+      platformFee: platformFee,
+      platformFeePercent: platformFeePercent,
+      sellerAmount: sellerAmount,
+      stripeSessionId: session.id,
+      createdAt: admin.firestore.FieldValue.serverTimestamp()
+    });
+
+    console.log(`✅ Recorded platform earnings: $${platformFee} from order ${orderId}`);
+
     // Update pin status to sold
     if (pinDocId) {
       const pinRef = db.collection('pins').doc(pinDocId);
@@ -245,21 +274,24 @@ async function handleListingPurchaseCompleted(session) {
     await db.collection('users').doc(buyerId).set({
       purchases: {
         totalPurchases: admin.firestore.FieldValue.increment(1),
-        totalSpent: admin.firestore.FieldValue.increment(session.amount_total / 100),
+        totalSpent: admin.firestore.FieldValue.increment(totalAmount),
         lastPurchaseDate: admin.firestore.FieldValue.serverTimestamp()
       }
     }, { merge: true });
 
-    // Add to seller's sales history
+    // Add to seller's sales history (track seller's actual earnings after platform fee)
     await db.collection('users').doc(sellerId).set({
       sales: {
         totalSales: admin.firestore.FieldValue.increment(1),
-        totalRevenue: admin.firestore.FieldValue.increment(session.amount_total / 100),
+        totalRevenue: admin.firestore.FieldValue.increment(sellerAmount), // Seller amount after platform fee
+        totalGrossSales: admin.firestore.FieldValue.increment(totalAmount), // Total before fees
+        platformFeesTotal: admin.firestore.FieldValue.increment(platformFee),
+        pendingPayout: admin.firestore.FieldValue.increment(sellerAmount), // Track pending payouts
         lastSaleDate: admin.firestore.FieldValue.serverTimestamp()
       }
     }, { merge: true });
 
-    console.log(`✅ Listing purchase completed: Order ${orderId}`);
+    console.log(`✅ Listing purchase completed: Order ${orderId}, Platform fee: $${platformFee}, Seller payout: $${sellerAmount}`);
 
   } catch (error) {
     console.error('Error processing listing purchase:', error);

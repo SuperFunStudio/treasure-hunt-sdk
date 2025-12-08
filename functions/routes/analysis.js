@@ -364,12 +364,24 @@ async function processBackgroundPricing(scanId, userId, analysis, enhancedCatego
 router.post('/api/analyze-json', asyncHandler(async (req, res) => {
   try {
     const { images, uid, saveToFirestore, validatePricing = true } = req.body || {};
-    
+
     if (!Array.isArray(images) || images.length === 0) {
-      return res.status(400).json({ 
-        phase: 'upload', 
-        message: 'images[] (base64 or data URLs) required' 
+      return res.status(400).json({
+        phase: 'upload',
+        message: 'images[] (base64 or data URLs) required'
       });
+    }
+
+    // Get authenticated user ID from request
+    let userId = uid; // Use provided uid if available
+    if (!userId) {
+      try {
+        const decodedToken = await verifyAuthFunction(req);
+        userId = decodedToken.uid;
+        console.log('[analyze-json] Authenticated user:', userId);
+      } catch (_authError) {
+        console.log('[analyze-json] No authentication provided - using anonymous analysis');
+      }
     }
 
     const toBuffer = (s) => {
@@ -377,7 +389,7 @@ router.post('/api/analyze-json', asyncHandler(async (req, res) => {
       const b64 = s.startsWith('data:') ? s.split(',')[1] : s;
       return Buffer.from(b64, 'base64');
     };
-    
+
     const buffers = images.map(toBuffer);
 
     if (req.query.dry === '1') {
@@ -397,14 +409,29 @@ router.post('/api/analyze-json', asyncHandler(async (req, res) => {
       result = await sdk.analyzeItem(buffers, {
         provider: 'claude',
         apiKey: config.CLAUDE_API_KEY,
-        uid,
+        uid: userId,
         saveToFirestore
       });
     } catch (e) {
-      return res.status(500).json({ 
-        phase: 'analyzeItem', 
-        message: String(e.message || e) 
+      return res.status(500).json({
+        phase: 'analyzeItem',
+        message: String(e.message || e)
       });
+    }
+
+    // Enhanced Category Detection
+    let enhancedCategory = null;
+    try {
+      console.log('[analyze-json] Enhancing category detection...');
+      const detectionInput = `${result.brand || ''} ${result.model || ''} ${result.category || ''}`;
+      enhancedCategory = categoryDetector.detectCategory(detectionInput);
+
+      if (enhancedCategory !== 'unknown' && enhancedCategory !== result.category) {
+        console.log(`[analyze-json] Enhanced category: ${result.category} -> ${enhancedCategory}`);
+        result.enhancedCategory = enhancedCategory;
+      }
+    } catch (e) {
+      console.warn('[analyze-json] Category enhancement failed:', e.message);
     }
 
     // Get Routes
@@ -412,9 +439,9 @@ router.post('/api/analyze-json', asyncHandler(async (req, res) => {
     try {
       routes = await sdk.getRoutes(result, { hasEbayAccount: true });
     } catch (e) {
-      return res.status(500).json({ 
-        phase: 'getRoutes', 
-        message: String(e.message || e) 
+      return res.status(500).json({
+        phase: 'getRoutes',
+        message: String(e.message || e)
       });
     }
 
@@ -436,18 +463,45 @@ router.post('/api/analyze-json', asyncHandler(async (req, res) => {
       }
     }
 
+    // Save scan to Firestore and generate scanId
+    let scanId = null;
+    if (userId) {
+      try {
+        const scanData = {
+          analysis: result,
+          routes,
+          priceValidation,
+          enhancedCategory,
+          imageCount: buffers.length,
+          createdAt: serverTimestamp(),
+          status: 'complete',
+          processingStatus: 'complete',
+          version: '2.1'
+        };
+
+        const scanRef = await db.collection('users').doc(userId).collection('scans').add(scanData);
+        scanId = scanRef.id;
+        console.log('[analyze-json] Scan saved with ID:', scanId);
+      } catch (saveError) {
+        console.warn('[analyze-json] Failed to save scan:', saveError.message);
+      }
+    }
+
     res.json({
       success: true,
+      scanId,
       analysis: result,
       routes,
       priceValidation,
+      enhancedCategory,
       imageCount: buffers.length,
-      sdkType: 'service'
+      sdkType: 'service',
+      userAuthenticated: !!userId
     });
   } catch (e) {
-    res.status(500).json({ 
-      phase: 'analyze-json', 
-      message: String(e.message || e) 
+    res.status(500).json({
+      phase: 'analyze-json',
+      message: String(e.message || e)
     });
   }
 }));
@@ -649,6 +703,196 @@ router.get('/api/analyze/:scanId', asyncHandler(async (req, res) => {
 
   } catch (error) {
     console.error('Error fetching scan:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+}));
+
+/**
+ * Viral coefficient calculation endpoint
+ * Returns metrics on referral performance and viral spread
+ */
+router.get('/api/analysis/viral-coefficient', asyncHandler(async (req, res) => {
+  // Verify authentication (optional - can be admin only in production)
+  let userId = null;
+  try {
+    const decodedToken = await verifyAuthFunction(req);
+    userId = decodedToken.uid;
+  } catch (_authError) {
+    // Allow unauthenticated access for now (can be restricted later)
+  }
+
+  const period = req.query.period || '7d';
+  const periodDays = parseInt(period) || 7;
+
+  try {
+    // Calculate date range
+    const now = new Date();
+    const startDate = new Date(now.getTime() - (periodDays * 24 * 60 * 60 * 1000));
+
+    // Get referrals within the period
+    const referralsQuery = await db.collection('referrals')
+      .where('createdAt', '>=', startDate)
+      .get();
+
+    const referrals = [];
+    referralsQuery.forEach(doc => {
+      referrals.push({ id: doc.id, ...doc.data() });
+    });
+
+    // Calculate metrics
+    const totalReferrals = referrals.length;
+    const conversions = referrals.filter(r => r.converted).length;
+    const conversionRate = totalReferrals > 0 ? (conversions / totalReferrals) : 0;
+
+    // Get unique referrers (users who referred others)
+    const uniqueReferrers = new Set(referrals.map(r => r.referrerId)).size;
+
+    // Get total active users in period (users who created pins or scans)
+    const pinsQuery = await db.collectionGroup('pins')
+      .where('createdAt', '>=', startDate)
+      .get();
+
+    const activeUserIds = new Set();
+    pinsQuery.forEach(doc => {
+      const data = doc.data();
+      if (data.userId) activeUserIds.add(data.userId);
+    });
+
+    const totalActiveUsers = activeUserIds.size || 1; // Avoid division by zero
+
+    // Viral coefficient = (referrals per user) * conversion rate
+    // K = i * c, where i = invites sent per user, c = conversion rate
+    const invitesPerUser = totalActiveUsers > 0 ? totalReferrals / totalActiveUsers : 0;
+    const viralFactor = invitesPerUser * conversionRate;
+
+    // Source breakdown
+    const sourceBreakdown = {};
+    referrals.forEach(r => {
+      const source = r.source || 'direct';
+      sourceBreakdown[source] = (sourceBreakdown[source] || 0) + 1;
+    });
+
+    // User-specific stats (if authenticated)
+    let userStats = null;
+    if (userId) {
+      const userReferrals = referrals.filter(r => r.referrerId === userId);
+      const userConversions = userReferrals.filter(r => r.converted).length;
+
+      userStats = {
+        totalReferrals: userReferrals.length,
+        conversions: userConversions,
+        conversionRate: userReferrals.length > 0 ? (userConversions / userReferrals.length) : 0,
+        sourceBreakdown: {}
+      };
+
+      userReferrals.forEach(r => {
+        const source = r.source || 'direct';
+        userStats.sourceBreakdown[source] = (userStats.sourceBreakdown[source] || 0) + 1;
+      });
+    }
+
+    res.json({
+      success: true,
+      viralFactor: Math.round(viralFactor * 100) / 100,
+      period: `${periodDays}d`,
+      metrics: {
+        totalReferrals,
+        conversions,
+        conversionRate: Math.round(conversionRate * 100) / 100,
+        uniqueReferrers,
+        totalActiveUsers,
+        invitesPerUser: Math.round(invitesPerUser * 100) / 100
+      },
+      sourceBreakdown,
+      userStats,
+      timestamp: new Date().toISOString(),
+      interpretation: viralFactor >= 1
+        ? 'Viral growth! Each user brings in more than 1 new user.'
+        : viralFactor >= 0.5
+          ? 'Good traction. Growth is supplemented by referrals.'
+          : viralFactor >= 0.2
+            ? 'Moderate referral activity. Room for improvement.'
+            : 'Low viral coefficient. Focus on improving share incentives.'
+    });
+
+  } catch (error) {
+    console.error('Error calculating viral coefficient:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+}));
+
+/**
+ * Get user's referral stats for dashboard widget
+ */
+router.get('/api/analysis/referral-stats', asyncHandler(async (req, res) => {
+  // Verify authentication
+  let userId = null;
+  try {
+    const decodedToken = await verifyAuthFunction(req);
+    userId = decodedToken.uid;
+  } catch (_authError) {
+    return res.status(401).json({
+      success: false,
+      error: 'Authentication required'
+    });
+  }
+
+  try {
+    // Get user's referrals
+    const referralsQuery = await db.collection('referrals')
+      .where('referrerId', '==', userId)
+      .get();
+
+    const referrals = [];
+    referralsQuery.forEach(doc => {
+      referrals.push({ id: doc.id, ...doc.data() });
+    });
+
+    // Get user document for referral count and any bonus tokens earned
+    const userDoc = await db.collection('users').doc(userId).get();
+    const userData = userDoc.exists ? userDoc.data() : {};
+
+    // Calculate stats
+    const totalReferrals = referrals.length;
+    const conversions = referrals.filter(r => r.converted).length;
+    const tokensEarned = userData.referralTokensEarned || 0;
+
+    // Recent referrals (last 7 days)
+    const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    const recentReferrals = referrals.filter(r => {
+      const createdAt = r.createdAt?.toDate ? r.createdAt.toDate() : new Date(r.createdAt);
+      return createdAt >= weekAgo;
+    }).length;
+
+    // Source breakdown
+    const sourceBreakdown = {};
+    referrals.forEach(r => {
+      const source = r.source || 'direct';
+      sourceBreakdown[source] = (sourceBreakdown[source] || 0) + 1;
+    });
+
+    res.json({
+      success: true,
+      stats: {
+        totalReferrals,
+        conversions,
+        conversionRate: totalReferrals > 0 ? Math.round((conversions / totalReferrals) * 100) : 0,
+        tokensEarned,
+        recentReferrals,
+        sourceBreakdown
+      },
+      shareUrl: `${req.protocol}://${req.get('host')}/?ref=${userId}`,
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error('Error fetching referral stats:', error);
     res.status(500).json({
       success: false,
       error: error.message

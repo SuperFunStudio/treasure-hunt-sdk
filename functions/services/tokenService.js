@@ -9,13 +9,14 @@ const db = admin.firestore();
 // Token costs and rewards configuration
 const TOKEN_CONFIG = {
   costs: {
-    scan: 5,
-    reserve: 3,
-    claim: 10
+    scan: 1,
+    reserve: 1,
+    claim: 1
   },
   rewards: {
     pinCreated: 2,
     pinClaimed: 5,
+    initialAllocation: 15,
     monthlyAllocation: 100,
     referral: 50
   },
@@ -37,8 +38,8 @@ async function initializeUserTokens(userId, userEmail) {
     uid: userId,
     email: userEmail,
     tokens: {
-      balance: TOKEN_CONFIG.rewards.monthlyAllocation,
-      totalEarned: TOKEN_CONFIG.rewards.monthlyAllocation,
+      balance: TOKEN_CONFIG.rewards.initialAllocation,
+      totalEarned: TOKEN_CONFIG.rewards.initialAllocation,
       totalSpent: 0,
       totalPurchased: 0,
       monthlyAllocation: TOKEN_CONFIG.rewards.monthlyAllocation,
@@ -60,10 +61,10 @@ async function initializeUserTokens(userId, userEmail) {
   // Log initial token allocation
   await logTokenTransaction(userId, {
     type: 'earn',
-    action: 'monthly_allocation',
-    amount: TOKEN_CONFIG.rewards.monthlyAllocation,
+    action: 'initial_allocation',
+    amount: TOKEN_CONFIG.rewards.initialAllocation,
     balanceBefore: 0,
-    balanceAfter: TOKEN_CONFIG.rewards.monthlyAllocation,
+    balanceAfter: TOKEN_CONFIG.rewards.initialAllocation,
     metadata: {
       description: 'Initial token allocation'
     }
@@ -154,12 +155,11 @@ async function deductTokens(userId, action, amount, metadata = {}) {
 
     const userData = userDoc.data();
     const currentBalance = userData.tokens?.balance || 0;
+    const newBalance = currentBalance - amount;
 
-    if (currentBalance < amount) {
+    if (newBalance < 0) {
       throw new Error('Insufficient tokens');
     }
-
-    const newBalance = currentBalance - amount;
 
     // Update user balance
     transaction.update(userRef, {

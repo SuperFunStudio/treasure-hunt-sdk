@@ -7,9 +7,8 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <title>ThriftSpot - Dashboard</title>
 
-    <!-- v6 Design System -->
-    <link rel="stylesheet" href="css/thriftspot-v6.css">
-    <link rel="stylesheet" href="css/thriftspot-v6-dark.css">
+    <!-- v7 Design System -->
+    <link rel="stylesheet" href="css/thriftspot-v7.css">
 
     <!-- Firebase -->
     <script src="/__/firebase/10.7.1/firebase-app-compat.js"></script>
@@ -18,11 +17,14 @@
     <script src="/__/firebase/init.js"></script>
 
     <style>
-        /* Dashboard-specific styles */
+        /* Dashboard-specific styles using v7 dark theme */
+        body {
+            padding-top: 60px;
+        }
+
         .page-container {
             min-height: 100vh;
-            padding-top: 60px;
-            background: var(--gray-50);
+            background: var(--bg-primary);
         }
 
         .page-content {
@@ -38,13 +40,13 @@
         .dashboard-title {
             font-size: var(--font-3xl);
             font-weight: 700;
-            color: var(--gray-900);
+            color: var(--text-primary);
             margin-bottom: var(--space-2);
         }
 
         .dashboard-subtitle {
             font-size: var(--font-base);
-            color: var(--gray-600);
+            color: var(--text-tertiary);
         }
 
         /* Stats Grid */
@@ -56,27 +58,26 @@
         }
 
         .stat-card {
-            background: var(--white);
+            background: var(--bg-secondary);
             border-radius: var(--radius-lg);
             padding: var(--space-6);
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-            border: 1px solid var(--gray-200);
+            border: 1px solid var(--border-primary);
         }
 
         .stat-label {
-            font-size: 0.875rem;
-            color: var(--gray-600);
+            font-size: var(--font-sm);
+            color: var(--text-tertiary);
             margin-bottom: var(--space-2);
         }
 
         .stat-value {
             font-size: var(--font-3xl);
             font-weight: 700;
-            color: var(--gray-900);
+            color: var(--text-primary);
         }
 
         .stat-value.success {
-            color: var(--success);
+            color: var(--accent-success);
         }
 
         /* Listings Grid */
@@ -90,7 +91,7 @@
         .listings-header h2 {
             font-size: var(--font-2xl);
             font-weight: 700;
-            color: var(--gray-900);
+            color: var(--text-primary);
         }
 
         .listings-grid {
@@ -100,23 +101,23 @@
         }
 
         .listing-card {
-            background: var(--white);
+            background: var(--bg-secondary);
             border-radius: var(--radius-lg);
             overflow: hidden;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-            border: 1px solid var(--gray-200);
-            transition: all 0.2s ease;
+            border: 1px solid var(--border-primary);
+            transition: all var(--transition-base);
         }
 
         .listing-card:hover {
             transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            border-color: var(--accent-primary);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
         }
 
         .listing-image {
             width: 100%;
             height: 200px;
-            background: var(--gray-200);
+            background: var(--bg-card);
             object-fit: cover;
         }
 
@@ -127,7 +128,7 @@
         .listing-title {
             font-size: var(--font-base);
             font-weight: 600;
-            color: var(--gray-900);
+            color: var(--text-primary);
             margin-bottom: var(--space-3);
             line-height: 1.4;
         }
@@ -142,26 +143,26 @@
         .listing-price {
             font-size: var(--font-lg);
             font-weight: 700;
-            color: var(--success);
+            color: var(--accent-success);
         }
 
         .listing-status {
             display: inline-block;
-            padding: var(--space-2) var(--space-3);
-            border-radius: var(--radius-md);
-            font-size: 0.75rem;
+            padding: var(--space-1) var(--space-2);
+            border-radius: var(--radius-full);
+            font-size: var(--font-xs);
             font-weight: 600;
             text-transform: uppercase;
         }
 
         .listing-status.active {
-            background: #dcfce7;
-            color: #166534;
+            background: rgba(34, 197, 94, 0.15);
+            color: var(--accent-success);
         }
 
         .listing-status.sold {
-            background: #fee2e2;
-            color: #991b1b;
+            background: rgba(239, 68, 68, 0.15);
+            color: var(--accent-error);
         }
 
         .listing-actions {
@@ -171,7 +172,7 @@
 
         .listing-actions .btn {
             flex: 1;
-            font-size: 0.875rem;
+            font-size: var(--font-sm);
             padding: var(--space-2) var(--space-4);
         }
 
@@ -179,9 +180,9 @@
         .empty-state {
             text-align: center;
             padding: var(--space-10) var(--space-4);
-            background: var(--white);
+            background: var(--bg-secondary);
             border-radius: var(--radius-lg);
-            border: 2px dashed var(--gray-300);
+            border: 2px dashed var(--border-primary);
         }
 
         .empty-state-icon {
@@ -192,22 +193,21 @@
         .empty-state h3 {
             font-size: var(--font-xl);
             font-weight: 700;
-            color: var(--gray-900);
+            color: var(--text-primary);
             margin-bottom: var(--space-2);
         }
 
         .empty-state p {
-            color: var(--gray-600);
+            color: var(--text-tertiary);
             margin-bottom: var(--space-6);
         }
 
         /* eBay Integration Status */
         .ebay-status-card {
-            background: var(--white);
+            background: var(--bg-secondary);
             border-radius: var(--radius-lg);
             padding: var(--space-6);
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-            border: 1px solid var(--gray-200);
+            border: 1px solid var(--border-primary);
             margin-bottom: var(--space-8);
             display: flex;
             align-items: center;
@@ -233,12 +233,12 @@
         .ebay-status-title {
             font-size: var(--font-lg);
             font-weight: 700;
-            color: var(--gray-900);
+            color: var(--text-primary);
         }
 
         .ebay-status-description {
-            color: var(--gray-600);
-            font-size: 0.875rem;
+            color: var(--text-tertiary);
+            font-size: var(--font-sm);
             margin-bottom: var(--space-3);
         }
 
@@ -248,18 +248,18 @@
             gap: var(--space-2);
             padding: var(--space-2) var(--space-3);
             border-radius: var(--radius-md);
-            font-size: 0.875rem;
+            font-size: var(--font-sm);
             font-weight: 600;
         }
 
         .ebay-status-badge.connected {
-            background: #dcfce7;
-            color: #166534;
+            background: rgba(34, 197, 94, 0.15);
+            color: var(--accent-success);
         }
 
         .ebay-status-badge.disconnected {
-            background: #fee2e2;
-            color: #991b1b;
+            background: rgba(239, 68, 68, 0.15);
+            color: var(--accent-error);
         }
 
         .ebay-status-badge svg {
@@ -270,10 +270,262 @@
         .ebay-account-info {
             margin-top: var(--space-3);
             padding: var(--space-3);
-            background: var(--gray-50);
+            background: var(--bg-card);
             border-radius: var(--radius-md);
-            font-size: 0.875rem;
-            color: var(--gray-700);
+            font-size: var(--font-sm);
+            color: var(--text-secondary);
+        }
+
+        /* Buttons */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: var(--space-2);
+            padding: var(--space-3) var(--space-5);
+            border-radius: var(--radius-full);
+            font-size: var(--font-sm);
+            font-weight: 600;
+            cursor: pointer;
+            transition: all var(--transition-fast);
+            font-family: inherit;
+            border: none;
+            text-decoration: none;
+        }
+
+        .btn-primary {
+            background: var(--accent-primary);
+            color: var(--text-primary);
+        }
+
+        .btn-primary:hover {
+            background: #4f46e5;
+        }
+
+        .btn-secondary {
+            background: var(--bg-card);
+            color: var(--text-secondary);
+            border: 1px solid var(--border-primary);
+        }
+
+        .btn-secondary:hover {
+            background: var(--bg-hover);
+            color: var(--text-primary);
+        }
+
+        .btn-outline {
+            background: transparent;
+            color: var(--text-secondary);
+            border: 1px solid var(--border-primary);
+        }
+
+        .btn-outline:hover {
+            background: var(--bg-hover);
+            color: var(--text-primary);
+        }
+
+        .btn-lg {
+            padding: var(--space-4) var(--space-6);
+            font-size: var(--font-base);
+        }
+
+        /* User Menu */
+        .user-menu-container {
+            position: relative;
+        }
+
+        .user-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: var(--radius-full);
+            background: linear-gradient(135deg, var(--accent-primary) 0%, #818cf8 100%);
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: var(--font-sm);
+            cursor: pointer;
+        }
+
+        .user-dropdown {
+            display: none;
+            position: absolute;
+            right: 0;
+            top: 50px;
+            background: var(--bg-card);
+            min-width: 160px;
+            border-radius: var(--radius-md);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+            overflow: hidden;
+            z-index: 1000;
+            border: 1px solid var(--border-primary);
+        }
+
+        .user-dropdown.show {
+            display: block;
+        }
+
+        .dropdown-item {
+            display: block;
+            padding: var(--space-3) var(--space-4);
+            text-decoration: none;
+            color: var(--text-secondary);
+            transition: background var(--transition-fast);
+            border: none;
+            background: transparent;
+            width: 100%;
+            text-align: left;
+            font-family: inherit;
+            font-size: var(--font-base);
+            cursor: pointer;
+        }
+
+        .dropdown-item:hover {
+            background: var(--bg-hover);
+            color: var(--text-primary);
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        /* Referral Stats Widget */
+        .referral-widget {
+            background: linear-gradient(135deg, var(--bg-secondary) 0%, rgba(99, 102, 241, 0.1) 100%);
+            border-radius: var(--radius-lg);
+            padding: var(--space-6);
+            border: 1px solid var(--border-primary);
+            margin-bottom: var(--space-8);
+        }
+
+        .referral-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: var(--space-5);
+        }
+
+        .referral-title {
+            display: flex;
+            align-items: center;
+            gap: var(--space-3);
+        }
+
+        .referral-title h3 {
+            font-size: var(--font-lg);
+            font-weight: 700;
+            color: var(--text-primary);
+            margin: 0;
+        }
+
+        .referral-title-icon {
+            font-size: 24px;
+        }
+
+        .referral-stats-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: var(--space-4);
+            margin-bottom: var(--space-5);
+        }
+
+        .referral-stat {
+            text-align: center;
+            padding: var(--space-3);
+            background: var(--bg-card);
+            border-radius: var(--radius-md);
+        }
+
+        .referral-stat-value {
+            font-size: var(--font-2xl);
+            font-weight: 700;
+            color: var(--accent-primary);
+        }
+
+        .referral-stat-label {
+            font-size: var(--font-xs);
+            color: var(--text-tertiary);
+            margin-top: var(--space-1);
+        }
+
+        .referral-share-section {
+            background: var(--bg-card);
+            border-radius: var(--radius-md);
+            padding: var(--space-4);
+        }
+
+        .referral-share-label {
+            font-size: var(--font-sm);
+            color: var(--text-secondary);
+            margin-bottom: var(--space-2);
+        }
+
+        .referral-share-row {
+            display: flex;
+            gap: var(--space-2);
+        }
+
+        .referral-link-input {
+            flex: 1;
+            padding: var(--space-3);
+            background: var(--bg-primary);
+            border: 1px solid var(--border-primary);
+            border-radius: var(--radius-md);
+            color: var(--text-primary);
+            font-size: var(--font-sm);
+            font-family: monospace;
+        }
+
+        .referral-link-input:focus {
+            outline: none;
+            border-color: var(--accent-primary);
+        }
+
+        .btn-copy {
+            padding: var(--space-3) var(--space-4);
+            background: var(--accent-primary);
+            color: var(--text-primary);
+            border: none;
+            border-radius: var(--radius-md);
+            font-weight: 600;
+            cursor: pointer;
+            transition: all var(--transition-fast);
+            white-space: nowrap;
+        }
+
+        .btn-copy:hover {
+            background: #4f46e5;
+        }
+
+        .btn-copy.copied {
+            background: var(--accent-success);
+        }
+
+        .referral-source-breakdown {
+            margin-top: var(--space-4);
+            display: flex;
+            flex-wrap: wrap;
+            gap: var(--space-2);
+        }
+
+        .source-tag {
+            display: inline-flex;
+            align-items: center;
+            gap: var(--space-1);
+            padding: var(--space-1) var(--space-2);
+            background: var(--bg-hover);
+            border-radius: var(--radius-full);
+            font-size: var(--font-xs);
+            color: var(--text-secondary);
+        }
+
+        .source-tag-count {
+            background: var(--accent-primary);
+            color: white;
+            padding: 2px 6px;
+            border-radius: var(--radius-full);
+            font-weight: 600;
         }
 
         /* Mobile adjustments */
@@ -299,17 +551,18 @@
                 align-items: flex-start;
                 gap: var(--space-4);
             }
+
+            .ebay-status-card {
+                flex-direction: column;
+                text-align: center;
+            }
         }
     </style>
 </head>
 <body>
     <!-- Header -->
     <header class="app-header">
-        <a href="index-v6.html" class="header-logo">
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <circle cx="12" cy="12" r="10"/>
-                <path d="M12 6v12M6 12h12"/>
-            </svg>
+        <a href="index.html" class="header-logo">
             <span>ThriftSpot</span>
         </a>
 
@@ -347,6 +600,46 @@
                 </div>
             </div>
 
+            <!-- Referral Stats Widget -->
+            <div class="referral-widget" id="referralWidget">
+                <div class="referral-header">
+                    <div class="referral-title">
+                        <span class="referral-title-icon">🔗</span>
+                        <h3>Your Referrals</h3>
+                    </div>
+                </div>
+
+                <div class="referral-stats-row">
+                    <div class="referral-stat">
+                        <div class="referral-stat-value" id="referralCount">0</div>
+                        <div class="referral-stat-label">Total Referrals</div>
+                    </div>
+                    <div class="referral-stat">
+                        <div class="referral-stat-value" id="conversionCount">0</div>
+                        <div class="referral-stat-label">Conversions</div>
+                    </div>
+                    <div class="referral-stat">
+                        <div class="referral-stat-value" id="conversionRate">0%</div>
+                        <div class="referral-stat-label">Conversion Rate</div>
+                    </div>
+                    <div class="referral-stat">
+                        <div class="referral-stat-value" id="recentReferrals">0</div>
+                        <div class="referral-stat-label">This Week</div>
+                    </div>
+                </div>
+
+                <div class="referral-share-section">
+                    <div class="referral-share-label">Share your referral link to earn rewards:</div>
+                    <div class="referral-share-row">
+                        <input type="text" id="referralLinkInput" class="referral-link-input" readonly>
+                        <button class="btn-copy" id="copyReferralBtn" onclick="app.copyReferralLink()">Copy</button>
+                    </div>
+                    <div class="referral-source-breakdown" id="sourceBreakdown">
+                        <!-- Source tags populated dynamically -->
+                    </div>
+                </div>
+            </div>
+
             <!-- eBay Integration Status -->
             <div class="ebay-status-card" id="ebayStatusCard">
                 <div class="ebay-status-content">
@@ -365,7 +658,7 @@
                     </div>
                 </div>
                 <div>
-                    <a href="profile-v6.html" class="btn btn-primary" id="ebayActionButton">
+                    <a href="profile.html" class="btn btn-primary" id="ebayActionButton">
                         Connect eBay
                     </a>
                 </div>
@@ -374,7 +667,7 @@
             <!-- Listings Section -->
             <div class="listings-header">
                 <h2>Your Listings</h2>
-                <a href="index-v6.html" class="btn btn-primary">
+                <a href="index.html" class="btn btn-primary">
                     <span>📸</span>
                     <span>Scan New Item</span>
                 </a>
@@ -389,7 +682,7 @@
                 <div class="empty-state-icon">📦</div>
                 <h3>No listings yet</h3>
                 <p>Start scanning items to create your first listing</p>
-                <a href="index-v6.html" class="btn btn-primary btn-lg">Scan Your First Item</a>
+                <a href="index.html" class="btn btn-primary btn-lg">Scan Your First Item</a>
             </div>
         </div>
     </div>
@@ -443,8 +736,8 @@
                         <div class="user-menu-container">
                             <div class="user-avatar">${initials}</div>
                             <div class="user-dropdown">
-                                <a href="profile-v6.html" class="dropdown-item">Profile</a>
-                                <a href="dashboard-v6.html" class="dropdown-item">Dashboard</a>
+                                <a href="profile.html" class="dropdown-item">Profile</a>
+                                <a href="dashboard.html" class="dropdown-item">Dashboard</a>
                                 <button class="dropdown-item" onclick="firebase.auth().signOut()">Sign Out</button>
                             </div>
                         </div>
@@ -484,6 +777,9 @@
                         this.updateEbayStatus(userData);
                     }
 
+                    // Load referral stats
+                    await this.loadReferralStats();
+
                     // Load user pins/listings
                     const pinsSnapshot = await firebase.firestore()
                         .collection('pins')
@@ -504,14 +800,153 @@
                 }
             }
 
-            updateEbayStatus(userData) {
+            async loadReferralStats() {
+                try {
+                    // Set the referral link immediately
+                    const referralLink = `${window.location.origin}/?ref=${this.currentUser.uid}`;
+                    document.getElementById('referralLinkInput').value = referralLink;
+
+                    // Try to fetch stats from API
+                    const token = await this.currentUser.getIdToken();
+                    const response = await fetch('/api/analysis/referral-stats', {
+                        headers: {
+                            'Authorization': `Bearer ${token}`
+                        }
+                    });
+
+                    if (response.ok) {
+                        const data = await response.json();
+                        if (data.success) {
+                            this.updateReferralStats(data.stats);
+                        }
+                    } else {
+                        // Fall back to direct Firestore query
+                        await this.loadReferralStatsFromFirestore();
+                    }
+                } catch (error) {
+                    console.warn('Error loading referral stats from API, falling back to Firestore:', error);
+                    await this.loadReferralStatsFromFirestore();
+                }
+            }
+
+            async loadReferralStatsFromFirestore() {
+                try {
+                    // Query referrals collection for this user
+                    const referralsSnapshot = await firebase.firestore()
+                        .collection('referrals')
+                        .where('referrerId', '==', this.currentUser.uid)
+                        .get();
+
+                    const referrals = referralsSnapshot.docs.map(doc => doc.data());
+                    const totalReferrals = referrals.length;
+                    const conversions = referrals.filter(r => r.converted).length;
+
+                    // Calculate recent referrals (last 7 days)
+                    const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+                    const recentReferrals = referrals.filter(r => {
+                        const createdAt = r.createdAt?.toDate ? r.createdAt.toDate() : new Date(r.createdAt);
+                        return createdAt >= weekAgo;
+                    }).length;
+
+                    // Source breakdown
+                    const sourceBreakdown = {};
+                    referrals.forEach(r => {
+                        const source = r.source || 'direct';
+                        sourceBreakdown[source] = (sourceBreakdown[source] || 0) + 1;
+                    });
+
+                    this.updateReferralStats({
+                        totalReferrals,
+                        conversions,
+                        conversionRate: totalReferrals > 0 ? Math.round((conversions / totalReferrals) * 100) : 0,
+                        recentReferrals,
+                        sourceBreakdown
+                    });
+                } catch (error) {
+                    console.error('Error loading referral stats from Firestore:', error);
+                }
+            }
+
+            updateReferralStats(stats) {
+                document.getElementById('referralCount').textContent = stats.totalReferrals || 0;
+                document.getElementById('conversionCount').textContent = stats.conversions || 0;
+                document.getElementById('conversionRate').textContent = `${stats.conversionRate || 0}%`;
+                document.getElementById('recentReferrals').textContent = stats.recentReferrals || 0;
+
+                // Render source breakdown tags
+                const sourceBreakdown = document.getElementById('sourceBreakdown');
+                if (stats.sourceBreakdown && Object.keys(stats.sourceBreakdown).length > 0) {
+                    const sourceLabels = {
+                        'whatsapp': 'WhatsApp',
+                        'sms': 'SMS',
+                        'twitter': 'Twitter',
+                        'facebook': 'Facebook',
+                        'copy': 'Link Copy',
+                        'direct': 'Direct'
+                    };
+
+                    sourceBreakdown.innerHTML = Object.entries(stats.sourceBreakdown)
+                        .map(([source, count]) => `
+                            <span class="source-tag">
+                                ${sourceLabels[source] || source}
+                                <span class="source-tag-count">${count}</span>
+                            </span>
+                        `).join('');
+                } else {
+                    sourceBreakdown.innerHTML = '<span class="source-tag">No referrals yet - share your link!</span>';
+                }
+            }
+
+            async copyReferralLink() {
+                const input = document.getElementById('referralLinkInput');
+                const button = document.getElementById('copyReferralBtn');
+
+                try {
+                    await navigator.clipboard.writeText(input.value);
+                    button.textContent = 'Copied!';
+                    button.classList.add('copied');
+
+                    setTimeout(() => {
+                        button.textContent = 'Copy';
+                        button.classList.remove('copied');
+                    }, 2000);
+                } catch (error) {
+                    // Fallback for older browsers
+                    input.select();
+                    document.execCommand('copy');
+                    button.textContent = 'Copied!';
+                    button.classList.add('copied');
+
+                    setTimeout(() => {
+                        button.textContent = 'Copy';
+                        button.classList.remove('copied');
+                    }, 2000);
+                }
+            }
+
+            async updateEbayStatus(userData) {
                 const statusBadge = document.getElementById('ebayStatusBadge');
                 const statusDescription = document.getElementById('ebayStatusDescription');
                 const accountInfo = document.getElementById('ebayAccountInfo');
                 const actionButton = document.getElementById('ebayActionButton');
 
-                const ebayConnected = userData.ebayIntegration?.connected || false;
-                const ebayAccount = userData.ebayIntegration?.accountName || userData.ebayIntegration?.username;
+                // First, check the API for actual eBay connection status
+                let ebayConnected = false;
+                let ebayAccount = null;
+
+                try {
+                    const response = await window.apiClient.getEbayAccountInfo();
+                    if (response && response.accountInfo) {
+                        ebayConnected = true;
+                        ebayAccount = response.accountInfo.displayName || response.accountInfo.username;
+                        console.log('✅ eBay connected via API:', ebayAccount);
+                    }
+                } catch (error) {
+                    console.log('eBay not connected via API:', error.message);
+                    // Fall back to checking Firestore userData
+                    ebayConnected = userData.ebayIntegration?.connected || false;
+                    ebayAccount = userData.ebayIntegration?.accountName || userData.ebayIntegration?.username;
+                }
 
                 if (ebayConnected) {
                     // Connected state

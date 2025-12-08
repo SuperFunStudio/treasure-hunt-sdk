@@ -12,6 +12,10 @@
     <!-- External Libraries -->
     <script src="https://cdn.jsdelivr.net/npm/browser-image-compression@2.0.2/dist/browser-image-compression.min.js"></script>
 
+    <!-- Leaflet for Map -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
     <!-- v6 Design System -->
     <link rel="stylesheet" href="css/thriftspot-v6.css">
 
@@ -26,10 +30,7 @@
     <!-- Header -->
     <header class="app-header">
         <div class="header-logo">
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <circle cx="12" cy="12" r="10"/>
-                <path d="M12 6v12M6 12h12"/>
-            </svg>
+          
             <span>ThriftSpot</span>
         </div>
 
@@ -98,11 +99,22 @@
         </label>
     </div>
 
-    <!-- CAPTURE BUTTON (Mobile only - below rings) -->
+    <!-- CAPTURE BUTTON ROW (Mobile only - below rings) -->
     <div class="capture-button-container hidden" id="captureButtonContainer">
-        <button class="capture-button" id="captureButton">
-            📷
-        </button>
+        <div class="capture-row">
+            <button class="capture-button" id="captureButton">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="28" height="28">
+                    <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+                    <circle cx="12" cy="13" r="4"/>
+                </svg>
+            </button>
+            <label class="capture-upload-button" id="captureUploadButton" title="Upload from library">
+                <input type="file" id="fileInputCapture" accept="image/*" multiple class="sr-only">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="22" height="22">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/>
+                </svg>
+            </label>
+        </div>
     </div>
 
     <!-- ANALYSIS SCREEN (overlays everything when active) -->
@@ -163,8 +175,44 @@
         </button>
     </div>
 
+    <!-- ========== MAP MODE CONTAINER (hidden by default) ========== -->
+    <div class="map-mode-container" id="mapModeContainer">
+        <!-- Filter Bar (Floating) -->
+        <div class="filter-bar-container">
+            <div class="filter-bar" id="filterBar">
+                <button class="filter-chip active" data-category="all">All</button>
+                <button class="filter-chip" data-category="electronics">Electronics</button>
+                <button class="filter-chip" data-category="clothing">Clothing</button>
+                <button class="filter-chip" data-category="furniture">Furniture</button>
+                <button class="filter-chip" data-category="home & garden">Home</button>
+                <button class="filter-chip" data-category="collectibles">Collectibles</button>
+                <button class="filter-chip" data-category="toys">Toys</button>
+                <button class="filter-chip" data-category="sporting goods">Sports</button>
+                <button class="filter-chip" data-category="automotive">Auto</button>
+                <button class="filter-chip" data-category="books">Books</button>
+                <button class="filter-chip" data-category="tools">Tools</button>
+                <button class="filter-chip" data-category="jewelry">Jewelry</button>
+            </div>
+        </div>
+
+        <!-- Map -->
+        <div id="map"></div>
+
+        <!-- Pin Info Panel -->
+        <div class="pin-panel" id="pinPanel">
+            <div class="pin-panel-header">
+                <h3>Item Details</h3>
+                <button class="pin-panel-close" id="closePinPanel">✕</button>
+            </div>
+            <div class="pin-panel-content" id="pinPanelContent">
+                <!-- Content will be dynamically populated -->
+            </div>
+        </div>
+    </div>
+
     <!-- Mode Toggle (replaces bottom nav for main modes) -->
     <div class="mode-toggle" id="modeToggle">
+        <div class="mode-toggle-slider slide-right"></div>
         <button class="mode-btn active" id="spotBtn" data-mode="spot">
             <span>📷</span>
             <span>Spot</span>

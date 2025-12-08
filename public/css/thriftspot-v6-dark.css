@@ -1,23 +1,23 @@
 /* ThriftSpot v6 - Dark Theme (Wireframe-Aligned) */
 /* This stylesheet overlays thriftspot-v6.css to create the black background aesthetic */
 
-/* ===== DARK THEME VARIABLES ===== */
+/* ===== COOL GRAY THEME VARIABLES ===== */
 :root {
-    /* Dark Background Colors */
-    --bg-primary: #000000;
-    --bg-secondary: #0a0a0a;
-    --bg-card: #1a1a1a;
-    --bg-hover: #262626;
+    /* Cool Gray Background Colors */
+    --bg-primary: #1e293b;
+    --bg-secondary: #0f172a;
+    --bg-card: #334155;
+    --bg-hover: #475569;
 
     /* Text Colors */
-    --text-primary: #ffffff;
-    --text-secondary: #cccccc;
-    --text-tertiary: #888888;
+    --text-primary: #f1f5f9;
+    --text-secondary: #cbd5e1;
+    --text-tertiary: #94a3b8;
 
     /* Border Colors */
-    --border-primary: #333333;
-    --border-secondary: #222222;
-    --border-white: #ffffff;
+    --border-primary: #475569;
+    --border-secondary: #334155;
+    --border-white: #cbd5e1;
 
     /* Accent Colors - Keep vibrant for contrast */
     --accent-primary: #6366f1;
@@ -182,25 +182,25 @@ body {
 
 /* ===== MODE TOGGLE ===== */
 .mode-toggle {
-    background: var(--bg-primary);
+    background: var(--bg-card);
     border-color: var(--border-primary);
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.8);
 }
 
 .mode-toggle-slider {
-    background: var(--text-primary);
+    background: var(--accent-primary);
 }
 
 .mode-btn {
-    color: var(--text-primary);
+    color: var(--text-secondary) !important;
 }
 
 .mode-btn.active {
-    color: var(--bg-primary);
+    color: var(--text-primary) !important;
 }
 
 .mode-btn:hover:not(.active) {
-    color: rgba(255, 255, 255, 0.7);
+    color: var(--text-primary);
 }
 
 /* ===== PHOTO GALLERY ===== */
@@ -220,35 +220,45 @@ body {
 
 /* ===== ANALYSIS SCREEN ===== */
 .analysis-screen {
-    background: rgba(0, 0, 0, 0.95);
+    background: rgba(15, 23, 42, 0.95);
     backdrop-filter: blur(10px);
 }
 
 .analysis-heading {
     color: var(--text-primary);
+    font-size: 1.25rem !important;
+    margin-top: 1.5rem !important;
+}
+
+.analysis-stage {
+    max-width: 280px !important;
+    margin-top: 1rem !important;
 }
 
 .analysis-stage h3 {
     color: var(--text-primary);
+    font-size: 1.125rem !important;
 }
 
 .analysis-stage p {
     color: var(--text-secondary);
+    font-size: 0.9375rem !important;
 }
 
 .analysis-progress-text {
-    color: var(--text-primary);
+    color: var(--accent-primary);
+    font-size: 2rem !important;
     text-shadow:
-        -2px -2px 0 var(--bg-primary),
-        2px -2px 0 var(--bg-primary),
-        -2px 2px 0 var(--bg-primary),
-        2px 2px 0 var(--bg-primary),
-        0 0 30px rgba(255, 255, 255, 0.9);
+        -1px -1px 0 var(--bg-primary),
+        1px -1px 0 var(--bg-primary),
+        -1px 1px 0 var(--bg-primary),
+        1px 1px 0 var(--bg-primary),
+        0 0 20px rgba(99, 102, 241, 0.9);
 }
 
 .telescope-progress circle {
-    stroke: var(--text-primary);
-    filter: drop-shadow(0 0 12px rgba(255, 255, 255, 0.8));
+    stroke: var(--accent-primary);
+    filter: drop-shadow(0 0 12px rgba(99, 102, 241, 0.8));
 }
 
 /* ===== RESULTS SCREEN ===== */
@@ -497,6 +507,122 @@ body {
 
 /* CARTO Dark Matter tiles have native dark theme - no filter needed */
 
+/* Pin Panel Modal */
+.pin-panel {
+    background: var(--bg-card) !important;
+    border: 2px solid var(--border-primary);
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.8) !important;
+}
+
+.pin-panel-backdrop {
+    background: rgba(15, 23, 42, 0.9) !important;
+}
+
+.pin-panel-header {
+    background: var(--bg-card) !important;
+    border-bottom-color: var(--border-primary) !important;
+}
+
+.pin-panel-header h3 {
+    color: var(--text-primary) !important;
+}
+
+.pin-panel-content {
+    background: var(--bg-card) !important;
+}
+
+.pin-title {
+    color: var(--text-primary) !important;
+}
+
+.pin-price {
+    color: var(--text-primary) !important;
+    background: linear-gradient(135deg, var(--accent-primary) 0%, #818cf8 100%) !important;
+    -webkit-background-clip: text !important;
+    -webkit-text-fill-color: transparent !important;
+}
+
+.meta-item {
+    color: var(--text-secondary) !important;
+}
+
+.pin-description {
+    color: var(--text-secondary) !important;
+}
+
+.pin-status-badge {
+    color: var(--text-primary) !important;
+}
+
+.status-available {
+    background: rgba(34, 197, 94, 0.2) !important;
+    color: var(--accent-success) !important;
+}
+
+.status-reserved {
+    background: rgba(234, 179, 8, 0.2) !important;
+    color: var(--accent-warning) !important;
+}
+
+.status-claimed {
+    background: rgba(239, 68, 68, 0.2) !important;
+    color: var(--accent-error) !important;
+}
+
+.pin-image {
+    border-color: var(--border-primary) !important;
+}
+
+.pin-actions .btn {
+    background: var(--accent-primary) !important;
+    color: var(--text-primary) !important;
+    border: none !important;
+}
+
+.pin-actions .btn-secondary {
+    background: var(--bg-hover) !important;
+    color: var(--text-primary) !important;
+    border: 1px solid var(--border-primary) !important;
+}
+
+.pin-actions .btn:hover {
+    background: #818cf8 !important;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+}
+
+.pin-actions .btn-secondary:hover {
+    background: var(--bg-card) !important;
+    border-color: var(--border-white) !important;
+}
+
+/* Yard Sale Popup */
+.yard-sale-popup-content {
+    background: var(--bg-card) !important;
+}
+
+.yard-sale-title {
+    color: var(--text-primary) !important;
+}
+
+.yard-sale-item-card {
+    background: var(--bg-hover) !important;
+    border: 1px solid var(--border-primary) !important;
+}
+
+.yard-sale-item-card:hover {
+    background: var(--bg-card) !important;
+    border-color: var(--accent-primary) !important;
+}
+
+.yard-sale-item-name {
+    color: var(--text-primary) !important;
+}
+
+.yard-sale-item-price {
+    color: var(--text-secondary) !important;
+}
+
 .pin-detail-panel {
     background: var(--bg-card);
     border-color: var(--border-primary);
@@ -535,9 +661,14 @@ body {
 }
 
 /* ===== LISTING PREVIEW STYLES ===== */
-.listing-preview-container {
-    background: var(--bg-primary);
+.listing-preview-container,
+.page-container {
+    background: var(--bg-primary) !important;
     color: var(--text-primary);
+}
+
+.page-content {
+    background: var(--bg-primary);
 }
 
 .preview-header {
@@ -545,22 +676,34 @@ body {
     border-bottom-color: var(--border-primary);
 }
 
+.preview-header h1,
 .preview-header h2 {
-    color: var(--text-primary);
+    color: var(--text-primary) !important;
 }
 
-.preview-section {
-    background: var(--bg-card);
-    border: 1px solid var(--border-primary);
+.preview-header p {
+    color: var(--text-secondary) !important;
 }
 
-.preview-section h3 {
-    color: var(--text-primary);
+.preview-section,
+.form-section {
+    background: var(--bg-card) !important;
+    border: 1px solid var(--border-primary) !important;
+}
+
+.preview-section h3,
+.section-title {
+    color: var(--text-primary) !important;
+    border-bottom-color: var(--border-primary) !important;
 }
 
 .preview-image-card {
     background: var(--bg-card);
     border-color: var(--border-primary);
+}
+
+.preview-image {
+    border-color: var(--border-primary) !important;
 }
 
 .preview-item-title {
@@ -588,9 +731,27 @@ body {
 }
 
 .platform-badge.active {
-    background: var(--text-primary);
-    color: var(--bg-primary);
-    border-color: var(--text-primary);
+    background: var(--accent-primary);
+    color: var(--text-primary);
+    border-color: var(--accent-primary);
+}
+
+/* Form labels */
+.form-label {
+    color: var(--text-primary) !important;
+}
+
+/* Toggle labels */
+.toggle-label {
+    background: var(--bg-hover) !important;
+    border-color: var(--border-primary) !important;
+    color: var(--text-secondary) !important;
+}
+
+.toggle-input:checked + .toggle-label {
+    background: var(--accent-primary) !important;
+    border-color: var(--accent-primary) !important;
+    color: var(--text-primary) !important;
 }
 
 /* Form Inputs */
@@ -599,16 +760,22 @@ input[type="number"],
 input[type="email"],
 input[type="tel"],
 textarea,
-select {
-    background: var(--bg-card);
-    color: var(--text-primary);
-    border: 1px solid var(--border-primary);
+select,
+.form-input,
+.form-select,
+.form-textarea {
+    background: var(--bg-card) !important;
+    color: var(--text-primary) !important;
+    border: 1px solid var(--border-primary) !important;
 }
 
 input[type="text"]:focus,
 input[type="number"]:focus,
 input[type="email"]:focus,
 input[type="tel"]:focus,
+.form-input:focus,
+.form-select:focus,
+.form-textarea:focus,
 textarea:focus,
 select:focus {
     border-color: var(--text-primary);
@@ -623,6 +790,18 @@ textarea::placeholder {
 
 label {
     color: var(--text-primary);
+}
+
+/* Form sections and titles */
+.form-section,
+.section-title,
+h1, h2, h3, h4, h5, h6 {
+    color: var(--text-primary) !important;
+}
+
+.section-description,
+p {
+    color: var(--text-secondary) !important;
 }
 
 /* Toggle switches */
@@ -648,14 +827,51 @@ label {
 }
 
 /* ===== SUCCESS MODAL ===== */
+.success-modal-overlay {
+    background: rgba(15, 23, 42, 0.9) !important;
+}
+
 .success-modal {
-    background: rgba(0, 0, 0, 0.95);
+    background: var(--bg-card) !important;
+    border: 2px solid var(--border-primary);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.8);
 }
 
 .success-modal-content {
-    background: var(--bg-card);
-    border: 2px solid var(--border-white);
-    box-shadow: 0 8px 32px rgba(255, 255, 255, 0.1);
+    background: var(--bg-card) !important;
+}
+
+.success-title {
+    color: var(--text-primary) !important;
+}
+
+.success-subtitle {
+    color: var(--text-secondary) !important;
+}
+
+.success-card {
+    background: var(--bg-hover) !important;
+    border-color: var(--border-primary) !important;
+}
+
+.success-card-image {
+    background: var(--bg-secondary) !important;
+}
+
+.success-card-body {
+    background: var(--bg-hover) !important;
+}
+
+.success-card-title {
+    color: var(--text-primary) !important;
+}
+
+.success-card-price {
+    color: var(--accent-primary) !important;
+}
+
+.success-card-status {
+    color: var(--text-secondary) !important;
 }
 
 .success-modal h2 {
@@ -677,6 +893,50 @@ label {
 .success-platforms {
     background: var(--bg-hover);
     border-color: var(--border-primary);
+}
+
+.success-actions .btn {
+    background: var(--accent-primary) !important;
+    color: var(--text-primary) !important;
+    border: none !important;
+}
+
+.success-actions .btn-secondary {
+    background: var(--bg-hover) !important;
+    color: var(--text-primary) !important;
+    border: 1px solid var(--border-primary) !important;
+}
+
+/* Ensure proper contrast for all text elements */
+.preview-card,
+.listing-card,
+.card-content {
+    background: var(--bg-card) !important;
+    color: var(--text-primary) !important;
+}
+
+.preview-image,
+.image-grid img {
+    border-color: var(--border-primary) !important;
+}
+
+/* Fix button contrast */
+.btn-primary {
+    background: var(--accent-primary) !important;
+    color: var(--text-primary) !important;
+    border-color: var(--accent-primary) !important;
+}
+
+.btn-secondary,
+.btn-outline {
+    background: transparent !important;
+    color: var(--text-primary) !important;
+    border-color: var(--border-primary) !important;
+}
+
+.btn-secondary:hover,
+.btn-outline:hover {
+    background: var(--bg-hover) !important;
 }
 
 .success-platform-item {

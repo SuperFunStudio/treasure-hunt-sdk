@@ -295,37 +295,65 @@ function getStandardCategoryPricing(enhancedItemData, condition) {
   
   let basePrice = pricingTier.base;
   
-  // Category-specific brand multipliers
+  // Category-specific brand multipliers - multipliers relative to base price
   const categoryBrandMultipliers = {
+    // Laptop brands - applied to $250 base
+    'laptop': {
+      'apple': 1.8, 'microsoft': 1.3, 'dell': 0.9, 'hp': 0.85,
+      'lenovo': 0.95, 'asus': 0.8, 'acer': 0.7
+    },
+    // Desktop brands - applied to $180 base
+    'desktop': {
+      'apple': 1.6, 'hp': 0.8, 'dell': 0.85, 'lenovo': 0.8
+    },
+    // Tablet brands - applied to $150 base
+    'tablet': {
+      'apple': 1.8, 'samsung': 0.9, 'microsoft': 1.2, 'amazon': 0.5
+    },
+    // Smartphone brands - applied to $120 base
+    'smartphone': {
+      'apple': 1.8, 'samsung': 0.95, 'google': 0.85, 'oneplus': 0.7
+    },
+    // Gaming console brands - applied to $150 base
+    'gaming_console': {
+      'sony': 1.1, 'microsoft': 1.0, 'nintendo': 1.3
+    },
+    // Camera brands - applied to $150 base
+    'camera': {
+      'canon': 1.1, 'nikon': 1.1, 'sony': 1.3, 'fujifilm': 1.2, 'gopro': 0.9
+    },
+    // Audio brands - applied to $50 base
+    'audio': {
+      'apple': 1.4, 'bose': 1.3, 'sony': 1.2, 'jbl': 1.0, 'beats': 1.1
+    },
+    // Generic electronics - applied to $30 base
     'electronics': {
-      'apple': 2.5, 'samsung': 1.8, 'sony': 1.6, 'microsoft': 1.7,
-      'nintendo': 1.9, 'hp': 1.2, 'dell': 1.1, 'canon': 1.4,
-      'nikon': 1.4, 'bose': 1.6, 'jbl': 1.3
+      'apple': 1.3, 'samsung': 0.9, 'sony': 1.0, 'lg': 0.85
     },
     'clothing': {
-      'nike': 1.8, 'adidas': 1.7, 'levi': 1.4, 'gucci': 3.0,
-      'coach': 2.2, 'ralph lauren': 1.6, 'calvin klein': 1.3,
-      'tommy hilfiger': 1.2, 'gap': 1.1, 'old navy': 0.9
+      'nike': 0.9, 'adidas': 0.85, 'levi': 0.95, 'gucci': 2.0,
+      'coach': 1.5, 'ralph lauren': 1.1, 'calvin klein': 1.0,
+      'tommy hilfiger': 0.9, 'gap': 0.8, 'old navy': 0.6
     },
     'footwear': {
-      'nike': 2.0, 'jordan': 2.5, 'adidas': 1.8, 'converse': 1.3,
-      'vans': 1.2, 'puma': 1.3, 'new balance': 1.4, 'skechers': 1.0
+      'nike': 1.1, 'jordan': 1.6, 'adidas': 0.95, 'converse': 0.8,
+      'vans': 0.75, 'puma': 0.85, 'new balance': 0.9, 'skechers': 0.7
     },
     'furniture': {
-      'west elm': 1.5, 'pottery barn': 1.6, 'restoration hardware': 2.0,
-      'cb2': 1.4, 'crate & barrel': 1.3, 'ikea': 0.8, 'wayfair': 0.9
+      'west elm': 0.9, 'pottery barn': 0.95, 'restoration hardware': 1.1,
+      'cb2': 0.8, 'crate & barrel': 0.85, 'ikea': 0.4, 'wayfair': 0.6
     },
     'tools': {
-      'dewalt': 1.8, 'milwaukee': 1.7, 'makita': 1.6, 'craftsman': 1.3,
-      'ryobi': 1.1, 'black & decker': 1.0, 'porter cable': 1.2
+      'dewalt': 1.2, 'milwaukee': 1.15, 'makita': 1.1, 'craftsman': 0.9,
+      'ryobi': 0.75, 'black & decker': 0.7, 'porter cable': 0.85
     },
     'sporting goods': {
-      'nike': 1.6, 'adidas': 1.5, 'under armour': 1.3, 'wilson': 1.2,
-      'spalding': 1.1, 'callaway': 1.4, 'titleist': 1.5
+      'nike': 1.0, 'adidas': 0.95, 'under armour': 0.9, 'wilson': 0.85,
+      'spalding': 0.8, 'callaway': 1.1, 'titleist': 1.2
     },
     'jewelry': {
-      'tiffany': 3.0, 'cartier': 4.0, 'rolex': 5.0, 'omega': 2.5,
-      'tag heuer': 2.0, 'citizen': 1.2, 'seiko': 1.1, 'fossil': 1.0
+      'tiffany': 2.0, 'cartier': 2.5, 'rolex': 3.0, 'omega': 2.0,
+      'tag heuer': 1.6, 'citizen': 1.0, 'seiko': 0.95, 'fossil': 0.8
     }
   };
   
@@ -340,24 +368,43 @@ function getStandardCategoryPricing(enhancedItemData, condition) {
     basePrice *= 1.1; // Generic brand bonus
   }
   
-  // Standard condition multipliers
+  // Standard condition multipliers - balanced for resale market
   const conditionMultipliers = {
-  'excellent': 1.0,
-  'good': 0.75,      // Was 0.85 - too high
-  'fair': 0.50,      // Was 0.65 - too high
-  'poor': 0.25,      // Was 0.35 - way too high
-  'parts_only': 0.15  // NEW - for non-functional items
-};
+    'excellent': 1.0,   // Like new, minimal wear
+    'good': 0.85,       // Normal wear, fully functional
+    'fair': 0.65,       // Visible wear, functional
+    'poor': 0.40,       // Heavy wear, may need repair
+    'parts_only': 0.20  // For non-functional items
+  };
   
   basePrice *= (conditionMultipliers[condition] || 0.75);
-  
+
   // Additional adjustments
   if (enhancedItemData.condition?.usableAsIs === false) {
     basePrice *= 0.6; // Needs repair
   }
-  
+
   if (enhancedItemData.model && enhancedItemData.model !== 'Unknown') {
     basePrice *= 1.05; // Known model bonus
+  }
+
+  // Quantity adjustment - multiply price for sets/multiple items
+  const itemCount = enhancedItemData.itemCount || 1;
+  const isSet = enhancedItemData.isSet === true;
+  if (itemCount > 1 && isSet) {
+    // Sets are worth more than single items but not a straight multiplier
+    // A pair of chairs might be 1.8x a single chair, not 2x
+    const quantityMultiplier = 1 + ((itemCount - 1) * 0.85);
+    basePrice *= quantityMultiplier;
+    console.log(`Applied quantity multiplier for set of ${itemCount}: ${quantityMultiplier.toFixed(2)}x`);
+  }
+
+  // Size category adjustment - miniatures are worth less than full-size
+  const sizeCategory = enhancedItemData.sizeCategory || 'full-size';
+  if (sizeCategory === 'miniature') {
+    // Miniatures/toys typically worth 5-20% of full-size equivalent
+    basePrice *= 0.15;
+    console.log(`Applied miniature size adjustment: 0.15x`);
   }
   
   // Special category adjustments

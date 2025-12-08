@@ -6,15 +6,30 @@
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
-    <meta name="theme-color" content="#000000">
-    <title>ThriftSpot - Spot & Thrift</title>
+    <meta name="theme-color" content="#0f172a">
+    
+    <!-- Open Graph for viral sharing -->
+    <meta property="og:title" content="ThriftSpot - Discover local treasures">
+    <meta property="og:description" content="Scan items to find their value. Share discoveries with friends.">
+    <meta property="og:image" content="https://thriftspot.app/assets/og-image.png">
+    <meta property="og:url" content="https://thriftspot.app">
+    <meta property="og:type" content="website">
+    
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="ThriftSpot - Discover local treasures">
+    <meta name="twitter:description" content="Scan items to find their value. Share discoveries with friends.">
+    
+    <title>ThriftSpot - Discover local treasures</title>
 
     <!-- External Libraries -->
     <script src="https://cdn.jsdelivr.net/npm/browser-image-compression@2.0.2/dist/browser-image-compression.min.js"></script>
 
-    <!-- v6 Design System -->
-    <link rel="stylesheet" href="css/thriftspot-v6.css">
-    <link rel="stylesheet" href="css/thriftspot-v6-dark.css">
+    <!-- Leaflet CSS for Map Mode -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+    <!-- v7 Design System -->
+    <link rel="stylesheet" href="css/thriftspot-v7.css">
 
     <!-- Firebase -->
     <script src="/__/firebase/10.7.1/firebase-app-compat.js"></script>
@@ -26,7 +41,7 @@
 <body>
     <!-- Header -->
     <header class="app-header">
-        <button class="hamburger-menu" id="hamburgerMenu">
+        <button class="hamburger-menu" id="hamburgerMenu" aria-label="Menu">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
                 <line x1="3" y1="12" x2="21" y2="12"></line>
                 <line x1="3" y1="6" x2="21" y2="6"></line>
@@ -35,10 +50,6 @@
         </button>
 
         <div class="header-logo">
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <circle cx="12" cy="12" r="10"/>
-                <path d="M12 6v12M6 12h12"/>
-            </svg>
             <span>ThriftSpot</span>
         </div>
 
@@ -76,131 +87,314 @@
         </button>
     </div>
 
-    <!-- TELESCOPE RINGS - ALWAYS VISIBLE -->
-    <div class="telescope-container" id="telescopeContainer">
-        <div class="telescope-rings">
-            <div class="telescope-ring"></div>
-            <div class="telescope-ring"></div>
-            <div class="telescope-ring"></div>
-        </div>
+    <!-- ==================== SCAN MODE ==================== -->
+    <div class="scan-mode" id="scanMode">
+        <!-- TELESCOPE RINGS - ALWAYS VISIBLE -->
+        <div class="telescope-container" id="telescopeContainer">
+            <div class="telescope-rings">
+                <div class="telescope-ring"></div>
+                <div class="telescope-ring"></div>
+                <div class="telescope-ring"></div>
+            </div>
 
-        <!-- Progress ring overlay (only visible during analysis) -->
-        <div class="telescope-progress" id="telescopeProgress">
-            <svg viewBox="0 0 200 200">
-                <circle
-                    cx="100"
-                    cy="100"
-                    r="95"
-                    id="progressCircle"
-                    style="stroke-dasharray: 597; stroke-dashoffset: 597;">
-                </circle>
-            </svg>
-        </div>
-    </div>
-
-    <!-- CENTER CONTENT - IN THE MIDDLE OF RINGS -->
-    <div class="telescope-center" id="telescopeCenter">
-        <!-- MOBILE: Camera viewfinder -->
-        <div class="camera-viewfinder hidden" id="cameraViewfinder">
-            <video id="cameraVideo" class="camera-video" autoplay playsinline muted></video>
-            <div class="viewfinder-overlay">
-                <div class="viewfinder-crosshair"></div>
+            <!-- Progress ring overlay (only visible during analysis) -->
+            <div class="telescope-progress" id="telescopeProgress">
+                <svg viewBox="0 0 200 200">
+                    <circle
+                        cx="100"
+                        cy="100"
+                        r="95"
+                        id="progressCircle"
+                        style="stroke-dasharray: 597; stroke-dashoffset: 597;">
+                    </circle>
+                </svg>
             </div>
         </div>
 
-        <!-- DESKTOP: Upload button -->
-        <label class="upload-trigger" id="uploadTrigger">
-            <input type="file" id="fileInput" accept="image/*" multiple class="sr-only">
-            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/>
-            </svg>
-            <p>Upload Photos</p>
-        </label>
-    </div>
-
-    <!-- PHOTO GALLERY (shows uploaded/captured photos) -->
-    <div class="photo-gallery hidden" id="photoGallery">
-        <!-- Thumbnails will be added here dynamically -->
-    </div>
-
-    <!-- SCAN BUTTON (always visible, disabled until photos added) -->
-    <div class="analyze-button-container" id="analyzeButtonContainer">
-        <div class="button-actions">
-            <button class="capture-button-mobile" id="captureButton">
-                📷
-            </button>
-            <button class="upload-button-mobile" id="uploadButtonMobile">
-                <input type="file" id="fileInputMobile" accept="image/*" multiple>
-                📁
-            </button>
-            <button class="analyze-button" id="analyzeButton" disabled>
-                Analyze
-            </button>
-        </div>
-        <div class="token-counter" id="tokenCounter">
-            Tokens remaining: <span id="tokenCountDisplay">--</span> 🪙
-        </div>
-    </div>
-
-    <!-- ANALYSIS SCREEN (overlays everything when active) -->
-    <div class="analysis-screen" id="analysisScreen">
-        <h2 class="analysis-heading">Analyzing condition...</h2>
-
-        <div class="analysis-stage" id="analysisStage">
-            <h3 id="stageName">Starting Analysis</h3>
-            <p id="stageDescription">Please wait...</p>
-        </div>
-
-        <div class="analysis-progress-text" id="progressText">0%</div>
-    </div>
-
-    <!-- RESULTS SCREEN (overlays everything when active) -->
-    <div class="results-screen" id="resultsScreen">
-        <div class="results-header">
-            <h2>Thrift Spotted!</h2>
-        </div>
-
-        <div class="results-item-card">
-            <h3 class="results-item-name" id="itemName">Loading...</h3>
-
-            <div class="results-stats">
-                <div class="results-stat">
-                    <div class="results-stat-label">Estimated Value</div>
-                    <div class="results-stat-value" id="estimatedValue">$0</div>
-                </div>
-                <div class="results-stat">
-                    <div class="results-stat-label">Condition</div>
-                    <span class="condition-badge" id="conditionBadge">good</span>
+        <!-- CENTER CONTENT - IN THE MIDDLE OF RINGS -->
+        <div class="telescope-center" id="telescopeCenter">
+            <!-- MOBILE: Camera viewfinder -->
+            <div class="camera-viewfinder hidden" id="cameraViewfinder">
+                <video id="cameraVideo" class="camera-video" autoplay playsinline muted></video>
+                <div class="viewfinder-overlay">
+                    <div class="viewfinder-crosshair"></div>
                 </div>
             </div>
 
-            <!-- AI Description -->
-            <div class="ai-description-section">
-                <h4>AI-Generated Description</h4>
-                <p class="ai-description-text" id="aiDescription">
-                    Loading description...
+            <!-- DESKTOP: Upload button -->
+            <label class="upload-trigger" id="uploadTrigger">
+                <input type="file" id="fileInput" accept="image/*" multiple class="sr-only">
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/>
+                </svg>
+                <p>Upload Photos</p>
+            </label>
+        </div>
+
+        <!-- PHOTO GALLERY (shows uploaded/captured photos) -->
+        <div class="photo-gallery hidden" id="photoGallery">
+            <!-- Thumbnails will be added here dynamically -->
+        </div>
+
+        <!-- SCAN BUTTON AREA -->
+        <div class="scan-action-area" id="scanActionArea">
+            <button class="scan-button" id="analyzeButton" disabled>
+                <span class="scan-button-icon">🔍</span>
+                <span class="scan-button-text">Scan</span>
+            </button>
+        </div>
+
+        <!-- Mobile capture row (capture button + upload button) -->
+        <div class="capture-row" id="captureRow">
+            <button class="capture-button-floating" id="captureButton">
+                <div class="capture-button-inner"></div>
+            </button>
+            <label class="upload-button-floating" id="uploadButtonFloating" title="Upload from gallery">
+                <input type="file" id="fileInputCapture" accept="image/*" multiple>
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                    <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                    <polyline points="21 15 16 10 5 21"></polyline>
+                </svg>
+            </label>
+        </div>
+
+        <!-- Token counter (hidden until relevant) -->
+        <div class="token-counter hidden" id="tokenCounter">
+            <span class="token-icon">🪙</span>
+            <span id="tokenCountDisplay">15</span>
+        </div>
+    </div>
+
+    <!-- ==================== RESULTS MODE ==================== -->
+    <div class="results-mode hidden" id="resultsMode">
+        <!-- Hero Section: The Big Question Answered -->
+        <div class="results-hero">
+            <div class="results-verdict" id="resultsVerdict">
+                <span class="verdict-emoji">💰</span>
+                <span class="verdict-text">Worth it!</span>
+            </div>
+            
+            <div class="hero-price" id="heroPrice">
+                <span class="price-currency">$</span>
+                <span class="price-value">450</span>
+            </div>
+            
+            <div class="hero-context" id="heroContext">
+                Similar items sold for $198 - $575
+            </div>
+            
+            <h2 class="item-name" id="itemName">Victorian-style octagonal table</h2>
+            
+            <div class="condition-badge" id="conditionBadge">Fair</div>
+        </div>
+
+        <!-- PRIMARY ACTION: Share This Find -->
+        <div class="share-section">
+            <button class="share-button-primary" id="shareButton">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="18" cy="5" r="3"></circle>
+                    <circle cx="6" cy="12" r="3"></circle>
+                    <circle cx="18" cy="19" r="3"></circle>
+                    <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line>
+                    <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line>
+                </svg>
+                <span>Share This Find</span>
+            </button>
+            <p class="share-hint">Let friends know about this treasure!</p>
+        </div>
+
+        <!-- Decision Section: What to do with it? -->
+        <div class="decision-section">
+            <p class="decision-prompt">What do you want to do?</p>
+            
+            <div class="decision-buttons">
+                <button class="decision-btn" id="leaveItBtn">
+                    <span class="decision-icon">📍</span>
+                    <span class="decision-label">Leave it</span>
+                </button>
+                
+                <button class="decision-btn" id="keepItBtn">
+                    <span class="decision-icon">💵</span>
+                    <span class="decision-label">Keep & sell</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- AI Description (collapsible) -->
+        <details class="details-section" id="aiDetailsSection">
+            <summary class="details-summary">
+                <span>AI Analysis</span>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="6 9 12 15 18 9"></polyline>
+                </svg>
+            </summary>
+            <div class="details-content">
+                <p class="ai-description" id="aiDescription">
+                    Antique wooden octagonal table with ornate carved pedestal base and decorative inlay top. Shows age-appropriate wear with some surface scratches and patina.
                 </p>
             </div>
+        </details>
 
-            <!-- eBay Comparable Listings -->
-            <div class="ebay-listings" id="ebayListingsSection">
-                <h4>Comparable eBay Listings</h4>
-                <div id="ebayListingsContainer">
+        <!-- Comparable eBay Listings (collapsible) -->
+        <details class="details-section" id="ebayDetailsSection">
+            <summary class="details-summary">
+                <span>Comparable Sales</span>
+                <span class="details-count" id="ebayCount">10 items</span>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="6 9 12 15 18 9"></polyline>
+                </svg>
+            </summary>
+            <div class="details-content">
+                <div class="ebay-listings" id="ebayListingsContainer">
                     <!-- Will be populated dynamically -->
                 </div>
             </div>
+        </details>
 
-            <button class="btn btn-primary btn-full btn-lg" id="createListingBtn">
-                Preview Listing
-            </button>
+        <!-- Uploaded Photos -->
+        <div class="uploaded-photos-section" id="uploadedPhotosSection">
+            <h4>Your Photos</h4>
+            <div class="uploaded-photos-grid" id="uploadedPhotosGrid">
+                <!-- Will be populated dynamically -->
+            </div>
         </div>
 
-        <button class="btn btn-primary btn-full" id="scanAnotherBtn" style="margin-top: 16px;">
-            Scan Another Item
-        </button>
+        <!-- Scan Another -->
+        <div class="results-bottom-actions">
+            <button class="scan-another-btn" id="scanAnotherBtn">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="23 4 23 10 17 10"></polyline>
+                    <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
+                </svg>
+                Scan Another
+            </button>
+        </div>
     </div>
 
-    <!-- Mode Toggle (replaces bottom nav for main modes) -->
+    <!-- ==================== SHARE MODAL ==================== -->
+    <div class="share-modal-overlay hidden" id="shareModalOverlay">
+        <div class="share-modal" id="shareModal">
+            <button class="share-modal-close" id="shareModalClose">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
+            </button>
+            
+            <div class="share-modal-content">
+                <h3>Share This Find</h3>
+                
+                <div class="share-preview-card" id="sharePreviewCard">
+                    <div class="share-preview-image" id="sharePreviewImage"></div>
+                    <div class="share-preview-info">
+                        <div class="share-preview-title" id="sharePreviewTitle">Victorian Table</div>
+                        <div class="share-preview-price" id="sharePreviewPrice">$450</div>
+                    </div>
+                </div>
+                
+                <div class="share-link-section">
+                    <input type="text" class="share-link-input" id="shareLinkInput" readonly>
+                    <button class="copy-link-btn" id="copyLinkBtn">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                        </svg>
+                        Copy
+                    </button>
+                </div>
+                
+                <div class="share-buttons-grid">
+                    <button class="share-option-btn" data-platform="sms">
+                        <span class="share-option-icon">💬</span>
+                        <span>Message</span>
+                    </button>
+                    <button class="share-option-btn" data-platform="whatsapp">
+                        <span class="share-option-icon">📱</span>
+                        <span>WhatsApp</span>
+                    </button>
+                    <button class="share-option-btn" data-platform="twitter">
+                        <span class="share-option-icon">𝕏</span>
+                        <span>Twitter</span>
+                    </button>
+                    <button class="share-option-btn" data-platform="facebook">
+                        <span class="share-option-icon">📘</span>
+                        <span>Facebook</span>
+                    </button>
+                </div>
+
+                <!-- View on Map button (shown after pin creation) -->
+                <div class="share-modal-actions hidden" id="shareModalActions">
+                    <button class="view-on-map-btn" id="viewOnMapBtn">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"></polygon>
+                            <line x1="8" y1="2" x2="8" y2="18"></line>
+                            <line x1="16" y1="6" x2="16" y2="22"></line>
+                        </svg>
+                        View on Map
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== PIN TO MAP MODAL ==================== -->
+    <div class="pin-modal-overlay hidden" id="pinModalOverlay">
+        <div class="pin-modal" id="pinModal">
+            <div class="pin-modal-header">
+                <h3>📍 Pin to Map</h3>
+                <button class="pin-modal-close" id="pinModalClose">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                </button>
+            </div>
+            
+            <div class="pin-modal-content">
+                <div class="pin-item-preview">
+                    <div class="pin-item-image" id="pinItemImage"></div>
+                    <div class="pin-item-info">
+                        <div class="pin-item-name" id="pinItemName">Victorian Table</div>
+                        <div class="pin-item-value" id="pinItemValue">$450</div>
+                    </div>
+                </div>
+                
+                <div class="pin-form-group">
+                    <label>Where did you find this?</label>
+                    <input type="text" class="pin-input" id="pinLocationInput" placeholder="Enter address or use current location">
+                    <button class="use-location-btn" id="useLocationBtn">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <circle cx="12" cy="12" r="3"></circle>
+                        </svg>
+                        Use my location
+                    </button>
+                </div>
+                
+                <div class="pin-form-group">
+                    <label>Notes (optional)</label>
+                    <textarea class="pin-textarea" id="pinNotesInput" placeholder="e.g., On the curb, behind the blue house"></textarea>
+                </div>
+                
+                <div class="pin-form-group">
+                    <label>Status</label>
+                    <div class="status-toggle">
+                        <button class="status-option active" data-status="free">🆓 Free</button>
+                        <button class="status-option" data-status="forsale">💰 For Sale</button>
+                    </div>
+                </div>
+                
+                <button class="pin-submit-btn" id="pinSubmitBtn">
+                    <span>📍 Pin & Share</span>
+                </button>
+                
+                <p class="pin-share-note">After pinning, you'll be able to share the location with friends!</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Mode Toggle -->
     <div class="mode-toggle" id="modeToggle">
         <div class="mode-toggle-slider"></div>
         <button class="mode-btn" id="thriftBtn" data-mode="thrift">
@@ -213,9 +407,59 @@
         </button>
     </div>
 
+    <!-- ==================== MAP MODE ==================== -->
+    <div class="map-mode hidden" id="mapMode">
+        <!-- Search and Filter -->
+        <div class="map-search-container">
+            <div class="map-search-wrapper">
+                <svg class="map-search-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="11" cy="11" r="8"></circle>
+                    <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                </svg>
+                <input type="text" class="map-search-input" id="mapSearchInput" placeholder="Search items nearby...">
+                <div class="map-search-suggestions hidden" id="mapSearchSuggestions"></div>
+            </div>
+            <div class="map-filter-wrapper">
+                <div class="map-filter" id="mapCategoryFilter">
+                    <button class="map-filter-chip active" data-category="all">All</button>
+                    <button class="map-filter-chip" data-category="electronics">📱 Electronics</button>
+                    <button class="map-filter-chip" data-category="furniture">🪑 Furniture</button>
+                    <button class="map-filter-chip" data-category="clothing">👕 Clothing</button>
+                    <button class="map-filter-chip" data-category="tools">🔧 Tools</button>
+                    <button class="map-filter-chip" data-category="books">📚 Books</button>
+                    <button class="map-filter-chip" data-category="toys">🧸 Toys</button>
+                    <button class="map-filter-chip" data-category="sports">⚽ Sports</button>
+                    <button class="map-filter-chip" data-category="automotive">🚗 Automotive</button>
+                    <button class="map-filter-chip" data-category="jewelry">💎 Jewelry</button>
+                    <button class="map-filter-chip" data-category="collectibles">🏆 Collectibles</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Map Container -->
+        <div class="map-container">
+            <div id="map"></div>
+        </div>
+
+        <!-- Pin Panel Backdrop -->
+        <div class="map-pin-panel-backdrop hidden" id="mapPinPanelBackdrop"></div>
+
+        <!-- Pin Info Panel -->
+        <div class="map-pin-panel hidden" id="mapPinPanel">
+            <div class="map-pin-panel-header">
+                <h3 id="mapPinPanelTitle"></h3>
+                <button class="map-pin-panel-close" id="closeMapPinPanel">✕</button>
+            </div>
+            <div class="map-pin-panel-content" id="mapPinPanelContent"></div>
+        </div>
+    </div>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
     <!-- JavaScript -->
     <script src="shared/api-client.js"></script>
     <script src="js/token-system.js"></script>
-    <script src="js/app-v6.js"></script>
+    <script src="js/app-v7.js"></script>
 </body>
 </html>

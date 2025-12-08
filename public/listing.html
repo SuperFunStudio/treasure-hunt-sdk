@@ -2,75 +2,47 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#0f172a">
     <title>Item Listing - ThriftSpot</title>
 
-    <!-- Design System CSS -->
-    <link rel="stylesheet" href="css/thriftspot-design-system.css">
-    <link rel="stylesheet" href="css/thriftspot-v6.css">
-    <link rel="stylesheet" href="css/thriftspot-v6-dark.css">
+    <!-- v7 Design System -->
+    <link rel="stylesheet" href="css/thriftspot-v7.css">
 
     <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 
     <style>
-        /* Design system handles base reset and typography */
-
-        /* Page-specific styles using design system tokens */
-        .header {
-            background: linear-gradient(135deg, var(--primary-500) 0%, #764ba2 100%);
-            color: white;
-            padding: 0 var(--space-6);
-            position: sticky;
-            top: 0;
-            z-index: var(--z-sticky);
-            box-shadow: var(--elevation-2);
+        /* ===== PAGE LAYOUT ===== */
+        body {
+            padding-top: 60px;
         }
 
-        .header-content {
-            max-width: 1200px;
+        .page-container {
+            max-width: 900px;
             margin: 0 auto;
-            height: 70px;
+            padding: var(--space-4);
+            padding-bottom: var(--space-8);
         }
 
-        .logo {
-            font-size: var(--text-2xl);
-            font-weight: var(--font-bold);
-            letter-spacing: var(--tracking-wide);
-        }
-
-        .nav-btn {
-            padding: var(--space-3) var(--space-5);
-            border: 2px solid rgba(255,255,255,0.3);
-            background: rgba(255,255,255,0.1);
-            border-radius: var(--radius-lg);
-            color: white;
-            font-size: var(--text-sm);
-            font-weight: var(--font-semibold);
-            transition: all var(--transition-fast);
-            backdrop-filter: blur(10px);
-        }
-
-        .nav-btn:hover {
-            background: rgba(255,255,255,0.2);
-            border-color: rgba(255,255,255,0.5);
-            text-decoration: none;
-        }
-
+        /* ===== LOADING STATE ===== */
         .loading {
             text-align: center;
-            padding: var(--space-16) var(--space-6);
-            color: var(--gray-600);
+            padding: var(--space-8) var(--space-4);
+            color: var(--text-tertiary);
         }
 
         .spinner {
-            border: 4px solid var(--gray-200);
-            border-top: 4px solid var(--primary-500);
+            border: 3px solid var(--border-primary);
+            border-top: 3px solid var(--accent-primary);
             border-radius: var(--radius-full);
-            width: 60px;
-            height: 60px;
+            width: 40px;
+            height: 40px;
             animation: spin 1s linear infinite;
-            margin: 0 auto var(--space-5);
+            margin: 0 auto var(--space-3);
         }
 
         @keyframes spin {
@@ -78,269 +50,136 @@
             100% { transform: rotate(360deg); }
         }
 
+        /* ===== LISTING GRID ===== */
         .listing-grid {
             display: grid;
-            grid-template-columns: 1fr 400px;
-            gap: var(--space-8);
-            margin-bottom: var(--space-10);
+            grid-template-columns: 1fr 320px;
+            gap: var(--space-4);
         }
 
+        @media (max-width: 768px) {
+            .listing-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* ===== MAIN CONTENT ===== */
         .main-content {
-            background: white;
-            border-radius: var(--radius-2xl);
-            padding: var(--space-8);
-            box-shadow: var(--elevation-2);
+            background: var(--bg-secondary);
+            border-radius: var(--radius-md);
+            padding: var(--space-4);
+            border: 1px solid var(--border-primary);
         }
 
+        /* ===== IMAGE GALLERY ===== */
         .image-gallery {
-            margin-bottom: var(--space-8);
+            margin-bottom: var(--space-4);
         }
 
         .main-image {
             width: 100%;
-            height: 500px;
+            height: 300px;
             object-fit: cover;
-            border-radius: var(--radius-xl);
-            margin-bottom: var(--space-4);
-            border: 2px solid var(--gray-200);
+            border-radius: var(--radius-md);
+            margin-bottom: var(--space-2);
+            border: 1px solid var(--border-primary);
+            background: var(--bg-card);
         }
 
         .thumbnail-strip {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
-            gap: var(--space-3);
+            display: flex;
+            gap: var(--space-2);
+            overflow-x: auto;
+            padding-bottom: var(--space-2);
         }
 
         .thumbnail {
-            width: 100%;
-            height: 80px;
+            width: 60px;
+            height: 60px;
             object-fit: cover;
-            border-radius: var(--radius-base);
+            border-radius: var(--radius-sm);
             cursor: pointer;
             border: 2px solid transparent;
             transition: all var(--transition-fast);
+            background: var(--bg-card);
+            flex-shrink: 0;
         }
 
-        .thumbnail:hover,
+        .thumbnail:hover {
+            border-color: var(--text-tertiary);
+        }
+
         .thumbnail.active {
-            border-color: var(--primary-500);
-            transform: scale(1.05);
+            border-color: var(--accent-primary);
         }
 
+        /* ===== ITEM DETAILS ===== */
         .item-details h1 {
-            font-size: var(--text-4xl);
-            color: var(--gray-900);
-            margin-bottom: var(--space-4);
-            line-height: var(--leading-tight);
-            font-weight: var(--font-semibold);
+            font-size: var(--font-xl);
+            color: var(--text-primary);
+            margin-bottom: var(--space-2);
+            line-height: 1.3;
+            font-weight: 700;
         }
 
         .item-meta {
             display: flex;
-            gap: var(--space-4);
+            gap: var(--space-2);
             flex-wrap: wrap;
-            margin-bottom: var(--space-6);
+            margin-bottom: var(--space-4);
         }
 
         .meta-badge {
-            padding: var(--space-2) var(--space-4);
-            background: var(--primary-100);
-            color: var(--primary-700);
+            padding: var(--space-1) var(--space-2);
+            background: var(--bg-card);
+            color: var(--text-secondary);
             border-radius: var(--radius-full);
-            font-size: var(--text-sm);
-            font-weight: var(--font-semibold);
+            font-size: var(--font-xs);
+            font-weight: 500;
         }
 
-        .meta-badge.condition-excellent {
-            background: var(--success-light);
-            color: var(--success-dark);
+        .meta-badge.condition-excellent,
+        .meta-badge.condition-like-new {
+            background: rgba(34, 197, 94, 0.15);
+            color: var(--accent-success);
         }
 
         .meta-badge.condition-good {
-            background: var(--warning-light);
-            color: var(--warning-dark);
+            background: rgba(245, 158, 11, 0.15);
+            color: var(--accent-warning);
         }
 
+        .meta-badge.condition-fair {
+            background: rgba(239, 68, 68, 0.15);
+            color: var(--accent-error);
+        }
+
+        /* ===== DESCRIPTION ===== */
         .description-section {
-            margin-bottom: var(--space-8);
+            margin-bottom: var(--space-4);
         }
 
         .description-section h3 {
-            font-size: var(--text-xl);
-            color: var(--gray-900);
-            margin-bottom: var(--space-4);
-            font-weight: var(--font-semibold);
+            font-size: var(--font-sm);
+            color: var(--text-primary);
+            margin-bottom: var(--space-2);
+            font-weight: 600;
         }
 
         .description-text {
-            color: var(--gray-600);
-            line-height: var(--leading-relaxed);
+            color: var(--text-secondary);
+            font-size: var(--font-sm);
+            line-height: 1.6;
             white-space: pre-line;
         }
 
-        .location-map {
-            margin-top: var(--space-8);
-        }
-
-        .location-map h3 {
-            font-size: var(--text-xl);
-            color: var(--gray-900);
-            margin-bottom: var(--space-4);
-            font-weight: var(--font-semibold);
-        }
-
-        #miniMap {
-            width: 100%;
-            height: 300px;
-            border-radius: var(--radius-xl);
-            border: 2px solid var(--gray-200);
-        }
-
-        .sidebar {
-            position: sticky;
-            top: 100px;
-            height: fit-content;
-        }
-
-        .price-card {
-            background: white;
-            border-radius: var(--radius-2xl);
-            padding: var(--space-8);
-            box-shadow: var(--elevation-2);
-            margin-bottom: var(--space-5);
-        }
-
-        .price-main {
-            font-size: var(--text-5xl);
-            font-weight: var(--font-bold);
-            color: var(--success-dark);
-            margin-bottom: var(--space-3);
-        }
-
-        .price-label {
-            color: var(--gray-600);
-            font-size: var(--text-sm);
-            margin-bottom: var(--space-5);
-        }
-
-        .purchase-btn {
-            width: 100%;
-            padding: var(--space-5);
-            background: linear-gradient(135deg, var(--primary-500) 0%, #764ba2 100%);
-            color: white;
-            border: none;
-            border-radius: var(--radius-lg);
-            font-size: var(--text-lg);
-            font-weight: var(--font-semibold);
-            cursor: pointer;
-            transition: all var(--transition-base);
-            margin-bottom: var(--space-3);
-            font-family: var(--font-primary);
-        }
-
-        .purchase-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: var(--elevation-4);
-        }
-
-        .purchase-btn:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-            transform: none;
-        }
-
-        .offer-btn {
-            width: 100%;
-            padding: var(--space-5);
-            background: white;
-            color: var(--primary-500);
-            border: 2px solid var(--primary-500);
-            border-radius: var(--radius-lg);
-            font-size: var(--text-base);
-            font-weight: var(--font-semibold);
-            cursor: pointer;
-            transition: all var(--transition-fast);
-            font-family: var(--font-primary);
-        }
-
-        .offer-btn:hover {
-            background: var(--primary-50);
-        }
-
-        .seller-card {
-            background: white;
-            border-radius: var(--radius-2xl);
-            padding: var(--space-6);
-            box-shadow: var(--elevation-2);
-        }
-
-        .seller-card h3 {
-            font-size: var(--text-lg);
-            color: var(--gray-900);
-            margin-bottom: var(--space-4);
-            font-weight: var(--font-semibold);
-        }
-
-        .seller-info {
-            display: flex;
-            align-items: center;
-            gap: var(--space-4);
-            margin-bottom: var(--space-4);
-        }
-
-        .seller-avatar {
-            width: 50px;
-            height: 50px;
-            border-radius: var(--radius-full);
-            background: linear-gradient(135deg, var(--primary-500) 0%, #764ba2 100%);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-weight: var(--font-bold);
-            font-size: var(--text-lg);
-        }
-
-        .seller-details {
-            flex: 1;
-        }
-
-        .seller-name {
-            font-weight: var(--font-semibold);
-            color: var(--gray-900);
-            margin-bottom: var(--space-1);
-        }
-
-        .seller-rating {
-            color: var(--gray-600);
-            font-size: var(--text-sm);
-        }
-
-        .contact-seller-btn {
-            width: 100%;
-            padding: var(--space-3);
-            background: var(--gray-100);
-            color: var(--gray-900);
-            border: none;
-            border-radius: var(--radius-lg);
-            font-size: var(--text-sm);
-            font-weight: var(--font-semibold);
-            cursor: pointer;
-            transition: all var(--transition-fast);
-            font-family: var(--font-primary);
-        }
-
-        .contact-seller-btn:hover {
-            background: var(--gray-200);
-        }
-
+        /* ===== ITEM STATS ===== */
         .item-stats {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
-            gap: var(--space-4);
-            margin-top: var(--space-5);
-            padding-top: var(--space-5);
-            border-top: 1px solid var(--gray-200);
+            gap: var(--space-3);
+            padding-top: var(--space-4);
+            border-top: 1px solid var(--border-primary);
         }
 
         .stat-item {
@@ -348,85 +187,546 @@
         }
 
         .stat-value {
-            font-size: var(--text-2xl);
-            font-weight: var(--font-bold);
-            color: var(--primary-500);
-            margin-bottom: var(--space-1);
+            font-size: var(--font-lg);
+            font-weight: 700;
+            color: var(--text-primary);
+            margin-bottom: 2px;
         }
 
         .stat-label {
-            font-size: var(--text-xs);
-            color: var(--gray-600);
+            font-size: 10px;
+            color: var(--text-tertiary);
             text-transform: uppercase;
-            letter-spacing: var(--tracking-wide);
+            letter-spacing: 0.5px;
         }
 
-        .error {
-            background: var(--error-light);
-            color: var(--error-dark);
-            padding: var(--space-6);
-            border-radius: var(--radius-xl);
-            margin: var(--space-5) 0;
-            border-left: 4px solid var(--error);
-            text-align: center;
+        /* ===== LOCATION MAP ===== */
+        .location-map {
+            margin-top: var(--space-4);
+            padding-top: var(--space-4);
+            border-top: 1px solid var(--border-primary);
         }
 
-        /* Responsive Design */
-        @media (max-width: 968px) {
-            .listing-grid {
-                grid-template-columns: 1fr;
-            }
+        .location-map h3 {
+            font-size: var(--font-sm);
+            color: var(--text-primary);
+            margin-bottom: var(--space-2);
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: var(--space-2);
+        }
 
-            .sidebar {
-                position: static;
-            }
+        #miniMap {
+            width: 100%;
+            height: 180px;
+            border-radius: var(--radius-md);
+            border: 1px solid var(--border-primary);
+            position: relative;
+            z-index: 1;
+        }
 
-            .main-image {
-                height: 300px;
-            }
+        /* Leaflet dark theme overrides */
+        .leaflet-control-zoom a {
+            background: var(--bg-secondary) !important;
+            color: var(--text-primary) !important;
+            border-color: var(--border-primary) !important;
+        }
 
-            .header-content {
-                padding: 0 var(--space-4);
-            }
+        .leaflet-control-attribution {
+            background: rgba(15, 23, 42, 0.8) !important;
+            color: var(--text-tertiary) !important;
+            font-size: 9px !important;
+        }
 
-            .item-details h1 {
-                font-size: var(--text-2xl);
-            }
+        /* Constrain Leaflet z-index to prevent overlap with buy now bar */
+        .leaflet-container {
+            z-index: 1 !important;
+        }
 
-            .price-main {
-                font-size: var(--text-4xl);
-            }
+        .leaflet-pane {
+            z-index: 10 !important;
+        }
+
+        .leaflet-top,
+        .leaflet-bottom {
+            z-index: 50 !important;
+        }
+
+        .leaflet-control {
+            z-index: 50 !important;
+        }
+
+        .leaflet-control-zoom,
+        .leaflet-control-attribution {
+            z-index: 50 !important;
+        }
+
+        /* ===== DIRECTIONS BUTTON ===== */
+        .directions-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: var(--space-2);
+            margin-top: var(--space-3);
+            padding: var(--space-2) var(--space-4);
+            background: #3b82f6;
+            color: var(--text-primary);
+            border-radius: var(--radius-full);
+            text-decoration: none;
+            font-size: var(--font-sm);
+            font-weight: 600;
+            transition: all var(--transition-fast);
+        }
+
+        .directions-btn:hover {
+            background: #2563eb;
+        }
+
+        /* ===== BACK TO MAP SECTION ===== */
+        .back-to-map-section {
+            margin-top: var(--space-4);
+            padding-top: var(--space-4);
+            border-top: 1px solid var(--border-primary);
+        }
+
+        .back-to-map-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: var(--space-2);
+            width: 100%;
+            padding: var(--space-3);
+            background: var(--bg-card);
+            color: var(--text-secondary);
+            border-radius: var(--radius-md);
+            text-decoration: none;
+            font-size: var(--font-sm);
+            font-weight: 600;
+            transition: all var(--transition-fast);
+            border: 1px solid var(--border-primary);
+        }
+
+        .back-to-map-btn:hover {
+            background: var(--bg-hover);
+            color: var(--text-primary);
+            border-color: var(--accent-primary);
+        }
+
+        /* ===== SIDEBAR ===== */
+        .sidebar {
+            display: flex;
+            flex-direction: column;
+            gap: var(--space-3);
         }
 
         @media (max-width: 768px) {
-            .nav-actions {
+            .sidebar {
+                position: fixed;
+                bottom: 0;
+                left: 0;
+                right: 0;
+                background: var(--bg-secondary);
+                border-top: 1px solid var(--border-primary);
+                padding: var(--space-3) var(--space-4);
+                z-index: 200; /* Increased from 100 to ensure buy now bar stays above map */
+                flex-direction: row;
                 gap: var(--space-2);
             }
 
-            .nav-btn {
-                padding: var(--space-2) var(--space-3);
-                font-size: var(--text-xs);
+            .price-card {
+                display: none;
             }
+
+            .mobile-price {
+                display: flex !important;
+                align-items: center;
+                gap: var(--space-3);
+            }
+
+            .seller-card {
+                display: none;
+            }
+
+            .page-container {
+                padding-bottom: 100px;
+            }
+        }
+
+        /* ===== PRICE CARD ===== */
+        .price-card {
+            background: var(--bg-secondary);
+            border-radius: var(--radius-md);
+            padding: var(--space-4);
+            border: 1px solid var(--border-primary);
+        }
+
+        .mobile-price {
+            display: none;
+        }
+
+        .price-main {
+            font-size: var(--font-3xl);
+            font-weight: 700;
+            color: var(--accent-success);
+            margin-bottom: var(--space-1);
+        }
+
+        .price-label {
+            color: var(--text-tertiary);
+            font-size: var(--font-xs);
+            margin-bottom: var(--space-4);
+        }
+
+        .purchase-btn {
+            width: 100%;
+            padding: var(--space-3);
+            background: var(--accent-primary);
+            color: var(--text-primary);
+            border: none;
+            border-radius: var(--radius-full);
+            font-size: var(--font-sm);
+            font-weight: 600;
+            cursor: pointer;
+            transition: all var(--transition-fast);
+            margin-bottom: var(--space-2);
+            font-family: inherit;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: var(--space-2);
+        }
+
+        .purchase-btn:hover {
+            background: #4f46e5;
+        }
+
+        .purchase-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .offer-btn {
+            width: 100%;
+            padding: var(--space-3);
+            background: transparent;
+            color: var(--text-secondary);
+            border: 1px solid var(--border-primary);
+            border-radius: var(--radius-full);
+            font-size: var(--font-sm);
+            font-weight: 500;
+            cursor: pointer;
+            transition: all var(--transition-fast);
+            font-family: inherit;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: var(--space-2);
+        }
+
+        .offer-btn:hover {
+            background: var(--bg-hover);
+            color: var(--text-primary);
+        }
+
+        /* ===== OWN LISTING BANNER ===== */
+        .own-listing-banner {
+            background: rgba(245, 158, 11, 0.15);
+            border: 1px solid var(--accent-warning);
+            border-radius: var(--radius-sm);
+            padding: var(--space-2) var(--space-3);
+            margin-bottom: var(--space-3);
+            color: var(--accent-warning);
+            font-size: var(--font-xs);
+            display: flex;
+            align-items: center;
+            gap: var(--space-2);
+        }
+
+        /* ===== SELLER CARD ===== */
+        .seller-card {
+            background: var(--bg-secondary);
+            border-radius: var(--radius-md);
+            padding: var(--space-3);
+            border: 1px solid var(--border-primary);
+        }
+
+        .seller-card h3 {
+            font-size: 10px;
+            color: var(--text-tertiary);
+            margin-bottom: var(--space-2);
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .seller-info {
+            display: flex;
+            align-items: center;
+            gap: var(--space-2);
+            margin-bottom: var(--space-3);
+        }
+
+        .seller-avatar {
+            width: 36px;
+            height: 36px;
+            border-radius: var(--radius-full);
+            background: var(--accent-primary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-primary);
+            font-weight: 700;
+            font-size: var(--font-sm);
+        }
+
+        .seller-details {
+            flex: 1;
+        }
+
+        .seller-name {
+            font-weight: 600;
+            color: var(--text-primary);
+            font-size: var(--font-sm);
+            margin-bottom: 1px;
+        }
+
+        .seller-rating {
+            color: var(--text-tertiary);
+            font-size: var(--font-xs);
+        }
+
+        .contact-seller-btn {
+            width: 100%;
+            padding: var(--space-2);
+            background: var(--bg-card);
+            color: var(--text-secondary);
+            border: none;
+            border-radius: var(--radius-sm);
+            font-size: var(--font-xs);
+            font-weight: 500;
+            cursor: pointer;
+            transition: all var(--transition-fast);
+            font-family: inherit;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: var(--space-2);
+        }
+
+        .contact-seller-btn:hover {
+            background: var(--bg-hover);
+            color: var(--text-primary);
+        }
+
+        /* ===== ERROR STATE ===== */
+        .error-state {
+            background: var(--bg-secondary);
+            padding: var(--space-6);
+            border-radius: var(--radius-md);
+            text-align: center;
+            border: 1px solid var(--border-primary);
+        }
+
+        .error-state h2 {
+            color: var(--text-primary);
+            margin-bottom: var(--space-2);
+            font-size: var(--font-lg);
+        }
+
+        .error-state p {
+            color: var(--text-tertiary);
+            margin-bottom: var(--space-4);
+            font-size: var(--font-sm);
+        }
+
+        .error-state .back-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: var(--space-2);
+            padding: var(--space-2) var(--space-4);
+            background: var(--accent-primary);
+            color: var(--text-primary);
+            border-radius: var(--radius-full);
+            text-decoration: none;
+            font-weight: 600;
+            font-size: var(--font-sm);
+        }
+
+        .error-state .back-btn:hover {
+            background: #4f46e5;
+        }
+
+        /* ===== HAMBURGER DROPDOWN ===== */
+        .hamburger-dropdown {
+            position: fixed;
+            top: 60px;
+            left: 0;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-primary);
+            border-radius: 0 0 var(--radius-md) var(--radius-md);
+            min-width: 200px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            display: none;
+        }
+
+        .hamburger-dropdown.show {
+            display: block;
+        }
+
+        .menu-item {
+            display: flex;
+            align-items: center;
+            gap: var(--space-3);
+            padding: var(--space-3) var(--space-4);
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-size: var(--font-sm);
+            transition: all var(--transition-fast);
+            border: none;
+            background: none;
+            width: 100%;
+            text-align: left;
+            cursor: pointer;
+        }
+
+        .menu-item:hover {
+            background: var(--bg-hover);
+            color: var(--text-primary);
+        }
+
+        .menu-item svg {
+            width: 18px;
+            height: 18px;
+            color: var(--text-tertiary);
+        }
+
+        .menu-divider {
+            height: 1px;
+            background: var(--border-primary);
+            margin: var(--space-2) 0;
+        }
+
+        /* ===== USER MENU ===== */
+        .user-menu-container {
+            position: relative;
+        }
+
+        .user-avatar-header {
+            width: 36px;
+            height: 36px;
+            border-radius: var(--radius-full);
+            background: var(--accent-primary);
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: var(--font-sm);
+            cursor: pointer;
+        }
+
+        .user-dropdown {
+            position: absolute;
+            top: 100%;
+            right: 0;
+            margin-top: var(--space-2);
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-primary);
+            border-radius: var(--radius-md);
+            min-width: 150px;
+            display: none;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+        }
+
+        .user-dropdown.show {
+            display: block;
+        }
+
+        .dropdown-item {
+            display: block;
+            padding: var(--space-2) var(--space-3);
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-size: var(--font-sm);
+            transition: all var(--transition-fast);
+            border: none;
+            background: none;
+            width: 100%;
+            text-align: left;
+            cursor: pointer;
+        }
+
+        .dropdown-item:hover {
+            background: var(--bg-hover);
+            color: var(--text-primary);
+        }
+
+        /* ===== UTILITIES ===== */
+        .animate-spin {
+            animation: spin 1s linear infinite;
         }
     </style>
 </head>
 <body>
     <!-- Header -->
-    <div class="header">
-        <div class="header-content flex items-center justify-between">
-            <a href="/" class="logo flex items-center gap-2">
-                📍 ThriftSpot
-            </a>
+    <header class="app-header">
+        <button class="hamburger-menu" id="hamburgerMenu">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                <line x1="3" y1="12" x2="21" y2="12"></line>
+                <line x1="3" y1="6" x2="21" y2="6"></line>
+                <line x1="3" y1="18" x2="21" y2="18"></line>
+            </svg>
+        </button>
 
-            <div class="nav-actions flex items-center">
-                <a href="/" class="nav-btn">🗺️ Map</a>
-                <a href="/dashboard.html" class="nav-btn">🏠 Dashboard</a>
-            </div>
-        </div>
+        <a href="index.html" class="header-logo">
+            <span style="font-size: var(--font-lg); font-weight: 700; color: var(--text-primary); text-decoration: none;">ThriftSpot</span>
+        </a>
+
+        <div id="authSection"></div>
+    </header>
+
+    <!-- Hamburger Dropdown Menu -->
+    <div class="hamburger-dropdown" id="hamburgerDropdown">
+        <a href="pin-map.html" class="menu-item">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"></polygon>
+                <line x1="8" y1="2" x2="8" y2="18"></line>
+                <line x1="16" y1="6" x2="16" y2="22"></line>
+            </svg>
+            Treasure Map
+        </a>
+        <a href="dashboard.html" class="menu-item">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="3" y="3" width="7" height="7"></rect>
+                <rect x="14" y="3" width="7" height="7"></rect>
+                <rect x="14" y="14" width="7" height="7"></rect>
+                <rect x="3" y="14" width="7" height="7"></rect>
+            </svg>
+            Dashboard
+        </a>
+        <a href="profile.html" class="menu-item">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                <circle cx="12" cy="7" r="4"></circle>
+            </svg>
+            Profile
+        </a>
+        <div class="menu-divider"></div>
+        <button class="menu-item" id="signOutBtn">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                <polyline points="16 17 21 12 16 7"></polyline>
+                <line x1="21" y1="12" x2="9" y2="12"></line>
+            </svg>
+            Sign Out
+        </button>
     </div>
 
     <!-- Main Content -->
-    <div class="container-lg py-8">
+    <div class="page-container">
         <!-- Loading State -->
         <div class="loading" id="loadingState">
             <div class="spinner"></div>
@@ -434,10 +734,16 @@
         </div>
 
         <!-- Error State -->
-        <div id="errorState" class="error" style="display: none;">
+        <div id="errorState" class="error-state" style="display: none;">
             <h2>Listing Not Found</h2>
             <p id="errorMessage">This listing may have been removed or is no longer available.</p>
-            <a href="/" class="nav-btn" style="display: inline-block; margin-top: 15px;">← Back to Map</a>
+            <a href="pin-map.html" class="back-btn">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="19" y1="12" x2="5" y2="12"></line>
+                    <polyline points="12 19 5 12 12 5"></polyline>
+                </svg>
+                Back to Map
+            </a>
         </div>
 
         <!-- Listing Content -->
@@ -448,24 +754,17 @@
                     <!-- Image Gallery -->
                     <div class="image-gallery">
                         <img id="mainImage" class="main-image" src="" alt="Item photo">
-                        <div class="thumbnail-strip" id="thumbnailStrip">
-                            <!-- Thumbnails will be populated dynamically -->
-                        </div>
+                        <div class="thumbnail-strip" id="thumbnailStrip"></div>
                     </div>
 
                     <!-- Item Details -->
                     <div class="item-details">
                         <h1 id="itemTitle">Loading...</h1>
-
-                        <div class="item-meta" id="itemMeta">
-                            <!-- Meta badges will be populated dynamically -->
-                        </div>
+                        <div class="item-meta" id="itemMeta"></div>
 
                         <div class="description-section">
                             <h3>Description</h3>
-                            <div class="description-text" id="itemDescription">
-                                Loading description...
-                            </div>
+                            <div class="description-text" id="itemDescription">Loading...</div>
                         </div>
 
                         <!-- Item Stats -->
@@ -486,39 +785,93 @@
                     </div>
 
                     <!-- Location Map -->
-                    <div class="location-map">
-                        <h3>📍 Location</h3>
+                    <div class="location-map" id="locationSection">
+                        <h3>
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+                                <circle cx="12" cy="10" r="3"></circle>
+                            </svg>
+                            Location
+                        </h3>
                         <div id="miniMap"></div>
+                        <a id="getDirectionsBtn" href="#" target="_blank" class="directions-btn" style="display: none;">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polygon points="3 11 22 2 13 21 11 13 3 11"></polygon>
+                            </svg>
+                            Get Directions
+                        </a>
+                    </div>
+
+                    <!-- Back to Map Button -->
+                    <div class="back-to-map-section">
+                        <a href="pin-map.html" class="back-to-map-btn">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"></polygon>
+                                <line x1="8" y1="2" x2="8" y2="18"></line>
+                                <line x1="16" y1="6" x2="16" y2="22"></line>
+                            </svg>
+                            Explore More Finds on Map
+                        </a>
                     </div>
                 </div>
 
                 <!-- Sidebar -->
                 <div class="sidebar">
-                    <!-- Price Card -->
+                    <!-- Price Card (Desktop) -->
                     <div class="price-card">
-                        <div class="price-main" id="itemPrice">$0.00</div>
+                        <div class="own-listing-banner" id="ownListingBanner" style="display: none;">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <circle cx="12" cy="12" r="10"></circle>
+                                <line x1="12" y1="8" x2="12" y2="12"></line>
+                                <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                            </svg>
+                            Your listing
+                        </div>
+
+                        <div class="price-main" id="itemPrice">$0</div>
                         <div class="price-label" id="priceLabel">Fixed Price</div>
 
                         <button class="purchase-btn" id="purchaseBtn">
-                            💳 Buy Now
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect>
+                                <line x1="1" y1="10" x2="23" y2="10"></line>
+                            </svg>
+                            Buy Now
                         </button>
                         <button class="offer-btn" id="offerBtn">
-                            💬 Make Offer
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                            </svg>
+                            Make Offer
                         </button>
                     </div>
 
-                    <!-- Seller Card -->
+                    <!-- Mobile Price Bar -->
+                    <div class="mobile-price">
+                        <div>
+                            <div class="price-main" id="itemPriceMobile">$0</div>
+                        </div>
+                        <button class="purchase-btn" id="purchaseBtnMobile" style="flex: 1; margin: 0;">
+                            Buy Now
+                        </button>
+                    </div>
+
+                    <!-- Seller Card (Desktop) -->
                     <div class="seller-card">
-                        <h3>Seller Information</h3>
+                        <h3>Seller</h3>
                         <div class="seller-info">
                             <div class="seller-avatar" id="sellerAvatar">?</div>
                             <div class="seller-details">
                                 <div class="seller-name" id="sellerName">Loading...</div>
-                                <div class="seller-rating" id="sellerRating">⭐ New Seller</div>
+                                <div class="seller-rating" id="sellerRating">New Seller</div>
                             </div>
                         </div>
                         <button class="contact-seller-btn" id="contactBtn">
-                            ✉️ Contact Seller
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
+                                <polyline points="22,6 12,13 2,6"></polyline>
+                            </svg>
+                            Contact Seller
                         </button>
                     </div>
                 </div>
@@ -527,10 +880,11 @@
     </div>
 
     <!-- Firebase SDKs -->
-    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-auth-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-firestore-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-functions-compat.js"></script>
+    <script src="/__/firebase/10.7.1/firebase-app-compat.js"></script>
+    <script src="/__/firebase/10.7.1/firebase-auth-compat.js"></script>
+    <script src="/__/firebase/10.7.1/firebase-firestore-compat.js"></script>
+    <script src="/__/firebase/10.7.1/firebase-functions-compat.js"></script>
+    <script src="/__/firebase/init.js"></script>
 
     <!-- Leaflet JS -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -539,39 +893,23 @@
     <script src="https://js.stripe.com/v3/"></script>
 
     <script>
-        // Firebase configuration
-        const firebaseConfig = {
-            apiKey: "AIzaSyDymYwo7NUAu7lhoPfS9KLQmckvVgky7PU",
-            authDomain: "treasurehunter-sdk.firebaseapp.com",
-            projectId: "treasurehunter-sdk",
-            storageBucket: "treasurehunter-sdk.firebasestorage.app",
-            messagingSenderId: "328804663359",
-            appId: "1:328804663359:web:eb124f150c4853c123788a",
-            measurementId: "G-YNJ58GLX3T"
-        };
-
-        // Initialize Firebase
-        firebase.initializeApp(firebaseConfig);
         const auth = firebase.auth();
         const db = firebase.firestore();
         const functions = firebase.functions();
 
-        // Initialize Stripe
         const stripe = Stripe('pk_live_51MW0QWHE7cN3ucnNcTLAxITLFBVy2kM6VUS2sae0fXZ6sNqmTuQPSVhhMgcWRJbJ9ADhcOY5LhWKkbNLt7Cy1CRj00POK1obSt');
 
-        // Global variables
         let currentUser = null;
         let listingData = null;
         let listingId = null;
         let map = null;
+        let isOwnListing = false;
 
-        // UI Elements
         const loadingState = document.getElementById('loadingState');
         const errorState = document.getElementById('errorState');
         const errorMessage = document.getElementById('errorMessage');
         const listingContent = document.getElementById('listingContent');
 
-        // Get listing ID from URL
         const urlParams = new URLSearchParams(window.location.search);
         listingId = urlParams.get('id');
 
@@ -581,30 +919,36 @@
             loadListing();
         }
 
-        // Load listing data
+        // Hamburger menu
+        const hamburgerMenu = document.getElementById('hamburgerMenu');
+        const hamburgerDropdown = document.getElementById('hamburgerDropdown');
+
+        hamburgerMenu.addEventListener('click', (e) => {
+            e.stopPropagation();
+            hamburgerDropdown.classList.toggle('show');
+        });
+
+        document.addEventListener('click', (e) => {
+            if (!hamburgerDropdown.contains(e.target) && !hamburgerMenu.contains(e.target)) {
+                hamburgerDropdown.classList.remove('show');
+            }
+        });
+
         async function loadListing() {
             try {
                 console.log('Loading listing:', listingId);
-
-                // Get the pin document directly by ID (much more efficient!)
-                console.log('Fetching Firestore document:', listingId);
                 const pinDoc = await db.collection('pins').doc(listingId).get();
 
-                console.log('Document fetch completed. Exists?', pinDoc.exists);
-
                 if (!pinDoc.exists) {
-                    console.warn('No pin found with id:', listingId);
-                    showError('Listing not found. This item may have been sold or removed.');
+                    showError('Listing not found.');
                     return;
                 }
 
                 listingData = pinDoc.data();
-                listingData.id = pinDoc.id; // Add document ID to data
-                console.log('✅ Listing data loaded:', listingData);
+                listingData.id = pinDoc.id;
 
-                // Check if listing is still active
                 if (listingData.status === 'sold') {
-                    showError('This item has already been sold.');
+                    showError('This item has been sold.');
                     return;
                 }
 
@@ -613,114 +957,80 @@
                     return;
                 }
 
-                // Track view
                 trackView();
-
-                // Display the listing
                 displayListing();
 
             } catch (error) {
-                console.error('❌ Error loading listing:', error);
-                console.error('Error code:', error.code);
-                console.error('Error details:', error);
-
+                console.error('Error loading listing:', error);
                 if (error.code === 'permission-denied') {
-                    showError('Unable to load listing. This item may be private or unavailable.');
+                    showError('Unable to load listing.');
                 } else {
                     showError('Failed to load listing: ' + error.message);
                 }
             }
         }
 
-        // Display listing
         function displayListing() {
-            // Show content, hide loading
             loadingState.style.display = 'none';
             listingContent.style.display = 'block';
 
             const item = listingData.item || {};
 
-            // Set title
-            document.getElementById('itemTitle').textContent = item.title || 'Item for Sale';
+            document.getElementById('itemTitle').textContent = listingData.title || item.title || 'Item for Sale';
 
-            // Set price - check multiple possible locations
-            const price = listingData.price || item.price || item.estimatedValue || listingData.value || 25;
+            const price = listingData.price || item.price || item.estimatedValue || 25;
             document.getElementById('itemPrice').textContent = `$${price}`;
+            document.getElementById('itemPriceMobile').textContent = `$${price}`;
 
-            // Set meta badges
             const metaContainer = document.getElementById('itemMeta');
             metaContainer.innerHTML = '';
 
-            if (item.category) {
-                metaContainer.innerHTML += `<div class="meta-badge">${item.category}</div>`;
+            const category = listingData.category || item.category;
+            if (category) {
+                metaContainer.innerHTML += `<div class="meta-badge">${category}</div>`;
             }
 
-            if (item.condition) {
-                // Handle both object format {rating: 'good', description: '...'} and string format
-                const conditionRating = typeof item.condition === 'object'
-                    ? (item.condition.rating || 'unknown')
-                    : item.condition;
-                const conditionClass = conditionRating.toLowerCase().replace(' ', '-');
+            const condition = listingData.condition || item.condition;
+            if (condition) {
+                const conditionRating = typeof condition === 'object' ? (condition.rating || 'unknown') : condition;
+                const conditionClass = conditionRating.toLowerCase().replace(/\s+/g, '-');
                 const conditionDisplay = conditionRating.charAt(0).toUpperCase() + conditionRating.slice(1);
                 metaContainer.innerHTML += `<div class="meta-badge condition-${conditionClass}">${conditionDisplay}</div>`;
             }
 
-            if (item.brand) {
-                metaContainer.innerHTML += `<div class="meta-badge">${item.brand}</div>`;
+            const brand = listingData.brand || item.brand;
+            if (brand) {
+                metaContainer.innerHTML += `<div class="meta-badge">${brand}</div>`;
             }
 
-            // Set description
-            document.getElementById('itemDescription').textContent =
-                item.description || 'No description available.';
+            document.getElementById('itemDescription').textContent = listingData.description || item.description || 'No description available.';
 
-            // Display images
             displayImages();
-
-            // Display seller info
             displaySellerInfo();
-
-            // Display stats
             displayStats();
-
-            // Display map
             displayMap();
-
-            // Setup purchase buttons
             setupPurchaseButtons();
         }
 
-        // Display images
         function displayImages() {
-            // Check multiple possible locations for images
-            const images = listingData.item?.imageUrls ||
-                          listingData.imageUrls ||
-                          listingData.images ||
-                          listingData.item?.images ||
-                          [];
-
-            console.log('📸 Images found:', images.length, images);
+            const images = listingData.item?.imageUrls || listingData.imageUrls || listingData.images || listingData.item?.images || [];
 
             const mainImage = document.getElementById('mainImage');
             const thumbnailStrip = document.getElementById('thumbnailStrip');
 
             if (!images || images.length === 0) {
-                console.warn('No images available for listing');
-                mainImage.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNTAwIiBoZWlnaHQ9IjUwMCIgdmlld0JveD0iMCAwIDUwMCA1MDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSI1MDAiIGhlaWdodD0iNTAwIiBmaWxsPSIjRjVGNUY1Ii8+Cjx0ZXh0IHg9IjI1MCIgeT0iMjUwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjOTk5IiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMjQiPk5vIEltYWdlPC90ZXh0Pgo8L3N2Zz4K';
+                mainImage.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNTAwIiBoZWlnaHQ9IjUwMCIgdmlld0JveD0iMCAwIDUwMCA1MDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSI1MDAiIGhlaWdodD0iNTAwIiBmaWxsPSIjMWUyOTNiIi8+Cjx0ZXh0IHg9IjI1MCIgeT0iMjUwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjNjQ3NDhiIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMjQiPk5vIEltYWdlPC90ZXh0Pgo8L3N2Zz4K';
                 return;
             }
 
-            // Set main image (first image)
             mainImage.src = images[0];
-            console.log('Main image set to:', images[0]);
-
-            // Create thumbnails
             thumbnailStrip.innerHTML = '';
+
             images.forEach((imageUrl, index) => {
                 const thumbnail = document.createElement('img');
                 thumbnail.className = 'thumbnail';
                 thumbnail.src = imageUrl;
-                thumbnail.alt = `Item photo ${index + 1}`;
-
+                thumbnail.alt = `Photo ${index + 1}`;
                 if (index === 0) thumbnail.classList.add('active');
 
                 thumbnail.addEventListener('click', () => {
@@ -733,118 +1043,144 @@
             });
         }
 
-        // Display seller info
         function displaySellerInfo() {
-            const sellerId = listingData.userId || listingData.user_id;
+            const sellerId = listingData.userId || listingData.user_id || listingData.createdBy;
             const sellerAvatar = document.getElementById('sellerAvatar');
             const sellerName = document.getElementById('sellerName');
 
-            if (sellerId) {
-                // Load seller data
+            console.log('Seller ID:', sellerId); // Debug log
+
+            if (sellerId && sellerId !== 'anonymous') {
                 db.collection('users').doc(sellerId).get().then(userDoc => {
                     if (userDoc.exists) {
                         const userData = userDoc.data();
                         const displayName = userData.displayName || userData.email?.split('@')[0] || 'Seller';
                         sellerName.textContent = displayName;
                         sellerAvatar.textContent = displayName.substring(0, 2).toUpperCase();
+                    } else {
+                        // User doc doesn't exist, try to get from auth display name
+                        sellerName.textContent = 'Seller';
+                        sellerAvatar.textContent = 'SE';
                     }
+                }).catch(err => {
+                    console.log('Could not load seller info:', err.message);
+                    sellerName.textContent = 'Seller';
+                    sellerAvatar.textContent = 'SE';
                 });
             } else {
-                sellerName.textContent = 'Anonymous Seller';
-                sellerAvatar.textContent = 'AS';
+                sellerName.textContent = 'Anonymous';
+                sellerAvatar.textContent = 'AN';
             }
         }
 
-        // Display stats
         function displayStats() {
-            // Views
             document.getElementById('viewCount').textContent = listingData.views || 0;
-
-            // Favorites
             document.getElementById('favoriteCount').textContent = listingData.favorites || 0;
 
-            // Time ago
-            const createdAt = listingData.created_at || listingData.timestamp;
+            const createdAt = listingData.created_at || listingData.createdAt || listingData.timestamp;
             if (createdAt) {
                 const timeAgo = getTimeAgo(createdAt.toDate ? createdAt.toDate() : new Date(createdAt));
                 document.getElementById('timeAgo').textContent = timeAgo;
             }
         }
 
-        // Display map
         function displayMap() {
-            const location = listingData.location;
-            if (!location || !location.latitude || !location.longitude) {
-                document.querySelector('.location-map').style.display = 'none';
+            const lat = listingData.lat || listingData.location?.latitude;
+            const lng = listingData.lng || listingData.location?.longitude;
+            const locationSection = document.getElementById('locationSection');
+
+            if (!lat || !lng) {
+                locationSection.style.display = 'none';
                 return;
             }
 
-            // Initialize map
-            map = L.map('miniMap').setView([location.latitude, location.longitude], 14);
+            map = L.map('miniMap').setView([lat, lng], 14);
 
-            // Add tile layer
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                attribution: '© OpenStreetMap contributors'
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png', {
+                attribution: '© CARTO',
+                maxZoom: 19
             }).addTo(map);
 
-            // Add marker
             const markerIcon = L.divIcon({
                 className: 'custom-pin-marker',
-                html: '<div style="width: 40px; height: 40px; background: #667eea; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-size: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.3);">📍</div>',
-                iconSize: [40, 40],
-                iconAnchor: [20, 20]
+                html: '<div style="width: 28px; height: 28px; background: var(--accent-primary, #6366f1); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-size: 12px; border: 2px solid white; box-shadow: 0 2px 8px rgba(0,0,0,0.4);">📍</div>',
+                iconSize: [28, 28],
+                iconAnchor: [14, 14]
             });
 
-            L.marker([location.latitude, location.longitude], { icon: markerIcon }).addTo(map);
+            L.marker([lat, lng], { icon: markerIcon }).addTo(map);
+
+            // Set up directions link (opens in Google Maps or Apple Maps based on device)
+            const directionsBtn = document.getElementById('getDirectionsBtn');
+            if (directionsBtn) {
+                // Detect iOS for Apple Maps, otherwise use Google Maps
+                const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+                const directionsUrl = isIOS
+                    ? `maps://maps.apple.com/?daddr=${lat},${lng}`
+                    : `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
+
+                directionsBtn.href = directionsUrl;
+                directionsBtn.style.display = 'flex';
+            }
         }
 
-        // Setup purchase buttons
         function setupPurchaseButtons() {
             const purchaseBtn = document.getElementById('purchaseBtn');
+            const purchaseBtnMobile = document.getElementById('purchaseBtnMobile');
             const offerBtn = document.getElementById('offerBtn');
             const contactBtn = document.getElementById('contactBtn');
+            const ownListingBanner = document.getElementById('ownListingBanner');
+
+            if (currentUser && listingData.userId === currentUser.uid) {
+                isOwnListing = true;
+                ownListingBanner.style.display = 'flex';
+                purchaseBtn.disabled = true;
+                purchaseBtn.textContent = 'Your Listing';
+                purchaseBtnMobile.disabled = true;
+                purchaseBtnMobile.textContent = 'Your Listing';
+                offerBtn.style.display = 'none';
+            }
 
             purchaseBtn.addEventListener('click', handlePurchase);
+            purchaseBtnMobile.addEventListener('click', handlePurchase);
             offerBtn.addEventListener('click', handleMakeOffer);
             contactBtn.addEventListener('click', handleContactSeller);
         }
 
-        // Handle purchase
         async function handlePurchase() {
+            if (isOwnListing) return;
+
             if (!currentUser) {
-                // Redirect to sign in
-                window.location.href = '/signin.html?redirect=' + encodeURIComponent(window.location.href);
+                sessionStorage.setItem('returnUrl', window.location.href);
+                window.location.href = '/signin.html';
                 return;
             }
 
             const purchaseBtn = document.getElementById('purchaseBtn');
+            const purchaseBtnMobile = document.getElementById('purchaseBtnMobile');
             purchaseBtn.disabled = true;
+            purchaseBtnMobile.disabled = true;
             purchaseBtn.textContent = 'Processing...';
+            purchaseBtnMobile.textContent = 'Processing...';
 
             try {
-                // Get auth token
                 const idToken = await currentUser.getIdToken();
 
-                // Call backend API to create checkout session
-                const response = await fetch('https://us-central1-treasurehunter-sdk.cloudfunctions.net/app/api/purchases/create-checkout', {
+                const response = await fetch('/api/purchases/create-checkout', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                         'Authorization': `Bearer ${idToken}`
                     },
-                    body: JSON.stringify({
-                        pinId: listingId
-                    })
+                    body: JSON.stringify({ pinId: listingId })
                 });
-
-                if (!response.ok) {
-                    const errorData = await response.json();
-                    throw new Error(errorData.error || 'Failed to create checkout session');
-                }
 
                 const result = await response.json();
 
-                // Redirect to Stripe checkout
+                if (!response.ok) {
+                    throw new Error(result.error || 'Failed to create checkout');
+                }
+
                 if (result.url) {
                     window.location.href = result.url;
                 } else {
@@ -853,86 +1189,146 @@
 
             } catch (error) {
                 console.error('Purchase error:', error);
-                alert(`Unable to process purchase: ${error.message}`);
+                alert(`Unable to process: ${error.message}`);
                 purchaseBtn.disabled = false;
-                purchaseBtn.textContent = '💳 Buy Now';
+                purchaseBtnMobile.disabled = false;
+                purchaseBtn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect><line x1="1" y1="10" x2="23" y2="10"></line></svg> Buy Now`;
+                purchaseBtnMobile.textContent = 'Buy Now';
             }
         }
 
-        // Handle make offer
         function handleMakeOffer() {
             if (!currentUser) {
-                window.location.href = '/signin.html?redirect=' + encodeURIComponent(window.location.href);
+                sessionStorage.setItem('returnUrl', window.location.href);
+                window.location.href = '/signin.html';
                 return;
             }
 
-            const price = listingData.item?.price || listingData.value || 25;
-            const offer = prompt(`Make an offer (Current price: $${price}):`);
+            const price = listingData.price || listingData.item?.price || 25;
+            const offer = prompt(`Make an offer (Current: $${price}):`);
 
             if (offer && !isNaN(offer) && parseFloat(offer) > 0) {
-                // TODO: Implement offer submission
-                alert('Offer functionality coming soon!');
+                alert('Offer feature coming soon!');
             }
         }
 
-        // Handle contact seller
         function handleContactSeller() {
             if (!currentUser) {
-                window.location.href = '/signin.html?redirect=' + encodeURIComponent(window.location.href);
+                sessionStorage.setItem('returnUrl', window.location.href);
+                window.location.href = '/signin.html';
                 return;
             }
-
-            // TODO: Implement messaging
-            alert('Messaging functionality coming soon!');
+            alert('Messaging coming soon!');
         }
 
-        // Track view
         async function trackView() {
             try {
+                if (!currentUser) return;
                 const pinRef = db.collection('pins').doc(listingData.id || listingId);
-                await pinRef.update({
-                    views: firebase.firestore.FieldValue.increment(1)
-                });
+                await pinRef.update({ views: firebase.firestore.FieldValue.increment(1) });
             } catch (error) {
-                console.log('Failed to track view:', error);
+                console.log('View tracking skipped:', error.code);
             }
         }
 
-        // Utility: Get time ago
         function getTimeAgo(date) {
             const seconds = Math.floor((new Date() - date) / 1000);
-
             let interval = seconds / 31536000;
             if (interval > 1) return Math.floor(interval) + 'y';
-
             interval = seconds / 2592000;
             if (interval > 1) return Math.floor(interval) + 'mo';
-
             interval = seconds / 86400;
             if (interval > 1) return Math.floor(interval) + 'd';
-
             interval = seconds / 3600;
             if (interval > 1) return Math.floor(interval) + 'h';
-
             interval = seconds / 60;
             if (interval > 1) return Math.floor(interval) + 'm';
-
             return Math.floor(seconds) + 's';
         }
 
-        // Show error
         function showError(message) {
             loadingState.style.display = 'none';
             errorState.style.display = 'block';
             errorMessage.textContent = message;
         }
 
-        // Auth state listener
-        auth.onAuthStateChanged(user => {
-            currentUser = user;
+        function updateAuthUI(user) {
+            const authSection = document.getElementById('authSection');
+
+            if (user) {
+                const displayName = user.displayName || user.email?.split('@')[0] || 'User';
+                const initials = displayName.substring(0, 2).toUpperCase();
+
+                authSection.innerHTML = `
+                    <div class="user-menu-container">
+                        <div class="user-avatar-header" id="userAvatar">${initials}</div>
+                        <div class="user-dropdown" id="userDropdown">
+                            <a href="dashboard.html" class="dropdown-item">Dashboard</a>
+                            <a href="profile.html" class="dropdown-item">Profile</a>
+                            <button class="dropdown-item" id="dropdownSignOut">Sign Out</button>
+                        </div>
+                    </div>
+                `;
+
+                const userAvatar = document.getElementById('userAvatar');
+                const userDropdown = document.getElementById('userDropdown');
+
+                userAvatar.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    userDropdown.classList.toggle('show');
+                });
+
+                document.getElementById('dropdownSignOut')?.addEventListener('click', () => {
+                    auth.signOut();
+                });
+            } else {
+                authSection.innerHTML = `
+                    <a href="/signin.html" style="
+                        padding: 8px 16px;
+                        background: var(--accent-primary);
+                        color: var(--text-primary);
+                        border-radius: 9999px;
+                        text-decoration: none;
+                        font-size: 0.875rem;
+                        font-weight: 600;
+                    ">Sign In</a>
+                `;
+            }
+        }
+
+        document.getElementById('signOutBtn')?.addEventListener('click', () => {
+            auth.signOut().then(() => {
+                window.location.href = 'index.html';
+            });
         });
 
-        console.log('Listing page loaded for ID:', listingId);
+        auth.onAuthStateChanged(user => {
+            currentUser = user;
+            updateAuthUI(user);
+
+            if (listingData && user && listingData.userId === user.uid) {
+                isOwnListing = true;
+                const ownListingBanner = document.getElementById('ownListingBanner');
+                const purchaseBtn = document.getElementById('purchaseBtn');
+                const purchaseBtnMobile = document.getElementById('purchaseBtnMobile');
+                const offerBtn = document.getElementById('offerBtn');
+
+                if (ownListingBanner) ownListingBanner.style.display = 'flex';
+                if (purchaseBtn) {
+                    purchaseBtn.disabled = true;
+                    purchaseBtn.textContent = 'Your Listing';
+                }
+                if (purchaseBtnMobile) {
+                    purchaseBtnMobile.disabled = true;
+                    purchaseBtnMobile.textContent = 'Your Listing';
+                }
+                if (offerBtn) offerBtn.style.display = 'none';
+            }
+
+            if (user && listingData) trackView();
+        });
+
+        console.log('Listing v7 page loaded for ID:', listingId);
     </script>
 </body>
 </html>
