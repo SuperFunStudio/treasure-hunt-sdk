@@ -1,6 +1,6 @@
 /**
  * ThriftSpot v7 - Viral Loop Optimized Implementation
- * 
+ *
  * Key Changes:
  * - Share-first UI after scan results
  * - Sharer ID tracking in all URLs for viral factor calculation
@@ -8,6 +8,56 @@
  * - Streamlined decision flow (Leave it / Keep it)
  * - Token counter only shown when relevant
  */
+
+// Safe storage utility - handles sessionStorage failures on mobile/private browsing
+const safeStorage = (function() {
+    const memoryStorage = {};
+
+    function storageAvailable(type) {
+        try {
+            const storage = window[type];
+            const x = '__storage_test__';
+            storage.setItem(x, x);
+            storage.removeItem(x);
+            return true;
+        } catch (e) {
+            return false;
+        }
+    }
+
+    const hasSessionStorage = storageAvailable('sessionStorage');
+    const hasLocalStorage = storageAvailable('localStorage');
+
+    return {
+        getItem: function(key) {
+            try {
+                if (hasSessionStorage) return sessionStorage.getItem(key);
+                if (hasLocalStorage) return localStorage.getItem(key);
+                return memoryStorage[key] || null;
+            } catch (e) {
+                return memoryStorage[key] || null;
+            }
+        },
+        setItem: function(key, value) {
+            try {
+                if (hasSessionStorage) sessionStorage.setItem(key, value);
+                else if (hasLocalStorage) localStorage.setItem(key, value);
+                else memoryStorage[key] = value;
+            } catch (e) {
+                memoryStorage[key] = value;
+            }
+        },
+        removeItem: function(key) {
+            try {
+                if (hasSessionStorage) sessionStorage.removeItem(key);
+                else if (hasLocalStorage) localStorage.removeItem(key);
+                else delete memoryStorage[key];
+            } catch (e) {
+                delete memoryStorage[key];
+            }
+        }
+    };
+})();
 
 class ThriftSpotApp {
     constructor() {
@@ -17,7 +67,7 @@ class ThriftSpotApp {
         this.photoFiles = [];
         this.cameraStream = null;
         this.isMobile = window.innerWidth < 768;
-        this.scanCount = parseInt(sessionStorage.getItem('scanCount') || '0');
+        this.scanCount = parseInt(safeStorage.getItem('scanCount') || '0');
 
         // Get referrer ID from URL if present (for viral tracking)
         this.referrerId = this.getUrlParam('ref');
@@ -32,8 +82,13 @@ class ThriftSpotApp {
         this.activeCategory = 'all';
         this.mapSearchTimeout = null;
         this.currentMode = 'spot'; // 'spot' or 'thrift'
+
+        // Grid location/sort state
+        this.locationPromptDismissed = safeStorage.getItem('locationPromptDismissed') === 'true';
+        this.gridSortMode = 'recent'; // 'recent', 'distance', 'price-low', 'price-high'
         this.spotSubMode = 'scan'; // 'scan' or 'results' - tracks state within Spot mode
         this.mapInitialized = false;
+        this.cameraInitialized = false; // Defer camera init until user clicks capture
 
         // Initialize Firebase Analytics
         this.analytics = null;
@@ -128,7 +183,7 @@ class ThriftSpotApp {
         // Track referral visit if user came via referral link
         if (this.referrerId) {
             console.log('📊 Referred by:', this.referrerId);
-            sessionStorage.setItem('referrerId', this.referrerId);
+            safeStorage.setItem('referrerId', this.referrerId);
             this.trackEvent('referral_visit', {
                 referrer_id: this.referrerId,
                 landing_page: window.location.pathname,
@@ -139,18 +194,52 @@ class ThriftSpotApp {
         // Initialize Firebase Auth
         await this.initAuth();
 
-        // Setup camera or upload based on device
-        if (this.isMobile) {
-            await this.initCamera();
-        } else {
-            this.initUpload();
-        }
+        // Setup upload interface - don't auto-request camera permission
+        // Camera will be initialized when user clicks capture button
+        this.initUpload();
 
         // Event listeners
         this.setupEventListeners();
 
         // Setup mode toggle
         this.setupModeToggle();
+
+        // Check for pin parameter in URL (from "View on Map" link)
+        const pinId = this.getUrlParam('pin');
+        if (pinId) {
+            // Switch to map mode and show the specific pin
+            this.switchToThriftMode();
+            // Update toggle UI to reflect thrift mode
+            const spotBtn = document.getElementById('spotBtn');
+            const thriftBtn = document.getElementById('thriftBtn');
+            const toggleSlider = document.querySelector('.mode-toggle-slider');
+            spotBtn?.classList.remove('active');
+            thriftBtn?.classList.add('active');
+            toggleSlider?.classList.remove('slide-right');
+            toggleSlider?.classList.add('slide-left');
+            // Show the specific pin details after a short delay for map init
+            setTimeout(() => this.showPinDetails(pinId), 500);
+        }
+
+        // Check for collection parameter in URL (from yard sale share link)
+        const collectionParam = this.getUrlParam('collection');
+        if (collectionParam) {
+            const pinIds = collectionParam.split(',');
+            // Switch to map mode to show collection
+            this.switchToThriftMode();
+            // Update toggle UI to reflect thrift mode
+            const spotBtn = document.getElementById('spotBtn');
+            const thriftBtn = document.getElementById('thriftBtn');
+            const toggleSlider = document.querySelector('.mode-toggle-slider');
+            spotBtn?.classList.remove('active');
+            thriftBtn?.classList.add('active');
+            toggleSlider?.classList.remove('slide-right');
+            toggleSlider?.classList.add('slide-left');
+            // Store share source for referral tracking
+            safeStorage.setItem('shareSource', 'collection');
+            // Show collection in panel after map initializes
+            setTimeout(() => this.showSharedCollection(pinIds), 500);
+        }
 
         // Setup hamburger menu
         this.setupHamburgerMenu();
@@ -201,14 +290,6 @@ class ThriftSpotApp {
         });
         this.useLocationBtn?.addEventListener('click', () => this.useCurrentLocation());
         this.pinSubmitBtn?.addEventListener('click', () => this.submitPin());
-        
-        // Status toggle in pin modal
-        document.querySelectorAll('.status-option').forEach(btn => {
-            btn.addEventListener('click', () => {
-                document.querySelectorAll('.status-option').forEach(b => b.classList.remove('active'));
-                btn.classList.add('active');
-            });
-        });
 
         // User dropdown
         document.addEventListener('click', (e) => {
@@ -257,7 +338,7 @@ class ThriftSpotApp {
             }
 
             // Get the share source from session storage if available
-            const shareSource = sessionStorage.getItem('shareSource') || 'direct';
+            const shareSource = safeStorage.getItem('shareSource') || 'direct';
 
             // Store the referral in dedicated referrals collection (for viral coefficient tracking)
             await db.collection('referrals').add({
@@ -296,20 +377,13 @@ class ThriftSpotApp {
 
     updateAuthUI() {
         const authSection = document.getElementById('authSection');
-        
+
         if (this.currentUser) {
             const displayName = this.currentUser.displayName || this.currentUser.email;
             const initials = this.getUserInitials(displayName);
 
             authSection.innerHTML = `
-                <div class="user-menu-container">
-                    <div class="user-avatar">${initials}</div>
-                    <div class="user-dropdown">
-                        <a href="profile.html" class="dropdown-item">Profile</a>
-                        <a href="dashboard.html" class="dropdown-item">Dashboard</a>
-                        <button class="dropdown-item" onclick="firebase.auth().signOut()">Sign Out</button>
-                    </div>
-                </div>
+                <a href="dashboard.html" class="user-avatar">${initials}</a>
             `;
 
             this.loadTokenBalance();
@@ -433,11 +507,38 @@ class ThriftSpotApp {
             this.loadPins();
             this.setupMapEventListeners();
             this.mapInitialized = true;
+
+            // Default to grid view (no location permission needed)
+            this.setDefaultView('grid');
         } else {
             // Invalidate map size in case container was hidden
             setTimeout(() => {
                 this.map?.invalidateSize();
             }, 100);
+        }
+    }
+
+    /**
+     * Set the default view (grid or map)
+     */
+    setDefaultView(view) {
+        const mapViewBtn = document.getElementById('mapViewBtn');
+        const gridViewBtn = document.getElementById('gridViewBtn');
+        const mapContainer = document.getElementById('mapContainer');
+        const gridContainer = document.getElementById('gridContainer');
+
+        if (view === 'grid') {
+            gridViewBtn?.classList.add('active');
+            mapViewBtn?.classList.remove('active');
+            gridContainer?.classList.remove('hidden');
+            mapContainer?.classList.add('hidden');
+            this.renderGrid();
+            this.showLocationPromptIfNeeded();
+        } else {
+            mapViewBtn?.classList.add('active');
+            gridViewBtn?.classList.remove('active');
+            mapContainer?.classList.remove('hidden');
+            gridContainer?.classList.add('hidden');
         }
     }
 
@@ -503,7 +604,16 @@ class ThriftSpotApp {
         this.telescopeContainer?.classList.remove('searching');
     }
 
-    capturePhoto() {
+    async capturePhoto() {
+        // Lazy-initialize camera on first capture attempt (mobile only)
+        if (this.isMobile && !this.cameraInitialized) {
+            await this.initCamera();
+            this.cameraInitialized = true;
+            // Don't capture on first click - just initialize camera
+            // User needs to click again to take the actual photo
+            return;
+        }
+
         if (!this.cameraStream || !this.cameraVideo) return;
 
         console.log('📸 Capturing photo...');
@@ -614,19 +724,24 @@ class ThriftSpotApp {
 
         // Increment scan count for this session
         this.scanCount++;
-        sessionStorage.setItem('scanCount', this.scanCount.toString());
-        
+        safeStorage.setItem('scanCount', this.scanCount.toString());
+
         // Show token counter after first scan
         this.updateTokenDisplay();
 
         // Show progress on telescope rings
         this.telescopeProgress?.classList.add('active');
         this.telescopeContainer?.classList.remove('searching');
-        
-        // Hide gallery and action area
+
+        // Hide camera/upload and gallery, show progressive text
+        this.cameraViewfinder?.classList.add('hidden');
+        this.uploadTrigger?.classList.add('hidden');
         this.photoGallery?.classList.add('hidden');
         this.scanActionArea.style.opacity = '0.3';
         this.scanActionArea.style.pointerEvents = 'none';
+
+        // Show progressive analysis text in telescope center
+        this.showAnalysisProgressText('Analyzing image...');
 
         try {
             await this.runAnalysis();
@@ -637,9 +752,32 @@ class ThriftSpotApp {
         }
     }
 
+    showAnalysisProgressText(text) {
+        if (this.telescopeCenter) {
+            this.telescopeCenter.innerHTML = `
+                <div class="analysis-progress-text">
+                    <div class="analysis-spinner"></div>
+                    <p class="analysis-message">${text}</p>
+                </div>
+            `;
+        }
+    }
+
+    updateAnalysisMessage(text) {
+        const messageEl = this.telescopeCenter?.querySelector('.analysis-message');
+        if (messageEl) {
+            messageEl.textContent = text;
+            // Add a subtle animation
+            messageEl.style.animation = 'none';
+            messageEl.offsetHeight; // Trigger reflow
+            messageEl.style.animation = 'fadeInUp 0.3s ease';
+        }
+    }
+
     async runAnalysis() {
         // Stage 1: Compress images
         this.updateProgress(10);
+        this.updateAnalysisMessage('Analyzing image...');
         const compressedImages = await this.compressImages(this.photoFiles);
 
         // Stage 2: Convert to base64
@@ -648,7 +786,13 @@ class ThriftSpotApp {
             compressedImages.map(file => this.fileToBase64(file))
         );
 
-        // Stage 3-6: API call with progress animation
+        // Stage 3: Update message before API call
+        this.updateAnalysisMessage('Item identified!');
+        await new Promise(r => setTimeout(r, 600)); // Brief pause for UX
+
+        this.updateAnalysisMessage('Assessing value...');
+
+        // Stage 4-6: API call with progress animation
         await this.analyzeImages(base64Images);
     }
 
@@ -1041,7 +1185,7 @@ class ThriftSpotApp {
             this.sharePreviewTitle.textContent = this.listingData?.itemName || 'Item';
         }
         if (this.sharePreviewPrice) {
-            this.sharePreviewPrice.textContent = `$${this.listingData?.price || 0}`;
+            this.sharePreviewPrice.textContent = `$${Math.ceil(this.listingData?.price || 0)}`;
         }
         if (this.sharePreviewImage && this.analysisData?.uploadedImageUrls?.[0]) {
             this.sharePreviewImage.style.backgroundImage = `url(${this.analysisData.uploadedImageUrls[0]})`;
@@ -1066,9 +1210,9 @@ class ThriftSpotApp {
 
     viewOnMap() {
         if (this.lastPinId) {
-            window.location.href = `pin-map.html?pin=${this.lastPinId}`;
+            window.location.href = `index.html?pin=${this.lastPinId}`;
         } else {
-            window.location.href = 'pin-map.html';
+            window.location.href = 'index.html';
         }
     }
 
@@ -1104,7 +1248,7 @@ class ThriftSpotApp {
     }
 
     shareViaPlatform(platform) {
-        const text = `Check out this find! ${this.listingData?.itemName} - Worth $${this.listingData?.price}`;
+        const text = `Check out this find! ${this.listingData?.itemName} - Worth $${Math.ceil(this.listingData?.price || 0)}`;
         const url = this.shareUrl;
 
         let shareUrl;
@@ -1139,12 +1283,23 @@ class ThriftSpotApp {
 
     // ===== PIN MODAL =====
     openPinModal() {
+        // Require sign-in to pin items
+        if (!this.currentUser) {
+            // Store pending action for after sign-in
+            safeStorage.setItem('pendingAction', 'pin');
+            if (this.analysisData) {
+                safeStorage.setItem('pendingAnalysis', JSON.stringify(this.analysisData));
+            }
+            window.location.href = 'signin.html';
+            return;
+        }
+
         // Update preview
         if (this.pinItemName) {
             this.pinItemName.textContent = this.listingData?.itemName || 'Item';
         }
         if (this.pinItemValue) {
-            this.pinItemValue.textContent = `$${this.listingData?.price || 0}`;
+            this.pinItemValue.textContent = `$${Math.ceil(this.listingData?.price || 0)}`;
         }
         if (this.pinItemImage && this.analysisData?.uploadedImageUrls?.[0]) {
             this.pinItemImage.style.backgroundImage = `url(${this.analysisData.uploadedImageUrls[0]})`;
@@ -1245,17 +1400,34 @@ class ThriftSpotApp {
         }
     }
 
+    async forwardGeocode(address) {
+        try {
+            const response = await fetch(`/api/location/geocode?address=${encodeURIComponent(address)}`);
+
+            if (!response.ok) {
+                console.warn('Forward geocode failed:', response.status);
+                return null;
+            }
+
+            const data = await response.json();
+
+            if (data && data.success && data.coordinates) {
+                return {
+                    latitude: data.coordinates.latitude,
+                    longitude: data.coordinates.longitude
+                };
+            }
+
+            return null;
+        } catch (error) {
+            console.warn('Forward geocode error:', error);
+            return null;
+        }
+    }
+
     async submitPin() {
         const location = this.pinLocationInput?.value;
         const notes = this.pinNotesInput?.value;
-        const status = document.querySelector('.status-option.active')?.dataset.status || 'free';
-
-        // If "For Sale" is selected, redirect to listing-preview.html instead
-        if (status === 'sale') {
-            this.closePinModal();
-            this.createListing();  // Reuse the existing "Keep & Sell" flow
-            return;
-        }
 
         this.pinSubmitBtn.innerHTML = '<span>Getting location...</span>';
         this.pinSubmitBtn.disabled = true;
@@ -1267,25 +1439,40 @@ class ThriftSpotApp {
             let geohash = null;
 
             if (this.pinCoordinates) {
+                // Use coordinates from "Use my location" button
                 lat = this.pinCoordinates.latitude;
                 lng = this.pinCoordinates.longitude;
-            } else {
-                // Auto-get location if not already set
+            } else if (location && location.trim()) {
+                // Forward geocode the manually entered address
+                console.log('🔍 Geocoding address:', location);
+                const coords = await this.forwardGeocode(location);
+                if (coords) {
+                    lat = coords.latitude;
+                    lng = coords.longitude;
+                    this.pinCoordinates = { latitude: lat, longitude: lng };
+                    console.log('✅ Address geocoded:', lat, lng);
+                } else {
+                    console.warn('⚠️ Could not geocode address, trying browser location');
+                }
+            }
+
+            // Fall back to browser geolocation if no coordinates yet
+            if (!lat || !lng) {
                 try {
                     const position = await this.getCurrentPosition();
                     lat = position.coords.latitude;
                     lng = position.coords.longitude;
                     this.pinCoordinates = { latitude: lat, longitude: lng };
 
-                    // Update the location input with reverse geocoded address
+                    // Update the location input with reverse geocoded address if empty
                     if (this.pinLocationInput && !this.pinLocationInput.value) {
                         const address = await this.reverseGeocode(lat, lng);
                         this.pinLocationInput.value = address || `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
                     }
                 } catch (geoError) {
                     console.error('Geolocation failed:', geoError);
-                    alert('Location is required to pin items on the map. Please enable location access and try again.');
-                    this.pinSubmitBtn.innerHTML = '<span>📍 Pin & Share</span>';
+                    alert('Could not determine location. Please enter a valid address or enable location access.');
+                    this.pinSubmitBtn.innerHTML = '<span>📍 Pin to Map</span>';
                     this.pinSubmitBtn.disabled = false;
                     return;
                 }
@@ -1298,6 +1485,30 @@ class ThriftSpotApp {
 
             // Save to Firestore with proper lat/lng fields
             const db = firebase.firestore();
+
+            // Get seller info from current user and their Firestore profile
+            let sellerName = null;
+            let sellerAvatar = null;
+            if (this.currentUser) {
+                try {
+                    const userDoc = await db.collection('users').doc(this.currentUser.uid).get();
+                    if (userDoc.exists) {
+                        const userData = userDoc.data();
+                        // Check both 'profile' (our schema) and 'displayName' fields
+                        sellerName = userData.profile || userData.displayName || this.currentUser.displayName || null;
+                        sellerAvatar = userData.photoURL || userData.avatarUrl || this.currentUser.photoURL || null;
+                    } else {
+                        // Fall back to Firebase Auth data
+                        sellerName = this.currentUser.displayName || null;
+                        sellerAvatar = this.currentUser.photoURL || null;
+                    }
+                } catch (err) {
+                    console.log('Could not fetch user profile for pin:', err.message);
+                    sellerName = this.currentUser.displayName || null;
+                    sellerAvatar = this.currentUser.photoURL || null;
+                }
+            }
+
             const pinData = {
                 // Item data
                 title: this.listingData?.itemName,
@@ -1326,6 +1537,13 @@ class ThriftSpotApp {
                 updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
                 scanId: this.analysisData?.scanId,
 
+                // Seller info (denormalized for display)
+                seller: {
+                    name: sellerName,
+                    avatar: sellerAvatar
+                },
+                sellerName: sellerName,  // Flat field for backward compatibility
+
                 // For reservations/claims
                 claimedBy: null,
                 reservedBy: null,
@@ -1338,7 +1556,7 @@ class ThriftSpotApp {
 
             // Update share URL to point to the pin on the map
             const sharerId = this.currentUser?.uid || 'anon';
-            this.shareUrl = `${window.location.origin}/pin-map.html?pin=${docRef.id}&ref=${sharerId}`;
+            this.shareUrl = `${window.location.origin}/index.html?pin=${docRef.id}&ref=${sharerId}`;
 
             this.closePinModal();
 
@@ -1356,7 +1574,7 @@ class ThriftSpotApp {
             alert('Failed to create pin. Please try again.');
         }
 
-        this.pinSubmitBtn.innerHTML = '<span>📍 Pin & Share</span>';
+        this.pinSubmitBtn.innerHTML = '<span>📍 Pin to Map</span>';
         this.pinSubmitBtn.disabled = false;
     }
 
@@ -1422,6 +1640,11 @@ class ThriftSpotApp {
     // ===== CREATE LISTING =====
     async createListing() {
         if (!this.currentUser) {
+            // Store pending action for after sign-in
+            safeStorage.setItem('pendingAction', 'listing');
+            if (this.analysisData) {
+                safeStorage.setItem('pendingAnalysis', JSON.stringify(this.analysisData));
+            }
             window.location.href = 'signin.html';
             return;
         }
@@ -1439,7 +1662,7 @@ class ThriftSpotApp {
             imageUrls: this.analysisData?.uploadedImageUrls || []
         };
 
-        sessionStorage.setItem('pendingAnalysis', JSON.stringify(listingData));
+        safeStorage.setItem('pendingAnalysis', JSON.stringify(listingData));
         
         this.trackEvent('create_listing_clicked');
         
@@ -1532,7 +1755,11 @@ class ThriftSpotApp {
     initMap() {
         console.log('🗺️ Initializing map...');
 
-        this.map = L.map('map').setView([37.7749, -122.4194], 13);
+        // Use stored location or default to San Francisco with wider zoom
+        const defaultLat = parseFloat(localStorage.getItem('lastLat')) || 37.7749;
+        const defaultLng = parseFloat(localStorage.getItem('lastLng')) || -122.4194;
+
+        this.map = L.map('map').setView([defaultLat, defaultLng], 11);
 
         // CARTO Dark Matter (matches dark theme)
         L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png', {
@@ -1541,15 +1768,40 @@ class ThriftSpotApp {
             subdomains: 'abcd'
         }).addTo(this.map);
 
-        // Get user location
-        if (navigator.geolocation) {
-            navigator.geolocation.getCurrentPosition((position) => {
+        // DO NOT request location automatically - defer until user clicks map view
+        // Location will be requested in requestUserLocation() when map view is activated
+
+        console.log('✅ Map initialized (location deferred)');
+    }
+
+    /**
+     * Request user location (called when user clicks map view)
+     */
+    requestUserLocation() {
+        if (!navigator.geolocation) {
+            console.log('Geolocation not supported');
+            return;
+        }
+
+        if (this.locationRequested) {
+            return; // Already requested
+        }
+
+        this.locationRequested = true;
+        console.log('📍 Requesting user location...');
+
+        navigator.geolocation.getCurrentPosition(
+            (position) => {
                 this.userLocation = {
                     lat: position.coords.latitude,
                     lng: position.coords.longitude
                 };
 
-                // User location marker
+                // Store for future sessions
+                localStorage.setItem('lastLat', this.userLocation.lat.toString());
+                localStorage.setItem('lastLng', this.userLocation.lng.toString());
+
+                // Add user location marker
                 L.marker([this.userLocation.lat, this.userLocation.lng], {
                     icon: L.divIcon({
                         className: 'user-location-marker',
@@ -1558,12 +1810,21 @@ class ThriftSpotApp {
                     })
                 }).addTo(this.map);
 
-                // Re-fit to nearest items now that we have user location
+                // Re-fit to nearest items
                 this.fitToNearestItems(5);
-            });
-        }
 
-        console.log('✅ Map initialized');
+                console.log('📍 User location obtained');
+            },
+            (error) => {
+                console.log('📍 Location permission denied or error:', error.message);
+                // Grid view works fine without location
+            },
+            {
+                enableHighAccuracy: false,
+                timeout: 10000,
+                maximumAge: 300000 // 5 minutes
+            }
+        );
     }
 
     async loadPins() {
@@ -1601,7 +1862,10 @@ class ThriftSpotApp {
         const groups = [];
         const processed = new Set();
 
-        pins.forEach(pin => {
+        // Filter out pins with missing coordinates
+        const validPins = pins.filter(pin => pin.lat && pin.lng);
+
+        validPins.forEach(pin => {
             if (processed.has(pin.id)) return;
 
             const group = {
@@ -1609,7 +1873,7 @@ class ThriftSpotApp {
                 pins: [pin]
             };
 
-            pins.forEach(otherPin => {
+            validPins.forEach(otherPin => {
                 if (otherPin.id === pin.id || processed.has(otherPin.id)) return;
 
                 const distance = this.calculateDistance(
@@ -1693,15 +1957,15 @@ class ThriftSpotApp {
     }
 
     getPinIcon(pin) {
-        // Default: Friendly yellow for available/unknown
-        let bgColor = '#fbbf24';
-        let textColor = 'black';
+        // Green theme: Green (available) -> Yellow (reserved) -> Red (claimed)
+        let bgColor = '#22c55e'; // green for available
+        let textColor = 'white';
 
         if (pin.claimedBy) {
             bgColor = '#ef4444'; // red for claimed
             textColor = 'white';
         } else if (pin.reservedBy) {
-            bgColor = '#eab308'; // darker amber for reserved
+            bgColor = '#eab308'; // yellow/amber for reserved
             textColor = 'white';
         }
 
@@ -1716,22 +1980,228 @@ class ThriftSpotApp {
     }
 
     getCategoryIcon(category) {
+        if (!category) return '📦';
+
+        const cat = category.toLowerCase().trim();
+
         const icons = {
+            // Electronics
             'electronics': '📱',
+            'phones': '📱',
+            'phone': '📱',
+            'computers': '💻',
+            'computer': '💻',
+            'laptop': '💻',
+            'laptops': '💻',
+            'tablets': '📱',
+            'tablet': '📱',
+            'tv': '📺',
+            'television': '📺',
+            'cameras': '📷',
+            'camera': '📷',
+            'gaming': '🎮',
+            'video games': '🎮',
+            'consoles': '🎮',
+            'audio': '🎧',
+            'headphones': '🎧',
+            'speakers': '🔊',
+
+            // Furniture
             'furniture': '🪑',
+            'chairs': '🪑',
+            'chair': '🪑',
+            'tables': '🪑',
+            'table': '🪑',
+            'desk': '🪑',
+            'desks': '🪑',
+            'sofa': '🛋️',
+            'couch': '🛋️',
+            'bed': '🛏️',
+            'beds': '🛏️',
+            'mattress': '🛏️',
+
+            // Clothing & Fashion
             'clothing': '👕',
+            'clothes': '👕',
+            'apparel': '👕',
+            'fashion': '👗',
+            'shirts': '👕',
+            'shirt': '👕',
+            'pants': '👖',
+            'jeans': '👖',
+            'dresses': '👗',
+            'dress': '👗',
+            'jackets': '🧥',
+            'jacket': '🧥',
+            'coats': '🧥',
+            'coat': '🧥',
             'footwear': '👟',
+            'shoes': '👟',
+            'sneakers': '👟',
+            'boots': '👢',
+            'heels': '👠',
+            'sandals': '🩴',
+            'accessories': '👜',
+            'bags': '👜',
+            'purses': '👜',
+            'handbags': '👜',
+            'hats': '🧢',
+            'hat': '🧢',
+            'watches': '⌚',
+            'watch': '⌚',
+
+            // Tools & Hardware
             'tools': '🔧',
+            'hardware': '🔧',
+            'power tools': '🔨',
+            'hand tools': '🔧',
+
+            // Books & Media
             'books': '📚',
+            'book': '📚',
+            'textbooks': '📚',
+            'magazines': '📰',
+            'dvds': '📀',
+            'cds': '💿',
+            'vinyl': '🎵',
+            'records': '🎵',
+            'music': '🎵',
+
+            // Toys & Games
             'toys': '🧸',
+            'toy': '🧸',
+            'games': '🎲',
+            'board games': '🎲',
+            'puzzles': '🧩',
+            'lego': '🧱',
+
+            // Automotive
             'automotive': '🚗',
+            'auto': '🚗',
+            'car': '🚗',
+            'cars': '🚗',
+            'vehicle': '🚗',
+            'motorcycle': '🏍️',
+            'bike': '🚲',
+            'bicycle': '🚲',
+            'bicycles': '🚲',
+
+            // Sports & Outdoors
             'sporting goods': '⚽',
             'sports': '⚽',
+            'fitness': '🏋️',
+            'exercise': '🏋️',
+            'gym': '🏋️',
+            'outdoor': '🏕️',
+            'outdoors': '🏕️',
+            'camping': '🏕️',
+            'hiking': '🥾',
+            'golf': '⛳',
+            'tennis': '🎾',
+            'basketball': '🏀',
+            'football': '🏈',
+            'soccer': '⚽',
+            'baseball': '⚾',
+
+            // Jewelry & Accessories
             'jewelry': '💎',
+            'jewellery': '💎',
+            'rings': '💍',
+            'necklaces': '📿',
+            'earrings': '💎',
+            'bracelets': '📿',
+
+            // Home & Garden
             'home & garden': '🏡',
-            'collectibles': '🏆'
+            'home': '🏠',
+            'garden': '🌱',
+            'gardening': '🌱',
+            'plants': '🪴',
+            'patio': '🏡',
+            'outdoor furniture': '🏡',
+            'decor': '🖼️',
+            'home decor': '🖼️',
+            'lighting': '💡',
+            'lamps': '💡',
+
+            // Kitchen & Dining
+            'kitchen': '🍳',
+            'cookware': '🍳',
+            'appliances': '🔌',
+            'small appliances': '🔌',
+            'dining': '🍽️',
+
+            // Baby & Kids
+            'baby': '👶',
+            'kids': '👧',
+            'children': '👧',
+            'strollers': '👶',
+            'cribs': '👶',
+
+            // Pets
+            'pets': '🐾',
+            'pet supplies': '🐾',
+            'dog': '🐕',
+            'cat': '🐈',
+
+            // Office
+            'office': '🖨️',
+            'office supplies': '📎',
+
+            // Collectibles & Art
+            'collectibles': '🏆',
+            'antiques': '🏺',
+            'vintage': '📻',
+            'art': '🎨',
+            'artwork': '🎨',
+            'paintings': '🖼️',
+            'coins': '🪙',
+            'stamps': '📮',
+
+            // Musical Instruments
+            'musical instruments': '🎸',
+            'instruments': '🎸',
+            'guitar': '🎸',
+            'piano': '🎹',
+            'keyboard': '🎹',
+            'drums': '🥁',
+
+            // Health & Beauty
+            'health': '💊',
+            'beauty': '💄',
+            'cosmetics': '💄',
+            'skincare': '🧴',
+
+            // Crafts & Hobbies
+            'crafts': '🧵',
+            'craft supplies': '🧵',
+            'sewing': '🧵',
+            'knitting': '🧶',
+            'hobbies': '🎯',
+
+            // Free items
+            'free': '🆓',
+            'freebies': '🆓',
+
+            // General/Other
+            'other': '📦',
+            'miscellaneous': '📦',
+            'misc': '📦',
+            'general': '📦'
         };
-        return icons[category?.toLowerCase()] || '?';
+
+        // Check for direct match
+        if (icons[cat]) return icons[cat];
+
+        // Check for partial matches
+        for (const [key, emoji] of Object.entries(icons)) {
+            if (cat.includes(key) || key.includes(cat)) {
+                return emoji;
+            }
+        }
+
+        // Default fallback
+        return '📦';
     }
 
     fitToNearestItems(count = 5) {
@@ -1818,6 +2288,273 @@ class ThriftSpotApp {
                 this.filterByCategory(category);
             });
         });
+
+        // View toggle (map/grid)
+        this.setupViewToggle();
+    }
+
+    setupViewToggle() {
+        const mapViewBtn = document.getElementById('mapViewBtn');
+        const gridViewBtn = document.getElementById('gridViewBtn');
+        const mapContainer = document.getElementById('mapContainer');
+        const gridContainer = document.getElementById('gridContainer');
+
+        if (mapViewBtn && gridViewBtn) {
+            mapViewBtn.addEventListener('click', () => {
+                mapViewBtn.classList.add('active');
+                gridViewBtn.classList.remove('active');
+                mapContainer?.classList.remove('hidden');
+                gridContainer?.classList.add('hidden');
+
+                // Invalidate map size after showing
+                if (this.map) {
+                    setTimeout(() => this.map.invalidateSize(), 100);
+                }
+
+                // Request location when user clicks map view (deferred permission)
+                if (!this.userLocation && !this.locationRequested) {
+                    this.requestUserLocation();
+                }
+            });
+
+            gridViewBtn.addEventListener('click', () => {
+                gridViewBtn.classList.add('active');
+                mapViewBtn.classList.remove('active');
+                gridContainer?.classList.remove('hidden');
+                mapContainer?.classList.add('hidden');
+                this.renderGrid();
+                this.showLocationPromptIfNeeded();
+            });
+        }
+
+        // Setup location prompt listeners
+        this.setupLocationPromptListeners();
+    }
+
+    renderGrid() {
+        const grid = document.getElementById('listingsGrid');
+        if (!grid) return;
+
+        let pins = [...(this.filteredPins || this.allPins || [])];
+
+        if (pins.length === 0) {
+            grid.innerHTML = `
+                <div class="grid-empty-state">
+                    <p>No items found nearby</p>
+                    <p style="font-size: var(--font-sm);">Try adjusting your filters or search in a different area</p>
+                </div>
+            `;
+            return;
+        }
+
+        // Sort based on selected mode
+        pins = this.sortGridPins(pins);
+
+        grid.innerHTML = pins.map(pin => {
+            const title = this.buildDisplayTitle(pin);
+            const emoji = this.getCategoryIcon(pin.category);
+            const price = pin.price || 0;
+            const isFree = pin.listingType === 'free' || price === 0;
+            const imageUrl = pin.images?.[0] || pin.imageUrls?.[0] || '';
+            const priceDisplay = isFree ? 'FREE' : `$${price.toFixed(0)}`;
+            const priceClass = isFree ? 'free' : '';
+
+            // Distance display (only if location available and distance calculated)
+            let distanceHtml = '';
+            if (this.userLocation && pin.distanceMiles !== undefined && pin.distanceMiles !== Infinity) {
+                const distanceText = pin.distanceMiles < 0.1
+                    ? 'Nearby'
+                    : pin.distanceMiles < 1
+                        ? `${(pin.distanceMiles * 5280 / 1000).toFixed(1)}k ft away`
+                        : `${pin.distanceMiles.toFixed(1)} mi away`;
+                distanceHtml = `<div class="grid-item-distance">${distanceText}</div>`;
+            }
+
+            return `
+                <a href="listing.html?id=${pin.id}" class="grid-item" data-pin-id="${pin.id}">
+                    ${imageUrl ?
+                        `<img class="grid-item-image" src="${imageUrl}" alt="${title}" loading="lazy" onerror="this.style.display='none'">` :
+                        `<div class="grid-item-image" style="display: flex; align-items: center; justify-content: center; font-size: 48px;">${emoji}</div>`
+                    }
+                    <div class="grid-item-content">
+                        <div class="grid-item-emoji">${emoji}</div>
+                        <div class="grid-item-title">${title}</div>
+                        <div class="grid-item-price ${priceClass}">${priceDisplay}</div>
+                        ${distanceHtml}
+                    </div>
+                </a>
+            `;
+        }).join('');
+    }
+
+    /**
+     * Sort pins based on current grid sort mode
+     */
+    sortGridPins(pins) {
+        switch (this.gridSortMode) {
+            case 'distance':
+                return pins.sort((a, b) => (a.distanceMiles || Infinity) - (b.distanceMiles || Infinity));
+            case 'price-low':
+                return pins.sort((a, b) => (a.price || 0) - (b.price || 0));
+            case 'price-high':
+                return pins.sort((a, b) => (b.price || 0) - (a.price || 0));
+            case 'recent':
+            default:
+                return pins.sort((a, b) => {
+                    const dateA = a.createdAt?.toDate?.() || new Date(a.createdAt) || 0;
+                    const dateB = b.createdAt?.toDate?.() || new Date(b.createdAt) || 0;
+                    return dateB - dateA;
+                });
+        }
+    }
+
+    /**
+     * Show location prompt banner if user hasn't shared location and hasn't dismissed prompt
+     */
+    showLocationPromptIfNeeded() {
+        const banner = document.getElementById('locationPromptBanner');
+        const controls = document.getElementById('gridControls');
+
+        if (!banner) return;
+
+        // Hide if user already has location or dismissed prompt
+        if (this.userLocation || this.locationPromptDismissed) {
+            banner.classList.add('hidden');
+            // Show sort controls if location is available
+            if (this.userLocation && controls) {
+                controls.classList.remove('hidden');
+            }
+            return;
+        }
+
+        // Show the prompt
+        banner.classList.remove('hidden');
+    }
+
+    /**
+     * Setup event listeners for location prompt banner
+     */
+    setupLocationPromptListeners() {
+        const shareBtn = document.getElementById('shareLocationBtn');
+        const dismissBtn = document.getElementById('dismissLocationBtn');
+        const sortSelect = document.getElementById('gridSortSelect');
+
+        shareBtn?.addEventListener('click', () => {
+            this.requestUserLocationForGrid();
+        });
+
+        dismissBtn?.addEventListener('click', () => {
+            this.dismissLocationPrompt();
+        });
+
+        sortSelect?.addEventListener('change', (e) => {
+            this.gridSortMode = e.target.value;
+            this.renderGrid();
+        });
+    }
+
+    /**
+     * Dismiss location prompt permanently
+     */
+    dismissLocationPrompt() {
+        this.locationPromptDismissed = true;
+        safeStorage.setItem('locationPromptDismissed', 'true');
+        document.getElementById('locationPromptBanner')?.classList.add('hidden');
+    }
+
+    /**
+     * Request location specifically for grid sorting
+     */
+    requestUserLocationForGrid() {
+        if (!navigator.geolocation) {
+            alert('Geolocation is not supported by your browser');
+            return;
+        }
+
+        // Show loading state on button
+        const shareBtn = document.getElementById('shareLocationBtn');
+        const originalText = shareBtn?.textContent;
+        if (shareBtn) {
+            shareBtn.textContent = 'Locating...';
+            shareBtn.disabled = true;
+        }
+
+        navigator.geolocation.getCurrentPosition(
+            (position) => {
+                this.userLocation = {
+                    lat: position.coords.latitude,
+                    lng: position.coords.longitude
+                };
+
+                // Store for future sessions
+                localStorage.setItem('lastLat', this.userLocation.lat.toString());
+                localStorage.setItem('lastLng', this.userLocation.lng.toString());
+
+                // Hide prompt and show controls
+                document.getElementById('locationPromptBanner')?.classList.add('hidden');
+                document.getElementById('gridControls')?.classList.remove('hidden');
+
+                // Calculate distances and re-render
+                this.calculateDistances();
+                this.gridSortMode = 'distance'; // Auto-switch to distance sort
+                const sortSelect = document.getElementById('gridSortSelect');
+                if (sortSelect) sortSelect.value = 'distance';
+                this.renderGrid();
+
+                console.log('📍 Location obtained for grid view');
+            },
+            (error) => {
+                console.log('📍 Location permission denied:', error.message);
+                if (shareBtn) {
+                    shareBtn.textContent = originalText;
+                    shareBtn.disabled = false;
+                }
+                alert('Unable to get your location. Please check your browser permissions.');
+            },
+            {
+                enableHighAccuracy: false,
+                timeout: 10000,
+                maximumAge: 300000
+            }
+        );
+    }
+
+    /**
+     * Calculate distance from user to each pin
+     */
+    calculateDistances() {
+        if (!this.userLocation || !this.allPins) return;
+
+        this.allPins.forEach(pin => {
+            const lat = pin.location?.lat || pin.location?.latitude;
+            const lng = pin.location?.lng || pin.location?.longitude;
+            if (lat && lng) {
+                pin.distanceKm = this.calculateHaversineDistance(
+                    this.userLocation.lat,
+                    this.userLocation.lng,
+                    lat,
+                    lng
+                );
+                pin.distanceMiles = pin.distanceKm * 0.621371;
+            } else {
+                pin.distanceKm = Infinity;
+                pin.distanceMiles = Infinity;
+            }
+        });
+    }
+
+    /**
+     * Haversine formula for distance calculation
+     */
+    calculateHaversineDistance(lat1, lng1, lat2, lng2) {
+        const R = 6371; // Earth's radius in km
+        const dLat = (lat2 - lat1) * Math.PI / 180;
+        const dLng = (lng2 - lng1) * Math.PI / 180;
+        const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                  Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                  Math.sin(dLng / 2) * Math.sin(dLng / 2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        return R * c;
     }
 
     handleMapSearch(query) {
@@ -1854,7 +2591,7 @@ class ThriftSpotApp {
                             <div style="font-weight: 600; color: var(--text-primary); font-size: var(--font-sm);">${displayTitle}</div>
                             <div style="font-size: var(--font-xs); color: var(--text-tertiary);">${pin.category || 'General'}</div>
                         </div>
-                        <span style="font-weight: 700; color: var(--accent-success);">$${pin.price || 0}</span>
+                        <span style="font-weight: 700; color: var(--accent-success);">$${Math.ceil(pin.price || 0)}</span>
                     </div>
                 `;
             }).join('');
@@ -2036,23 +2773,115 @@ class ThriftSpotApp {
         document.getElementById('mapPinPanelBackdrop')?.classList.remove('hidden');
     }
 
-    showYardSaleDetails(group) {
+    showYardSaleDetails(group, selectedSellerId = null) {
         this.currentCollection = group;
+        this.currentYardSaleGroup = group;
+        this.currentYardSaleSeller = selectedSellerId;
 
-        document.getElementById('mapPinPanelTitle').textContent = `${group.pins.length} items nearby`;
+        // Group pins by seller
+        const sellerGroups = this.groupPinsBySeller(group.pins);
+        const sellerIds = Array.from(sellerGroups.keys());
+        const hasMultipleSellers = sellerIds.length > 1;
+
+        // Filter pins based on selected seller
+        const displayPins = selectedSellerId
+            ? group.pins.filter(pin => pin.userId === selectedSellerId)
+            : group.pins;
+
+        // Build title - "Street Sale: X items available"
+        const itemCount = selectedSellerId ? displayPins.length : group.pins.length;
+        const titleText = `Street Sale: ${itemCount} item${itemCount !== 1 ? 's' : ''} available`;
+        document.getElementById('mapPinPanelTitle').textContent = titleText;
+
+        // Hide subtitle (we now use the compact filter row instead)
+        const subtitleEl = document.getElementById('mapPinPanelSubtitle');
+        if (subtitleEl) {
+            subtitleEl.classList.add('hidden');
+        }
+
+        // Build compact filter row (combines "Hosted by" with All and seller filters)
+        let filterRowHtml = '';
+        if (hasMultipleSellers) {
+            const sellerButtons = sellerIds.map(sellerId => {
+                const seller = sellerGroups.get(sellerId);
+                const isActive = selectedSellerId === sellerId;
+                return `<button class="street-sale-filter-btn ${isActive ? 'active' : ''}"
+                                onclick="app.showYardSaleDetails(app.currentYardSaleGroup, '${sellerId}')"
+                                title="${seller.name || 'Filter by this seller'}">
+                            ${seller.initials}<span class="filter-count">(${seller.pins.length})</span>
+                        </button>`;
+            }).join('');
+
+            filterRowHtml = `
+                <div class="street-sale-filter-row">
+                    <span class="street-sale-filter-label">Hosted by:</span>
+                    <button class="street-sale-filter-btn ${!selectedSellerId ? 'active' : ''}"
+                            onclick="app.showYardSaleDetails(app.currentYardSaleGroup, null)">
+                        All<span class="filter-count">(${group.pins.length})</span>
+                    </button>
+                    ${sellerButtons}
+                </div>
+            `;
+        } else if (sellerIds.length === 1) {
+            // Single seller: show simple "Hosted by" label
+            const seller = sellerGroups.get(sellerIds[0]);
+            const sellerPrivacyName = this.getSellerPrivacyName(group.pins[0]) || seller.initials;
+            filterRowHtml = `
+                <div class="street-sale-filter-row">
+                    <span class="street-sale-filter-label">Hosted by: ${sellerPrivacyName}</span>
+                </div>
+            `;
+        }
+
+        // Build items list with images, status, and seller info
+        const itemsHtml = displayPins.map(pin => {
+            const displayTitle = this.buildDisplayTitle(pin);
+            const isReserved = !!pin.reservedBy || pin.status === 'reserved';
+            const isClaimed = !!pin.claimedBy || pin.status === 'sold';
+            const imageUrl = pin.images?.[0] || pin.imageUrls?.[0] || '';
+            const emoji = this.getCategoryIcon(pin.category);
+            const sellerInitials = this.getSellerInitials(pin);
+            const isUnavailable = isReserved || isClaimed;
+
+            // Status badge
+            let statusBadge = '';
+            if (isClaimed) {
+                statusBadge = '<span class="yard-sale-item-status sold">SOLD</span>';
+            } else if (isReserved) {
+                statusBadge = '<span class="yard-sale-item-status reserved">RESERVED</span>';
+            } else {
+                statusBadge = '<span class="yard-sale-item-status available">AVAILABLE</span>';
+            }
+
+            // Show seller "First L." for privacy (fall back to initials if no name available)
+            const sellerPrivacyName = this.getSellerPrivacyName(pin);
+            const sellerDisplay = sellerPrivacyName || (sellerInitials !== '??' ? `Seller ${sellerInitials}` : 'Seller');
+            const sellerLine = `<div class="yard-sale-item-seller-name">${sellerDisplay}</div>`;
+
+            return `
+                <div class="map-yard-sale-item ${isUnavailable ? 'unavailable' : ''}" onclick="app.showPinFromYardSale('${pin.id}')">
+                    <div class="yard-sale-item-left">
+                        ${imageUrl
+                            ? `<img src="${imageUrl}" class="yard-sale-item-thumbnail" alt="${displayTitle}">`
+                            : `<div class="yard-sale-item-thumbnail yard-sale-item-emoji">${emoji}</div>`
+                        }
+                        <div class="yard-sale-item-info">
+                            <div class="map-yard-sale-item-name">${displayTitle}</div>
+                            ${sellerLine}
+                            ${statusBadge}
+                        </div>
+                    </div>
+                    <div class="map-yard-sale-item-price ${isUnavailable ? 'unavailable-price' : ''}">$${(pin.price || 0).toFixed(0)}</div>
+                </div>
+            `;
+        }).join('');
 
         const content = `
+            ${filterRowHtml}
             <div class="map-yard-sale-items">
-                ${group.pins.map(pin => {
-                    const displayTitle = this.buildDisplayTitle(pin);
-                    return `
-                    <div class="map-yard-sale-item" onclick="app.showPinDetails('${pin.id}')">
-                        <div class="map-yard-sale-item-name">${displayTitle}</div>
-                        <div class="map-yard-sale-item-price">$${(pin.price || 0).toFixed(0)}</div>
-                    </div>
-                `}).join('')}
+                ${itemsHtml}
             </div>
-            <div class="map-pin-actions" style="margin-top: var(--space-4);">
+            <div class="map-pin-actions" style="margin-top: var(--space-3);">
                 <button class="map-pin-btn map-pin-btn-share" onclick="app.shareCollection()">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <circle cx="18" cy="5" r="3"></circle>
@@ -2071,6 +2900,106 @@ class ThriftSpotApp {
         document.getElementById('mapPinPanelBackdrop')?.classList.remove('hidden');
     }
 
+    /**
+     * Group pins by seller userId
+     * @returns {Map<string, {initials: string, name: string, pins: Array}>}
+     */
+    groupPinsBySeller(pins) {
+        const groups = new Map();
+        pins.forEach(pin => {
+            const userId = pin.userId || 'unknown';
+            if (!groups.has(userId)) {
+                const initials = this.getSellerInitials(pin);
+                const fullName = this.getSellerFullName(pin);
+                groups.set(userId, {
+                    initials: initials,
+                    name: fullName || (initials !== '??' ? `Seller ${initials}` : 'Seller'),
+                    pins: []
+                });
+            }
+            groups.get(userId).pins.push(pin);
+        });
+        return groups;
+    }
+
+    /**
+     * Get seller initials from pin data
+     */
+    getSellerInitials(pin) {
+        // Try seller name first (check both flat and nested fields)
+        const name = pin.sellerName || pin.seller?.name || pin.seller?.displayName;
+        if (name && name !== 'Unknown') {
+            const parts = name.trim().split(' ');
+            if (parts.length >= 2) {
+                return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+            }
+            return name.substring(0, 2).toUpperCase();
+        }
+        // Fallback to userId prefix
+        const userId = pin.userId || '';
+        return userId.substring(0, 2).toUpperCase() || '??';
+    }
+
+    /**
+     * Get seller full name from pin data
+     */
+    getSellerFullName(pin) {
+        if (pin.sellerName && pin.sellerName !== 'Unknown') {
+            return pin.sellerName;
+        }
+        if (pin.seller?.name) {
+            return pin.seller.name;
+        }
+        if (pin.seller?.displayName) {
+            return pin.seller.displayName;
+        }
+        return null;
+    }
+
+    /**
+     * Get seller privacy name "First L." format
+     */
+    getSellerPrivacyName(pin) {
+        const fullName = this.getSellerFullName(pin);
+        if (!fullName) return null;
+        const parts = fullName.trim().split(/\s+/);
+        if (parts.length >= 2) {
+            // "First L." format
+            return `${parts[0]} ${parts[parts.length - 1][0]}.`;
+        }
+        // Single name, just return it
+        return parts[0] || null;
+    }
+
+    /**
+     * Filter street sale by clicking on seller initials in subtitle
+     */
+    filterStreetSaleBySeller(sellerId) {
+        if (this.currentYardSaleGroup) {
+            // Toggle: if already filtering by this seller, show all
+            const newSellerId = this.currentYardSaleSeller === sellerId ? null : sellerId;
+            this.showYardSaleDetails(this.currentYardSaleGroup, newSellerId);
+        }
+    }
+
+    /**
+     * Show pin details from yard sale list (tracks navigation)
+     */
+    async showPinFromYardSale(pinId) {
+        this.viewingFromYardSale = true;
+        await this.showPinDetails(pinId);
+    }
+
+    /**
+     * Return to yard sale list from individual item view
+     */
+    returnToYardSaleList() {
+        this.viewingFromYardSale = false;
+        if (this.currentYardSaleGroup) {
+            this.showYardSaleDetails(this.currentYardSaleGroup, this.currentYardSaleSeller);
+        }
+    }
+
     async renderMapPinPanel(pin) {
         const isOwner = this.currentUser && pin.userId === this.currentUser.uid;
         const isReserved = !!pin.reservedBy;
@@ -2078,7 +3007,36 @@ class ThriftSpotApp {
 
         const displayTitle = this.buildDisplayTitle(pin);
 
-        document.getElementById('mapPinPanelTitle').textContent = `${displayTitle} - $${pin.price || '0'}`;
+        document.getElementById('mapPinPanelTitle').textContent = `${displayTitle} - $${Math.ceil(pin.price || 0)}`;
+
+        // Determine location display - reverse geocode if needed
+        let locationDisplay = pin.location || '';
+        const coordPattern = /^-?\d+\.\d+,\s*-?\d+\.\d+$/;
+
+        if (coordPattern.test(locationDisplay) && pin.lat && pin.lng) {
+            // Location looks like coordinates, reverse geocode to get address
+            const address = await this.reverseGeocode(pin.lat, pin.lng);
+            if (address) locationDisplay = address;
+        } else if (!locationDisplay && pin.lat && pin.lng) {
+            // No location stored, reverse geocode from coordinates
+            const address = await this.reverseGeocode(pin.lat, pin.lng);
+            locationDisplay = address || `${pin.lat.toFixed(4)}, ${pin.lng.toFixed(4)}`;
+        }
+
+        // Build back button if came from yard sale
+        let backButton = '';
+        if (this.viewingFromYardSale && this.currentYardSaleGroup) {
+            const itemCount = this.currentYardSaleGroup.pins.length;
+            backButton = `
+                <button class="yard-sale-back-btn" onclick="app.returnToYardSaleList()">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M19 12H5"></path>
+                        <path d="M12 19l-7-7 7-7"></path>
+                    </svg>
+                    Back to ${itemCount} items
+                </button>
+            `;
+        }
 
         let statusBadge = '';
         if (isClaimed) {
@@ -2094,6 +3052,7 @@ class ThriftSpotApp {
             : '';
 
         document.getElementById('mapPinPanelContent').innerHTML = `
+            ${backButton}
             ${statusBadge}
             <div class="map-pin-meta">
                 <span class="map-pin-meta-item">📦 ${pin.category || 'General'}</span>
@@ -2101,7 +3060,7 @@ class ThriftSpotApp {
             </div>
             ${images}
             <p class="map-pin-description">${pin.description || 'No description.'}</p>
-            ${pin.location ? `<p class="map-pin-location">📍 ${pin.location}</p>` : ''}
+            ${locationDisplay ? `<p class="map-pin-location">📍 ${locationDisplay}</p>` : ''}
             <div class="map-pin-actions">
                 <button class="map-pin-btn map-pin-btn-share" onclick="app.shareMapPin('${pin.id}')">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -2122,6 +3081,8 @@ class ThriftSpotApp {
         document.getElementById('mapPinPanel')?.classList.add('hidden');
         document.getElementById('mapPinPanelBackdrop')?.classList.add('hidden');
         this.selectedPin = null;
+        this.viewingFromYardSale = false;
+        // Keep currentYardSaleGroup for potential reopening
     }
 
     async shareMapPin(pinId) {
@@ -2130,7 +3091,7 @@ class ThriftSpotApp {
         const shareUrl = `${window.location.origin}/?pin=${pinId}&ref=${sharerId}`;
         const shareTitle = pin?.title || 'Check out this find!';
         const shareText = pin?.price
-            ? `Found this for $${pin.price}! ${shareTitle}`
+            ? `Found this for $${Math.ceil(pin.price)}! ${shareTitle}`
             : `Check out this find: ${shareTitle}`;
 
         if (navigator.share) {
@@ -2185,6 +3146,79 @@ class ThriftSpotApp {
             alert('Link copied to clipboard!');
         } catch (err) {
             console.error('Copy failed:', err);
+        }
+    }
+
+    /**
+     * Show a shared collection from URL parameter
+     * @param {string[]} pinIds - Array of pin IDs from URL
+     */
+    async showSharedCollection(pinIds) {
+        try {
+            const db = firebase.firestore();
+
+            // Fetch all pins from Firestore
+            const pinPromises = pinIds.map(async (id) => {
+                const doc = await db.collection('pins').doc(id).get();
+                return doc.exists ? { id: doc.id, ...doc.data() } : null;
+            });
+
+            const pins = await Promise.all(pinPromises);
+            const validPins = pins.filter(p => p !== null);
+
+            if (validPins.length === 0) {
+                this.showToast('Collection not found or items no longer available', 'error');
+                return;
+            }
+
+            // Calculate total value
+            const totalValue = validPins.reduce((sum, pin) => sum + (pin.price || 0), 0);
+
+            // Store as current collection for sharing
+            this.currentCollection = { pins: validPins };
+
+            // Show the collection panel
+            document.getElementById('mapPinPanelTitle').textContent = `Shared Collection - ${validPins.length} items`;
+
+            const content = `
+                <div class="shared-collection-summary" style="margin-bottom: var(--space-4); padding: var(--space-3); background: var(--bg-card); border-radius: var(--radius-md);">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <span style="color: var(--text-secondary);">Total Value</span>
+                        <span style="font-size: var(--font-lg); font-weight: 600; color: var(--success);">$${totalValue.toFixed(0)}</span>
+                    </div>
+                </div>
+                <div class="map-yard-sale-items">
+                    ${validPins.map(pin => {
+                        const displayTitle = this.buildDisplayTitle(pin);
+                        return `
+                        <div class="map-yard-sale-item" onclick="app.showPinDetails('${pin.id}')">
+                            <div class="map-yard-sale-item-name">${displayTitle}</div>
+                            <div class="map-yard-sale-item-price">$${(pin.price || 0).toFixed(0)}</div>
+                        </div>
+                    `}).join('')}
+                </div>
+                <div class="map-pin-actions" style="margin-top: var(--space-4);">
+                    <button class="map-pin-btn map-pin-btn-share" onclick="app.shareCollection()">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="18" cy="5" r="3"></circle>
+                            <circle cx="6" cy="12" r="3"></circle>
+                            <circle cx="18" cy="19" r="3"></circle>
+                            <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line>
+                            <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line>
+                        </svg>
+                        Share Collection
+                    </button>
+                </div>
+            `;
+
+            document.getElementById('mapPinPanelContent').innerHTML = content;
+            document.getElementById('mapPinPanel')?.classList.remove('hidden');
+            document.getElementById('mapPinPanelBackdrop')?.classList.remove('hidden');
+
+            console.log(`📦 Showing shared collection with ${validPins.length} items`);
+        } catch (error) {
+            console.error('Error loading shared collection:', error);
+            this.showToast('Error loading collection', 'error');
         }
     }
 
